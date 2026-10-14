@@ -45,5 +45,7 @@ const motion: BookIndex = {
   glossary: p.glossary.filter((g) => g.term.or).map((g) => ({ or: g.term.or!, en: g.english })),
   version: String(p.version) + '.' + (p.hash ?? '').slice(0, 8),
 };
-save(motion);
+// the real Physical Science book, once OCR'd, replaces the Motion-only index (Motion stays as guided practice)
+if (written.some((w) => w.id === motion.meta.id)) console.log('physical-science-9: full textbook OCR used; Motion pack index not written');
+else save(motion);
 console.table(written);

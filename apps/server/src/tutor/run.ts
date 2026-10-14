@@ -6,7 +6,7 @@
 
 import type { LlmRequest } from '@google/adk';
 import {
-  applyTurn, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan,
+  focusQuote, applyTurn, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan,
 } from '@setu/core';
 import { canCall, type ModelSet } from '../llm.ts';
 import { parseJson, textOf } from '../agent/cycle.ts';
@@ -37,7 +37,7 @@ export interface TutorRequest {
   queuedAt?: number;
 }
 
-export interface TutorSource { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string }
+export interface TutorSource { bookId: string; subject: string; chapter: string; page: number; passageId: string; /** the sentences that answer her question */ quote: string; /** the whole passage */ full?: string }
 export interface TutorMsg {
   text: string;
   /** passages this reply stands on (what she can open and read) */
@@ -116,7 +116,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     messages.push({ text: T(lang, key), tone: plan.action === 'care' ? 'care' : 'info', by: 'policy', ...(plan.action === 'redirect' ? { chips: subjectChips(d.shelf, lang) } : {}) });
     if (plan.action === 'care') { escalate(d.store, req, 'wellbeing', 'words of distress in the tutor chat (what she wrote is not kept)', now); messages.push({ text: T(lang, 'care_teacher'), tone: 'care', by: 'policy' }); }
   } else if (plan.action === 'show_passage') {
-    messages.push(passageReply(d.shelf, plan, lang, m.check && plan.topic === m.check.topic ? 'offline_answer' : plan.grounding.length ? 'offline_passage' : 'offline_none'));
+    messages.push(passageReply(d.shelf, plan, lang, m.check && plan.topic === m.check.topic ? 'offline_answer' : plan.grounding.length ? 'offline_passage' : 'offline_none', text));
     status = 'fallback';
   } else {
     // 5. the model writes (one call): explanation / grade / review question, from the passages
@@ -132,13 +132,13 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     tools.push({ tool: 'model.write', args: { action: plan.action, strategy: plan.strategy, check: plan.askCheck }, status: out ? 'ok' : 'fallback', latency_ms: r.ms, note: out ? `${out.reply.length} chars${out.grade ? ', graded ' + out.grade.verdict : ''}${out.check ? ', new check' : ''}` : 'no usable reply → textbook passage' });
     if (!out) {
       status = 'fallback';
-      messages.push(passageReply(d.shelf, plan, lang, plan.grounding.length ? 'model_down' : 'offline_none'));
+      messages.push(passageReply(d.shelf, plan, lang, plan.grounding.length ? 'model_down' : 'offline_none', text));
     } else {
       decidedBy = 'llm';
       // the model saw it was a new question, not her answer → it answered; the check stays open, nothing graded
       if (plan.action === 'grade' && out.intent === 'question') { plan.action = 'explain'; plan.reason += '; the model read it as a new question → answered it, no grade'; out.grade = null; }
       const tone = out.grade ? ({ right: 'praise', partly: 'hint', wrong: 'retry' } as const)[out.grade.verdict] : undefined;
-      messages.push({ text: out.reply, by: 'model', sources: sourcesOf(d.shelf, plan.grounding, out.used), ...(out.terms.length ? { terms: out.terms } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
+      messages.push({ text: out.reply, by: 'model', sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang), ...(out.terms.length ? { terms: out.terms } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
       if (plan.switchedBook) messages[0]!.text = TL(lang, 'switched', subjectName(d.shelf, plan.switchedBook, lang)) + '\n' + messages[0]!.text;
       // 7. teacher: only when a topic keeps failing (and once per few days), with the evidence
       const wrongNow = out.grade && out.grade.verdict !== 'right' ? 1 : 0;
@@ -241,18 +241,20 @@ function escalate(store: Store, req: TutorRequest, kind: 'academic' | 'wellbeing
   store.append([{ id: `tutor-${req.profileId}-${seq}`, profileId: req.profileId, deviceId, seq, ts: now, type: 'ESCALATED', payload: { kind, reason, ...(topic ? { conceptId: topic } : {}) } } as never], now);
 }
 
-function passageReply(shelf: Shelf, plan: TutorPlan, lang: string, key: string): TutorMsg {
+function passageReply(shelf: Shelf, plan: TutorPlan, lang: string, key: string, question: string): TutorMsg {
   const h = plan.grounding[0];
-  return { text: TL(lang, key), tone: 'offline', by: 'policy', ...(h ? { sources: sourcesOf(shelf, plan.grounding.slice(0, 1), [h.passage.id]) } : {}) };
+  return { text: TL(lang, key), tone: 'offline', by: 'policy', ...(h ? { sources: sourcesOf(shelf, plan.grounding.slice(0, 1), [h.passage.id], question, lang) } : {}) };
 }
 
-function sourcesOf(shelf: Shelf, hits: BookHit[], used: string[]): TutorSource[] {
+function sourcesOf(shelf: Shelf, hits: BookHit[], used: string[], question: string, lang: string): TutorSource[] {
   const ids = used.length ? used : hits.slice(0, 1).map((h) => h.passage.id);
   return ids.slice(0, 2).map((id) => {
     const p = shelf.passage(id)!;
     const b = shelf.books.get(p.bookId)!;
     const ch = shelf.chapterOf(p.bookId, p.passage.ch);
-    return { bookId: p.bookId, subject: b.meta.subject.or, chapter: ch?.title.or ?? '', page: p.passage.page, passageId: id, quote: p.passage.text };
+    const quote = focusQuote(p.passage.text, question);
+    const name = (x: { or: string; en: string; hi?: string } | undefined) => (x ? (lang === 'en' ? x.en : lang === 'hi' ? x.hi ?? x.en : x.or) : '');
+    return { bookId: p.bookId, subject: name(b.meta.subject), chapter: name(ch?.title), page: p.passage.page, passageId: id, quote, ...(quote !== p.passage.text ? { full: p.passage.text } : {}) };
   });
 }
 

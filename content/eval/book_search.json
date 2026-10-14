@@ -1,0 +1,498 @@
+{
+ "_": "Offline textbook search (no model, no rewrite): does the phone find the right chapter? Each case: the question as a student types it, the subject she picked (optional), and the accepted book#chapter answers. Romanized Odia is the hard case (P8 offline matching). Run: pnpm --filter @setu/content exec tsx scripts/eval_search.ts Cases with want [] are chit-chat: the phone must show no passage (it says it will answer when online, or redirects).",
+ "cases": [
+  {
+   "q": "rakta kanika kete prakara",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "rakta kanika",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "rakto konika kete prokar",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "ରକ୍ତ କଣିକା କେତେ ପ୍ରକାର",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "what are the types of blood cells",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "platelet kana kama kare",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "tissue kana",
+   "want": [
+    "life-science-9#3"
+   ]
+  },
+  {
+   "q": "mitochondria kana",
+   "want": [
+    "life-science-9#2"
+   ]
+  },
+  {
+   "q": "jibakosha ra gathana",
+   "want": [
+    "life-science-9#2"
+   ]
+  },
+  {
+   "q": "what is a cell",
+   "want": [
+    "life-science-9#2"
+   ]
+  },
+  {
+   "q": "malaria kemiti hue",
+   "want": [
+    "life-science-9#5"
+   ]
+  },
+  {
+   "q": "tika kahinki diaajae",
+   "want": [
+    "life-science-9#5"
+   ]
+  },
+  {
+   "q": "rogara nirakarana",
+   "want": [
+    "life-science-9#5"
+   ]
+  },
+  {
+   "q": "what is biodiversity",
+   "want": [
+    "life-science-9#1"
+   ]
+  },
+  {
+   "q": "jaiba bibidhata kana",
+   "want": [
+    "life-science-9#1"
+   ]
+  },
+  {
+   "q": "jala pradushana",
+   "want": [
+    "life-science-9#6"
+   ]
+  },
+  {
+   "q": "water pollution causes",
+   "want": [
+    "life-science-9#6"
+   ]
+  },
+  {
+   "q": "macha chasa",
+   "want": [
+    "life-science-9#4"
+   ]
+  },
+  {
+   "q": "mausumi bayu kana",
+   "want": [
+    "geography-economics-9#5"
+   ]
+  },
+  {
+   "q": "mousumi vayu",
+   "want": [
+    "geography-economics-9#5"
+   ]
+  },
+  {
+   "q": "mausumi bayu",
+   "picked": [
+    "life-science-9"
+   ],
+   "want": [
+    "geography-economics-9#5"
+   ]
+  },
+  {
+   "q": "what is the monsoon",
+   "want": [
+    "geography-economics-9#5"
+   ]
+  },
+  {
+   "q": "ମୌସୁମୀ ବାୟୁ",
+   "want": [
+    "geography-economics-9#5"
+   ]
+  },
+  {
+   "q": "bank re account kemiti kholiba",
+   "want": [
+    "geography-economics-9#10"
+   ]
+  },
+  {
+   "q": "what does a bank do",
+   "want": [
+    "geography-economics-9#10"
+   ]
+  },
+  {
+   "q": "bima kana",
+   "want": [
+    "geography-economics-9#10"
+   ]
+  },
+  {
+   "q": "janasankhya briddhi",
+   "want": [
+    "geography-economics-9#8"
+   ]
+  },
+  {
+   "q": "population growth of india",
+   "want": [
+    "geography-economics-9#8"
+   ]
+  },
+  {
+   "q": "mahanadi nadi",
+   "want": [
+    "geography-economics-9#4",
+    "geography-economics-9#2"
+   ]
+  },
+  {
+   "q": "rivers of india",
+   "want": [
+    "geography-economics-9#4"
+   ]
+  },
+  {
+   "q": "himalaya parbata",
+   "want": [
+    "geography-economics-9#2"
+   ]
+  },
+  {
+   "q": "bhumikampa kana",
+   "want": [
+    "geography-economics-9#3"
+   ]
+  },
+  {
+   "q": "what is an earthquake",
+   "want": [
+    "geography-economics-9#3"
+   ]
+  },
+  {
+   "q": "jatiya udyana",
+   "want": [
+    "geography-economics-9#7"
+   ]
+  },
+  {
+   "q": "aranya sampada",
+   "want": [
+    "geography-economics-9#6"
+   ]
+  },
+  {
+   "q": "akshansha kana",
+   "want": [
+    "geography-economics-9#1"
+   ]
+  },
+  {
+   "q": "arthanaitika bikasha",
+   "want": [
+    "geography-economics-9#9"
+   ]
+  },
+  {
+   "q": "sustainable development",
+   "want": [
+    "geography-economics-9#11"
+   ]
+  },
+  {
+   "q": "road accident karana",
+   "want": [
+    "disaster-management-9#1"
+   ]
+  },
+  {
+   "q": "sadaka durghatana",
+   "want": [
+    "disaster-management-9#1"
+   ]
+  },
+  {
+   "q": "nian lagile kana kariba",
+   "want": [
+    "disaster-management-9#1"
+   ]
+  },
+  {
+   "q": "speed and velocity difference",
+   "want": [
+    "physical-science-9#5"
+   ]
+  },
+  {
+   "q": "bega o druti",
+   "want": [
+    "physical-science-9#5"
+   ]
+  },
+  {
+   "q": "twarana kana",
+   "want": [
+    "physical-science-9#5"
+   ]
+  },
+  {
+   "q": "what is tuberculosis",
+   "want": [
+    "life-science-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "jakshma roga",
+   "want": [
+    "life-science-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "virus diseases",
+   "want": [
+    "life-science-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "soil pollution",
+   "want": [
+    "life-science-9#6"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "air pollution",
+   "want": [
+    "life-science-9#6"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "bayu pradusana",
+   "want": [
+    "life-science-9#6"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "pesticides in farming",
+   "want": [
+    "life-science-9#4"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "what is a tsunami",
+   "want": [
+    "geography-economics-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "sunami",
+   "want": [
+    "geography-economics-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "drought",
+   "want": [
+    "geography-economics-9#5",
+    "geography-economics-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "rainfall in india",
+   "want": [
+    "geography-economics-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "barsha",
+   "want": [
+    "geography-economics-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "literacy rate",
+   "want": [
+    "geography-economics-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "sakhyarata har",
+   "want": [
+    "geography-economics-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "chilika lake",
+   "want": [
+    "geography-economics-9#4",
+    "geography-economics-9#2",
+    "geography-economics-9#7"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "gas leak safety",
+   "want": [
+    "disaster-management-9#1"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "newton ra gati niyama",
+   "want": [
+    "physical-science-9#6"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "mahakarshana kana",
+   "want": [
+    "physical-science-9#7"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "what is gravitation",
+   "want": [
+    "physical-science-9#7"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "dhwani kemiti chale",
+   "want": [
+    "physical-science-9#9"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "paramanu gathana",
+   "want": [
+    "physical-science-9#4",
+    "physical-science-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "work and energy",
+   "want": [
+    "physical-science-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "padartha ra abastha",
+   "want": [
+    "physical-science-9#1"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "hello",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "tume kie",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "kemiti acha",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "cricket score kete",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "new movie name",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "mo sathi kie",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "ajira weather",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "tell me a joke",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "ଭଲ ଅଛ କି",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "i am bored",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "phone price kete",
+   "want": [],
+   "chat": true
+  },
+  {
+   "q": "song gao",
+   "want": [],
+   "chat": true
+  }
+ ]
+}

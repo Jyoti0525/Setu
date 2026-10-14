@@ -3,7 +3,8 @@
 // index answers on the server and, downloaded, on the phone with no signal.
 
 import MiniSearch from 'minisearch';
-import { tokenize } from './matcher.ts';
+import { normalizeForMatch, tokenizeLoose as tokenize } from './matcher.ts';
+import { lexiconFor } from './lexicon.ts';
 import { normalizeDigits } from './numerals.ts';
 
 export interface BookChapter { n: number; title: { or: string; en: string }; startPage: number; endPage: number }
@@ -28,10 +29,26 @@ export interface BookIndex { meta: BookMeta; passages: BookPassage[]; glossary: 
 const ODIA = /[଀-୿]/;
 const JUNK_CHARS = /[\/¦#‰⁄¥„‡¬@®¶£€©%\\_<>~^*{}\[\]|]/;
 
+/** Real abbreviations the books use; any other all-capitals token is a figure label the OCR read ("AYR", "ZUR"). */
+const ACRONYMS = new Set('DNA RNA HIV AIDS RBC WBC IRDAI RBI SBI GDP GNP NABARD ATM LIC UNO WHO UNESCO NDRF ODRAF OSDMA NDMA BCG DPT TB ORS LPG CNG UV ISRO IMD CRZ MSP KCC PDS HYV NGO IMF IPC CPR SHG PIN PAN KYC NEFT RTGS UPI ICDS FAO'.split(' '));
+
+/** Tesseract's steady misreadings of the BSE Odisha print (P8.16), checked across all three books. */
+export function fixOdiaOcr(text: string): string {
+  return text
+    // ଥି printed as one ligature is read as ଥୁ (ଥୁବା → ଥିବା, ଏଥୁରେ → ଏଥିରେ); ପଥୁରିଆ ("rocky") is a real word
+    .replace(/ଥୁ(?!ରି)/g, 'ଥି')
+    .replace(/ପୂଥିବୀ/g, 'ପୃଥିବୀ')
+    // …and sometimes loses the ି altogether (ଥବା → ଥିବା; ଅଥବା "or" is a real word)
+    .replace(/(?<!ଅ)ଥବା/g, 'ଥିବା')
+    // the ya-phala is ୍ୟ (ମଧ୍ୟ), the subscript wa is ୍ୱ (ଶ୍ୱେତ)
+    .replace(/୍ଯ/g, '୍ୟ').replace(/୍ଵ/g, '୍ୱ')
+    .replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+}
+
 /** One OCR'd page → readable lines: junk tokens (figure labels misread as symbols) and junk lines removed. */
 export function cleanOcr(text: string): string {
   const lines: string[] = [];
-  for (const raw of text.replace(/\r/g, '').split('\n')) {
+  for (const raw of fixOdiaOcr(text.replace(/\r/g, '')).split('\n')) {
     // a stray bar at the end of a sentence is the danda the OCR missed
     const line = raw.replace(/\s\|(\s|$)/g, ' ।$1').replace(/[‘’`]/g, "'").replace(/[“”]/g, '"');
     const tokens = line.split(/\s+/).filter((tok) => {
@@ -40,6 +57,8 @@ export function cleanOcr(text: string): string {
       const letters = [...tok].filter((ch) => /[\p{L}\p{M}]/u.test(ch)).length;
       // Odia digits mixed into Latin letters is how the OCR spells an English word it could not read
       if (/[୦-୯]/.test(tok) && /[A-Za-z0-9]/.test(tok)) return false;
+      // an all-capitals word that is not a known abbreviation (and not in brackets) is a figure label
+      if (/^[A-Z]{2,7}[.,;:]?$/.test(tok) && !ACRONYMS.has(tok.replace(/[.,;:]$/, ''))) return false;
       return letters > 0 || /^[\d୦-୯.,:;()।?!\-–—'"]+$/.test(tok);
     });
     const kept = tokens.join(' ').replace(/\(\s*\)/g, '').trim();
@@ -110,6 +129,17 @@ export function buildBook(meta: BookMeta, pages: { page: number; text: string }[
   return { meta, passages, glossary: [...glossary.values()], version: (h >>> 0).toString(36) };
 }
 
+/** Chat words that say nothing about a topic ("hello", "tume kie", "kemiti acha"): never searched for in the books. */
+const CHAT = new Set([
+  'hello', 'hi', 'hey', 'ok', 'okay', 'thanks', 'thank', 'you', 'your', 'i', 'am', 'my', 'are', 'who', 'can', 'will', 'it', 'this', 'that', 'some', 'any', 'tell', 'give',
+  'tume', 'tumhe', 'tumara', 'tuma', 'mu', 'mun', 'mo', 'mora', 'mote', 'mote', 'kie', 'kiye', 'kemiti', 'kemti', 'acha', 'achha', 'ach', 'achi', 'achu', 'bhala', 'bhal', 'kana', 'kan',
+  'kete', 'keteta', 'kouthi', 'kahinki', 'kariba', 'karibi', 'kara', 'kar', 'jani', 'janichi', 'dia', 'diya', 'de', 'hau', 'hai', 'na', 'nahi', 'ha', 'han', 'aji', 'ajira', 'kali',
+  'ତୁମେ', 'ତୁମ', 'ମୁଁ', 'ମୋ', 'ମୋର', 'କିଏ', 'ଭଲ', 'ଅଛ', 'ଅଛି', 'ଅଛନ୍ତି', 'କେମିତି', 'କଣ', 'କେତେ', 'କାହିଁକି', 'ହଁ', 'ନା', 'ଆଜି',
+].map(normalizeForMatch));
+
+/** how much the other matching passages of the same chapter add to a passage's score */
+const CHAPTER_SHARE = 0.35;
+
 export interface BookHit { passage: BookPassage; bookId: string; score: number; /** share of her content words found in it, 0..1 */ coverage: number }
 
 interface ShelfDoc { id: string; bookId: string; text: string; chapter: string }
@@ -128,8 +158,10 @@ export class Shelf {
       processTerm: (t) => t,
       searchOptions: {
         boost: { chapter: 1.5 },
-        fuzzy: (term) => (term.startsWith('~') ? 0 : term.length > 5 ? 0.2 : 0),
-        prefix: (term) => term.length > 3 && !term.startsWith('~'),
+        // a loose sound ("^bayu") is already forgiving: it may be misspelt or a word's start only when long
+        fuzzy: (term) => (term.startsWith('~') ? 0 : term.startsWith('^') ? (term.length > 7 ? 0.15 : 0) : term.length > 5 ? 0.2 : 0),
+        // Odia endings attach to the word (ରକ୍ତରେ = rakta + re): a spelling or loose sound may be the start of a word
+        prefix: (term) => !term.startsWith('~') && term.length > (term.startsWith('^') ? 5 : 3),
         combineWith: 'OR',
       },
     });
@@ -150,20 +182,59 @@ export class Shelf {
   }
 
   search(query: string, opts: { bookId?: string; limit?: number } = {}): BookHit[] {
-    const q = normalizeDigits(query);
-    const words = tokenize(q).filter((t) => !t.startsWith('~'));
-    if (!words.length) return [];
-    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : {});
-    return res.slice(0, opts.limit ?? 5).map((r) => {
+    const q0 = normalizeDigits(query);
+    // an English word also searches as the Odia word the book uses ("earthquake" → ଭୂମିକମ୍ପ); found by either, it counts once
+    const words = q0.split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => !CHAT.has(normalizeForMatch(w)) && tokenize(w).length);
+    const groups = words.map((w) => [...new Set([...tokenize(w), ...lexiconFor(w).flatMap(tokenize)])]);
+    if (!groups.length) return [];
+    const q = [...words, ...words.flatMap(lexiconFor)].join(' ');
+    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : {}).slice(0, 60);
+    // a chapter about the question has several passages that match, a stray mention has one: each passage gets a
+    // share of the next best passages of its own chapter (so "janasankhya briddhi" lands in Population, not Wildlife)
+    const byChapter = new Map<string, number[]>();
+    for (const r of res) {
+      const p = this.byId.get(r.id as string)!;
+      const k = `${p.bookId}#${p.passage.ch}`;
+      byChapter.set(k, [...(byChapter.get(k) ?? []), r.score]);
+    }
+    const ranked = res.map((r) => {
       const hit = this.byId.get(r.id as string)!;
-      const matched = new Set((r.queryTerms as string[]).filter((t) => !t.startsWith('~')));
-      const sounds = new Set((r.queryTerms as string[]).filter((t) => t.startsWith('~')));
-      // a word counts as found by its spelling or by its sound key
-      const found = tokenize(q).length ? words.filter((w) => matched.has(w) || [...sounds].some((s) => tokenize(w).includes(s))).length : 0;
-      return { passage: hit.passage, bookId: hit.bookId, score: r.score, coverage: Math.round((found / words.length) * 100) / 100 };
+      const others = byChapter.get(`${hit.bookId}#${hit.passage.ch}`)!.filter((x) => x !== r.score).slice(0, 2);
+      const terms = new Set(r.queryTerms as string[]);
+      // a word counts as found by its spelling or its loose sound; by its consonant skeleton alone less than half (one such word is not enough)
+      // ("cricket" and "bored" share skeletons with unrelated Odia words)
+      const found = groups.reduce((n, forms) => n + (forms.some((f) => !f.startsWith('~') && terms.has(f)) ? 1 : forms.some((f) => terms.has(f)) ? 0.4 : 0), 0);
+      return { passage: hit.passage, bookId: hit.bookId, score: r.score + CHAPTER_SHARE * others.reduce((a, b) => a + b, 0), coverage: Math.round((found / groups.length) * 100) / 100 };
     });
+    return ranked.sort((a, b) => b.score - a.score).slice(0, opts.limit ?? 5);
   }
 
   chapterOf(bookId: string, ch: number) { return this.books.get(bookId)?.meta.chapters.find((c) => c.n === ch); }
   passage(id: string) { return this.byId.get(id); }
+}
+
+/**
+ * The sentences of a passage that answer her question (P8: the 📖 card shows these, the whole passage one tap away):
+ * the best-matching sentence and its neighbours, up to `max` characters, in the book's order.
+ */
+export function focusQuote(text: string, question: string, max = 320): string {
+  const sentences = text.split(SENT_END).filter((x) => x.trim());
+  if (text.length <= max || sentences.length < 2) return text;
+  const words = normalizeDigits(question).split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => !CHAT.has(normalizeForMatch(w)) && tokenize(w).length);
+  const groups = words.map((w) => [...tokenize(w), ...lexiconFor(w).flatMap(tokenize)]);
+  const hits = (s: string) => {
+    const toks = tokenize(s);
+    return groups.filter((forms) => forms.some((f) => toks.some((t) => t === f || (f.length > 4 && !f.startsWith('~') && t.startsWith(f))))).length;
+  };
+  const scores = sentences.map(hits);
+  const best = scores.indexOf(Math.max(...scores));
+  let from = best, to = best;
+  const len = () => sentences.slice(from, to + 1).join(' ').length;
+  // grow around the best sentence, the next one first (the book explains after it names)
+  while (true) {
+    if (to + 1 < sentences.length && len() + sentences[to + 1]!.length <= max) to++;
+    else if (from > 0 && len() + sentences[from - 1]!.length <= max) from--;
+    else break;
+  }
+  return (from > 0 ? '… ' : '') + sentences.slice(from, to + 1).join(' ') + (to < sentences.length - 1 ? ' …' : '');
 }

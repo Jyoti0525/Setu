@@ -1,218 +1,722 @@
 [
-  {
-    "id": "life-science-9",
-    "subject": {
-      "or": "ଜୀବ ବିଜ୍ଞାନ",
-      "en": "Life Science",
-      "hi": "जीव विज्ञान"
-    },
-    "title": {
-      "or": "ଜୀବ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)",
-      "en": "Life Science, Class IX"
-    },
-    "classLevel": 9,
-    "board": "BSE Odisha",
-    "source": "https://www.bseodisha.ac.in/images12/Jiba_Bigyana_Class-IX.pdf (revised edition 2019)",
-    "pageOffset": 6,
-    "chapters": [
-      {
-        "n": 1,
-        "title": {
-          "or": "ଜୈବ ବିବିଧତା",
-          "en": "Biodiversity"
-        },
-        "startPage": 7,
-        "endPage": 28
-      },
-      {
-        "n": 2,
-        "title": {
-          "or": "ଜୀବକୋଷ ଓ ଏହାର ସଂଗଠନ",
-          "en": "The cell and its organisation"
-        },
-        "startPage": 29,
-        "endPage": 39
-      },
-      {
-        "n": 3,
-        "title": {
-          "or": "ଟିସୁ ତନ୍ତ୍ର",
-          "en": "Tissue system"
-        },
-        "startPage": 40,
-        "endPage": 58
-      },
-      {
-        "n": 4,
-        "title": {
-          "or": "ଖାଦ୍ୟ ସଂପଦର ଉନ୍ନତୀକରଣ",
-          "en": "Improvement in food resources"
-        },
-        "startPage": 59,
-        "endPage": 77
-      },
-      {
-        "n": 5,
-        "title": {
-          "or": "ରୋଗ ଓ ତାହାର ନିରାକରଣ",
-          "en": "Disease and its prevention"
-        },
-        "startPage": 78,
-        "endPage": 96
-      },
-      {
-        "n": 6,
-        "title": {
-          "or": "ପ୍ରାକୃତିକ ସଂପଦ ଓ ତାହାର ପ୍ରଦୂଷଣ",
-          "en": "Natural resources and their pollution"
-        },
-        "startPage": 97,
-        "endPage": 112
-      }
-    ]
+ {
+  "id": "life-science-9",
+  "subject": {
+   "or": "ଜୀବ ବିଜ୍ଞାନ",
+   "en": "Life Science",
+   "hi": "जीव विज्ञान"
   },
-  {
-    "id": "geography-economics-9",
-    "subject": {
-      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
-      "en": "Geography & Economics",
-      "hi": "भूगोल और अर्थशास्त्र"
-    },
-    "title": {
-      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି (ନବମ ଶ୍ରେଣୀ)",
-      "en": "Geography & Economics, Class IX"
-    },
-    "classLevel": 9,
-    "board": "BSE Odisha",
-    "source": "https://www.bseodisha.ac.in/images12/Bhugola_O_Arthaniti_Cl-IX.pdf",
-    "pageOffset": 6,
-    "chapters": [
-      {
-        "n": 1,
-        "title": {
-          "or": "ଆକାର ଓ ଅବସ୍ଥିତି",
-          "en": "India: size and location"
-        },
-        "startPage": 7,
-        "endPage": 14
-      },
-      {
-        "n": 2,
-        "title": {
-          "or": "ପ୍ରାକୃତିକ ବିଭାଗ",
-          "en": "Physical divisions of India"
-        },
-        "startPage": 15,
-        "endPage": 28
-      },
-      {
-        "n": 3,
-        "title": {
-          "or": "ବିପତ୍ତି ଓ ବିପର୍ଯ୍ୟୟ",
-          "en": "Hazards and disasters"
-        },
-        "startPage": 29,
-        "endPage": 34
-      },
-      {
-        "n": 4,
-        "title": {
-          "or": "ଭାରତର ନଦୀ",
-          "en": "Rivers of India"
-        },
-        "startPage": 35,
-        "endPage": 46
-      },
-      {
-        "n": 5,
-        "title": {
-          "or": "ଜଳବାୟୁ",
-          "en": "Climate"
-        },
-        "startPage": 47,
-        "endPage": 70
-      },
-      {
-        "n": 6,
-        "title": {
-          "or": "ପ୍ରାକୃତିକ ଉଦ୍ଭିଦ",
-          "en": "Natural vegetation"
-        },
-        "startPage": 71,
-        "endPage": 80
-      },
-      {
-        "n": 7,
-        "title": {
-          "or": "ବନ୍ୟପ୍ରାଣୀ",
-          "en": "Wildlife"
-        },
-        "startPage": 81,
-        "endPage": 89
-      },
-      {
-        "n": 8,
-        "title": {
-          "or": "ଜନସଂଖ୍ୟା",
-          "en": "Population"
-        },
-        "startPage": 90,
-        "endPage": 103
-      },
-      {
-        "n": 9,
-        "title": {
-          "or": "ଆର୍ଥନୀତିକ ବିକାଶ",
-          "en": "Economic development"
-        },
-        "startPage": 104,
-        "endPage": 113
-      },
-      {
-        "n": 10,
-        "title": {
-          "or": "ମୁଦ୍ରା, ବ୍ୟାଙ୍କିଙ୍ଗ ଏବଂ ବୀମା",
-          "en": "Money, banking and insurance"
-        },
-        "startPage": 114,
-        "endPage": 124
-      },
-      {
-        "n": 11,
-        "title": {
-          "or": "ଧାରଣୀୟ ବିକାଶ",
-          "en": "Sustainable development"
-        },
-        "startPage": 125,
-        "endPage": 128
-      }
-    ]
+  "title": {
+   "or": "ଜୀବ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Life Science, Class IX"
   },
-  {
-    "id": "disaster-management-9",
-    "subject": {
-      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
-      "en": "Geography & Economics",
-      "hi": "भूगोल और अर्थशास्त्र"
-    },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "https://www.bseodisha.ac.in/images12/Jiba_Bigyana_Class-IX.pdf (revised edition 2019)",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
     "title": {
-      "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା (୨୦୨୨-୨୩ରେ ଯୋଡ଼ାଯାଇଥିବା ଅଧ୍ୟାୟ)",
-      "en": "Man-made disasters and their management (chapter added 2022-23)"
+     "or": "ଜୈବ ବିବିଧତା",
+     "en": "Biodiversity"
     },
-    "classLevel": 9,
-    "board": "BSE Odisha",
-    "source": "https://www.bseodisha.ac.in/images12/9th class bipati o biparjaya new matter for mail final.pdf",
-    "pageOffset": 0,
-    "chapters": [
-      {
-        "n": 1,
-        "title": {
-          "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା",
-          "en": "Man-made disasters and their management"
-        },
-        "startPage": 1,
-        "endPage": 9
-      }
-    ]
-  }
+    "startPage": 7,
+    "endPage": 28
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ଜୀବକୋଷ ଓ ଏହାର ସଂଗଠନ",
+     "en": "The cell and its organisation"
+    },
+    "startPage": 29,
+    "endPage": 39
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ଟିସୁ ତନ୍ତ୍ର",
+     "en": "Tissue system"
+    },
+    "startPage": 40,
+    "endPage": 58
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଖାଦ୍ୟ ସଂପଦର ଉନ୍ନତୀକରଣ",
+     "en": "Improvement in food resources"
+    },
+    "startPage": 59,
+    "endPage": 77
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ରୋଗ ଓ ତାହାର ନିରାକରଣ",
+     "en": "Disease and its prevention"
+    },
+    "startPage": 78,
+    "endPage": 96
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ପ୍ରାକୃତିକ ସଂପଦ ଓ ତାହାର ପ୍ରଦୂଷଣ",
+     "en": "Natural resources and their pollution"
+    },
+    "startPage": 97,
+    "endPage": 112
+   }
+  ]
+ },
+ {
+  "id": "geography-economics-9",
+  "subject": {
+   "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
+   "en": "Geography & Economics",
+   "hi": "भूगोल और अर्थशास्त्र"
+  },
+  "title": {
+   "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Geography & Economics, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "https://www.bseodisha.ac.in/images12/Bhugola_O_Arthaniti_Cl-IX.pdf",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଆକାର ଓ ଅବସ୍ଥିତି",
+     "en": "India: size and location"
+    },
+    "startPage": 7,
+    "endPage": 14
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ପ୍ରାକୃତିକ ବିଭାଗ",
+     "en": "Physical divisions of India"
+    },
+    "startPage": 15,
+    "endPage": 28
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ବିପତ୍ତି ଓ ବିପର୍ଯ୍ୟୟ",
+     "en": "Hazards and disasters"
+    },
+    "startPage": 29,
+    "endPage": 34
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଭାରତର ନଦୀ",
+     "en": "Rivers of India"
+    },
+    "startPage": 35,
+    "endPage": 46
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ଜଳବାୟୁ",
+     "en": "Climate"
+    },
+    "startPage": 47,
+    "endPage": 70
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ପ୍ରାକୃତିକ ଉଦ୍ଭିଦ",
+     "en": "Natural vegetation"
+    },
+    "startPage": 71,
+    "endPage": 80
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ବନ୍ୟପ୍ରାଣୀ",
+     "en": "Wildlife"
+    },
+    "startPage": 81,
+    "endPage": 89
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ଜନସଂଖ୍ୟା",
+     "en": "Population"
+    },
+    "startPage": 90,
+    "endPage": 103
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ଆର୍ଥନୀତିକ ବିକାଶ",
+     "en": "Economic development"
+    },
+    "startPage": 104,
+    "endPage": 113
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ମୁଦ୍ରା, ବ୍ୟାଙ୍କିଙ୍ଗ ଏବଂ ବୀମା",
+     "en": "Money, banking and insurance"
+    },
+    "startPage": 114,
+    "endPage": 124
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "ଧାରଣୀୟ ବିକାଶ",
+     "en": "Sustainable development"
+    },
+    "startPage": 125,
+    "endPage": 128
+   }
+  ]
+ },
+ {
+  "id": "disaster-management-9",
+  "subject": {
+   "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
+   "en": "Geography & Economics",
+   "hi": "भूगोल और अर्थशास्त्र"
+  },
+  "title": {
+   "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା (୨୦୨୨-୨୩ରେ ଯୋଡ଼ାଯାଇଥିବା ଅଧ୍ୟାୟ)",
+   "en": "Man-made disasters and their management (chapter added 2022-23)"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "https://www.bseodisha.ac.in/images12/9th class bipati o biparjaya new matter for mail final.pdf",
+  "pageOffset": 0,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା",
+     "en": "Man-made disasters and their management"
+    },
+    "startPage": 1,
+    "endPage": 9
+   }
+  ]
+ },
+ {
+  "id": "physical-science-9",
+  "subject": {
+   "or": "ଭୌତିକ ବିଜ୍ଞାନ",
+   "en": "Physical Science",
+   "hi": "भौतिक विज्ञान"
+  },
+  "title": {
+   "or": "ଭୌତିକ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Physical Science, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "BSE Odisha textbook (official print, watermarked re-upload) via utkaliit.in → Google Drive; the board site does not host it",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଆମ ଚତୁଃପାର୍ଶ୍ୱରେ ଥିବା ପଦାର୍ଥ",
+     "en": "Matter in our surroundings"
+    },
+    "startPage": 7,
+    "endPage": 21
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ଆମ ଚାରିପାଖରେ ଥିବା ପଦାର୍ଥ ବିଶୁଦ୍ଧ କି ?",
+     "en": "Is matter around us pure?"
+    },
+    "startPage": 22,
+    "endPage": 40
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ପରମାଣୁ ଓ ଅଣୁ",
+     "en": "Atoms and molecules"
+    },
+    "startPage": 41,
+    "endPage": 52
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ପରମାଣୁ ଗଠନ",
+     "en": "Structure of the atom"
+    },
+    "startPage": 53,
+    "endPage": 62
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ଗତି",
+     "en": "Motion"
+    },
+    "startPage": 63,
+    "endPage": 80
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ବଳ ଓ ଗତି ନିୟମ",
+     "en": "Force and laws of motion"
+    },
+    "startPage": 81,
+    "endPage": 100
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ମହାକର୍ଷଣ",
+     "en": "Gravitation"
+    },
+    "startPage": 101,
+    "endPage": 114
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "କାର୍ଯ୍ୟ ଓ ଶକ୍ତି",
+     "en": "Work and energy"
+    },
+    "startPage": 115,
+    "endPage": 129
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ଧ୍ୱନି",
+     "en": "Sound"
+    },
+    "startPage": 130,
+    "endPage": 147
+   }
+  ]
+ },
+ {
+  "id": "history-polsci-9",
+  "subject": {
+   "or": "ଇତିହାସ ଓ ରାଜନୀତି ବିଜ୍ଞାନ",
+   "en": "History & Political Science",
+   "hi": "इतिहास और राजनीति विज्ञान"
+  },
+  "title": {
+   "or": "ଇତିହାସ ଓ ରାଜନୀତି ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "History and Political Science, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "BSE Odisha textbook (official print, watermarked re-upload) via utkaliit.in → Google Drive; the board site does not host it",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଏସିଆ ଓ ଆଫ୍ରିକା ମହାଦେଶରେ ଉପନିବେଶବାଦ",
+     "en": "Colonisation in Asia and Africa"
+    },
+    "startPage": 7,
+    "endPage": 22
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ପ୍ରଥମ ବିଶ୍ୱଯୁଦ୍ଧ : କାରଣ ଓ ଫଳାଫଳ",
+     "en": "First World War: causes and effects"
+    },
+    "startPage": 23,
+    "endPage": 39
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ରୁଷ ବିପ୍ଳବ : କାରଣ ଓ ଫଳାଫଳ",
+     "en": "Russian Revolution: causes and effects"
+    },
+    "startPage": 40,
+    "endPage": 55
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଶାନ୍ତି ପାଇଁ ପ୍ରାରମ୍ଭିକ ଉଦ୍ୟମ : ଜାତିସଂଘ",
+     "en": "Early efforts for peace: the League of Nations"
+    },
+    "startPage": 56,
+    "endPage": 66
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ଫାସିବାଦ ଓ ନାଜିବାଦର ବିକାଶ",
+     "en": "Rise of Fascism and Nazism"
+    },
+    "startPage": 67,
+    "endPage": 74
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ଦ୍ୱିତୀୟ ବିଶ୍ୱଯୁଦ୍ଧ : କାରଣ ଓ ଫଳାଫଳ",
+     "en": "Second World War: causes and effects"
+    },
+    "startPage": 75,
+    "endPage": 81
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ବିଂଶ ଶତାବ୍ଦୀରେ ଏସିଆ ଓ ଆଫ୍ରିକାରେ ଜାତୀୟତାବାଦୀ ଆନ୍ଦୋଳନ ଏବଂ ସ୍ୱାଧୀନ ରାଷ୍ଟ୍ରସମୂହର ଅଭ୍ୟୁଦୟ",
+     "en": "Nationalist movements and new nations in Asia and Africa"
+    },
+    "startPage": 82,
+    "endPage": 91
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ଶୀତଳ ଯୁଦ୍ଧ : କାରଣ ଓ ଫଳାଫଳ",
+     "en": "Cold War: causes and effects"
+    },
+    "startPage": 92,
+    "endPage": 96
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ସାମରିକ ଗୋଷ୍ଠୀ ଗଠନ : ଶସ୍ତ୍ରୀକରଣ ପାଇଁ ପ୍ରତିଦ୍ୱନ୍ଦ୍ୱିତା",
+     "en": "Military blocs and the arms race"
+    },
+    "startPage": 97,
+    "endPage": 101
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ଗୋଷ୍ଠୀ ନିରପେକ୍ଷ ଆନ୍ଦୋଳନ",
+     "en": "Non-Aligned Movement"
+    },
+    "startPage": 102,
+    "endPage": 109
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "ସୋଭିଏତ୍ ସଂଘର ବିଖଣ୍ଡୀକରଣ",
+     "en": "Break-up of the Soviet Union"
+    },
+    "startPage": 110,
+    "endPage": 115
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "ଭାରତୀୟ ସଂସ୍କୃତି : ବିଭିନ୍ନତାରେ ଏକତା",
+     "en": "Indian culture: unity in diversity"
+    },
+    "startPage": 116,
+    "endPage": 128
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "ଭାରତର ପରମ୍ପରା",
+     "en": "Indian tradition"
+    },
+    "startPage": 129,
+    "endPage": 140
+   },
+   {
+    "n": 14,
+    "title": {
+     "or": "ଭାରତର କଳା, ସ୍ଥାପତ୍ୟ, ଶିଳ୍ପକୌଶଳ, ସାହିତ୍ୟ, ବିଜ୍ଞାନ ଏବଂ ବୈଷୟିକ ବିଦ୍ୟା",
+     "en": "Indian art, architecture, crafts, literature, science and technology"
+    },
+    "startPage": 141,
+    "endPage": 161
+   },
+   {
+    "n": 15,
+    "title": {
+     "or": "ଓଡ଼ିଶାର ଐତିହ୍ୟ",
+     "en": "Heritage of Odisha"
+    },
+    "startPage": 162,
+    "endPage": 177
+   },
+   {
+    "n": 16,
+    "title": {
+     "or": "ମୌଳିକ ଅଧିକାର",
+     "en": "Fundamental rights"
+    },
+    "startPage": 178,
+    "endPage": 184
+   },
+   {
+    "n": 17,
+    "title": {
+     "or": "ମୌଳିକ କର୍ତ୍ତବ୍ୟ",
+     "en": "Fundamental duties"
+    },
+    "startPage": 185,
+    "endPage": 187
+   },
+   {
+    "n": 18,
+    "title": {
+     "or": "ରାଷ୍ଟ୍ରନୀତି ନିୟାମକ ନିର୍ଦ୍ଦେଶାବଳୀ",
+     "en": "Directive principles of state policy"
+    },
+    "startPage": 188,
+    "endPage": 192
+   },
+   {
+    "n": 19,
+    "title": {
+     "or": "ମାନବାଧିକାର",
+     "en": "Human rights"
+    },
+    "startPage": 193,
+    "endPage": 198
+   },
+   {
+    "n": 20,
+    "title": {
+     "or": "ସୂଚନା ଅଧିକାର : ଭାରତର ସୂଚନା ଅଧିକାର ଆଇନ",
+     "en": "Right to information: India's RTI Act"
+    },
+    "startPage": 199,
+    "endPage": 207
+   },
+   {
+    "n": 21,
+    "title": {
+     "or": "ଭାରତୀୟ ଜାତୀୟତାବାଦ",
+     "en": "Indian nationalism"
+    },
+    "startPage": 208,
+    "endPage": 214
+   },
+   {
+    "n": 22,
+    "title": {
+     "or": "ଜାତୀୟ ସଂହତି",
+     "en": "National integration"
+    },
+    "startPage": 215,
+    "endPage": 222
+   },
+   {
+    "n": 23,
+    "title": {
+     "or": "ଗଣତାନ୍ତ୍ରିକ ମୂଲ୍ୟବୋଧ",
+     "en": "Democratic values"
+    },
+    "startPage": 223,
+    "endPage": 229
+   },
+   {
+    "n": 24,
+    "title": {
+     "or": "ସଂଯୁକ୍ତ ରାଷ୍ଟ୍ରସଂଘ : ଗଠନ ଓ କାର୍ଯ୍ୟାବଳୀ, ଭାରତ ଓ ସଂଯୁକ୍ତ ରାଷ୍ଟ୍ରସଂଘ",
+     "en": "The United Nations: structure, functions and India"
+    },
+    "startPage": 230,
+    "endPage": 240
+   }
+  ]
+ },
+ {
+  "id": "algebra-9",
+  "subject": {
+   "or": "ଗଣିତ",
+   "en": "Mathematics",
+   "hi": "गणित"
+  },
+  "title": {
+   "or": "ବୀଜଗଣିତ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Algebra, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "BSE Odisha textbook (official print, watermarked re-upload) via utkaliit.in → Google Drive; the board site does not host it",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ସେଟ୍ ପ୍ରକ୍ରିୟା ଏବଂ ସେଟ୍‌ର ପ୍ରୟୋଗ",
+     "en": "Set operations and their applications"
+    },
+    "startPage": 7,
+    "endPage": 25
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ବାସ୍ତବ ସଂଖ୍ୟା",
+     "en": "Real numbers"
+    },
+    "startPage": 26,
+    "endPage": 61
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ବୀଜଗାଣିତିକ ପରିପ୍ରକାଶ ଓ ଅଭେଦ",
+     "en": "Algebraic expressions and identities"
+    },
+    "startPage": 62,
+    "endPage": 94
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ବୀଜଗାଣିତିକ ସମୀକରଣ",
+     "en": "Algebraic equations"
+    },
+    "startPage": 95,
+    "endPage": 105
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ସ୍ଥାନାଙ୍କ ଜ୍ୟାମିତି",
+     "en": "Coordinate geometry"
+    },
+    "startPage": 106,
+    "endPage": 117
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ଅନୁପାତ ଓ ସମାନୁପାତ",
+     "en": "Ratio and proportion"
+    },
+    "startPage": 118,
+    "endPage": 130
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ପରିସଂଖ୍ୟାନ",
+     "en": "Statistics"
+    },
+    "startPage": 131,
+    "endPage": 153
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ସମ୍ଭାବ୍ୟତା",
+     "en": "Probability"
+    },
+    "startPage": 154,
+    "endPage": 162
+   }
+  ]
+ },
+ {
+  "id": "geometry-9",
+  "subject": {
+   "or": "ଗଣିତ",
+   "en": "Mathematics",
+   "hi": "गणित"
+  },
+  "title": {
+   "or": "ଜ୍ୟାମିତି (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Geometry, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "BSE Odisha textbook (official print, watermarked re-upload) via utkaliit.in → Google Drive; the board site does not host it",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ରେଖା ଓ କୋଣ",
+     "en": "Lines and angles"
+    },
+    "startPage": 7,
+    "endPage": 42
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ତ୍ରିଭୁଜମାନଙ୍କ ସର୍ବସମତା",
+     "en": "Congruence of triangles"
+    },
+    "startPage": 43,
+    "endPage": 57
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ଚତୁର୍ଭୁଜ",
+     "en": "Quadrilaterals"
+    },
+    "startPage": 58,
+    "endPage": 80
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "କ୍ଷେତ୍ରଫଳ",
+     "en": "Area"
+    },
+    "startPage": 81,
+    "endPage": 91
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ପରିମିତି",
+     "en": "Mensuration"
+    },
+    "startPage": 92,
+    "endPage": 126
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ଅଙ୍କନ",
+     "en": "Constructions"
+    },
+    "startPage": 127,
+    "endPage": 150
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ତ୍ରିକୋଣମିତି",
+     "en": "Trigonometry"
+    },
+    "startPage": 151,
+    "endPage": 164
+   }
+  ]
+ }
 ]

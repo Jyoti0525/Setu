@@ -133,7 +133,7 @@ describe('critic term check (P2.10)', () => {
 describe('model routing', () => {
   it('Groq may decide but never writes Odia; Gemini + Gemma may', () => {
     const m = buildModels({ GEMINI_API_KEY: 'x', GROQ_API_KEY: 'y' });
-    expect(m.genKeysFor('or')).toEqual(['gemini-flash', 'gemini-lite-gen', 'gemma']);
+    expect(m.genKeysFor('or')).toEqual(['gemini-lite-gen', 'gemini-flash', 'gemma']);
     expect(m.genKeysFor('en')).toContain('groq');
     expect(m.providers).toContain('groq');
     expect(buildModels({ GROQ_API_KEY: 'y' }).generateFor('or')).toBeNull();

@@ -17,3 +17,4 @@ export * from './pedagogy.ts';
 export * from './languages.ts';
 export * from './book.ts';
 export * from './tutor.ts';
+export * from './lexicon.ts';

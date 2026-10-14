@@ -46,7 +46,7 @@ export function detectScript(text: string): MatchResult['script'] {
  */
 export function normalizeForMatch(text: string): string {
   let t = normalizeDigits(text).toLowerCase().normalize('NFC');
-  t = t.replace(/[‌‍]/g, '').replace(/଼/g, '').replace(/ଁ/g, '').replace(/ୟ/g, 'ଯ');
+  t = t.replace(/[‌‍]/g, '').replace(/଼/g, '').replace(/ଁ/g, '').replace(/ୟ/g, 'ଯ').replace(/ଵ/g, 'ୱ');
   t = t.replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ');
   t = t
     .replace(/[vw]/g, 'b')
@@ -88,17 +88,57 @@ export function soundKey(word: string): string | undefined {
   return k.length >= 3 ? `~${k}` : undefined;
 }
 
-/** Content words of a text, each with the forms it may match by: its normalised spelling and its sound key. */
-const wordForms = (t: string): string[][] =>
+/**
+ * How a word sounds in loose Latin letters, the same for Odia script and the many ways students romanize it:
+ * "ବାୟୁ", "bayu", "vayu" → "^bayu"; "ମୌସୁମୀ", "mausumi", "mousumi" → "^mosumi"; "ରକ୍ତ", "rakta", "rakto" → "^rakta".
+ * Unlike the consonant skeleton (soundKey) it keeps vowels, so short words get a key too (≥ 3 letters).
+ */
+const OR_LATIN: Record<string, string> = {
+  କ: 'k', ଖ: 'kh', ଗ: 'g', ଘ: 'gh', ଙ: 'ng', ଚ: 'c', ଛ: 'ch', ଜ: 'j', ଝ: 'jh', ଞ: 'n', ଟ: 't', ଠ: 'th', ଡ: 'd', ଢ: 'dh', ଣ: 'n',
+  ତ: 't', ଥ: 'th', ଦ: 'd', ଧ: 'dh', ନ: 'n', ପ: 'p', ଫ: 'ph', ବ: 'b', ଭ: 'bh', ମ: 'm', ଯ: 'j', ୟ: 'y', ର: 'r', ଲ: 'l', ଳ: 'l',
+  ଶ: 's', ଷ: 's', ସ: 's', ହ: 'h', ୱ: 'w', ଵ: 'b', ଡ଼: 'r', ଢ଼: 'rh',
+};
+const OR_VOWEL: Record<string, string> = { ଅ: 'a', ଆ: 'a', ଇ: 'i', ଈ: 'i', ଉ: 'u', ଊ: 'u', ଋ: 'ru', ଏ: 'e', ଐ: 'ai', ଓ: 'o', ଔ: 'au' };
+const OR_MATRA: Record<string, string> = { 'ା': 'a', 'ି': 'i', 'ୀ': 'i', 'ୁ': 'u', 'ୂ': 'u', 'ୃ': 'ru', 'େ': 'e', 'ୈ': 'ai', 'ୋ': 'o', 'ୌ': 'au' };
+export function odiaToLatin(word: string): string {
+  const cs = [...word.normalize('NFC').replace(/ଡ଼/g, 'ଡ଼').replace(/ଢ଼/g, 'ଢ଼').replace(/ଯ଼/g, 'ୟ')];
+  let out = '';
+  for (let i = 0; i < cs.length; i++) {
+    const ch = cs[i]!, next = cs[i + 1];
+    if (OR_LATIN[ch]) {
+      out += OR_LATIN[ch];
+      // the consonant's own "a", unless a vowel sign or a halant follows it
+      if (next !== '୍' && !(next && OR_MATRA[next])) out += 'a';
+    } else if (OR_MATRA[ch]) out += OR_MATRA[ch];
+    else if (OR_VOWEL[ch]) out += OR_VOWEL[ch];
+    else if (ch === 'ଂ' || ch === 'ଁ') out += 'n'; // ନିଆଁ is written "nian"
+    else if (ch === 'ଃ') out += 'h';
+  }
+  return out;
+}
+export function looseKey(word: string): string | undefined {
+  let w = /[଀-୿]/.test(word) ? odiaToLatin(word) : /^[a-z]+$/i.test(word) ? word.toLowerCase() : '';
+  if (!w) return undefined;
+  w = w.replace(/([kgcjtdpb])h/g, '$1').replace(/sh/g, 's').replace(/ch/g, 'c').replace(/[vw]/g, 'b').replace(/z/g, 'j').replace(/q/g, 'k').replace(/x/g, 'ks').replace(/f/g, 'p').replace(/ck/g, 'k')
+    // vowels are where romanizations differ most: au/ou→o, ai/ei→e, then a~o (Odia's own "a" is said "o") and e~i
+    .replace(/au|ou/g, 'o').replace(/ai|ei|ay(?![aeiou])/g, 'e').replace(/o/g, 'a').replace(/e/g, 'i')
+    .replace(/(.)\1+/g, '$1');
+  return w.length >= 3 ? `^${w}` : undefined;
+}
+
+/** Content words of a text, each with the forms it may match by: its spelling, its sound skeleton, its loose sound. */
+export const wordForms = (t: string, loose = false): string[][] =>
   normalizeDigits(t).split(/[^\p{L}\p{M}\p{N}]+/u).map((raw) => {
     const w = normalizeForMatch(raw);
     if (!w || STOP.has(w)) return [];
-    const k = soundKey(raw);
-    return k ? [w, k] : [w];
+    return [...new Set([w, soundKey(raw), loose ? looseKey(raw) : undefined].filter((x): x is string => !!x))];
   }).filter((f) => f.length);
 
-/** Search terms of a text: each content word by spelling and by sound key (shared with the textbook search, book.ts). */
+/** Search terms of a text: each content word by spelling and by sound skeleton (the chapter-pack matcher). */
 export const tokenize = (t: string) => [...new Set(wordForms(t).flat())];
+/** The textbook search's terms: also the loose sound, so romanized Odia meets Odia script (book.ts). The pack matcher
+ *  keeps the stricter forms: its few concepts would otherwise catch off-topic words. */
+export const tokenizeLoose = (t: string) => [...new Set(wordForms(t, true).flat())];
 
 interface Doc { id: string; kind: MatchHit['kind']; conceptId: string; text: string }
 

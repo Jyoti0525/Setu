@@ -17,6 +17,7 @@ import { translateNote } from './translate.ts';
 import type { LiveVoice } from './voice.ts';
 import { listen, MAX_AUDIO_BYTES, type ListenDeps } from './asr.ts';
 import { readFile } from 'node:fs/promises';
+import { compress } from 'hono/compress';
 
 export interface AppOptions {
   store: Store;
@@ -124,6 +125,8 @@ export function createApp(o: AppOptions) {
   const tutor: TutorDeps = { store, shelf, models, onTrace: (pid, step) => publish(pid, step, 'server') };
   const bookList = () => [...shelf.books.values()].map((b) => ({ ...b.meta, version: b.version, passages: b.passages.length, kb: Math.round(JSON.stringify(b).length / 1024) }));
   app.get('/api/books', (c) => c.json(bookList()));
+  // textbooks for offline (~200 KB of Odia text each) shrink to about a quarter: it matters on a 3G data pack
+  app.use('/api/book/*', compress());
   app.get('/api/book/:id', (c) => { const b = shelf.books.get(c.req.param('id')); return b ? c.json(b) : c.json({ error: 'no such book' }, 404); });
   app.post('/api/tutor/open', async (c) => {
     const deviceId = c.get('deviceId' as never) as string;

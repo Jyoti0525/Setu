@@ -48,6 +48,7 @@ export type TutorStrategy = (typeof STRATEGIES)[number];
 
 /** A search hit good enough to teach from. */
 export const GROUNDED_COVERAGE = 0.5;
+export const OFF_TOPIC_COVERAGE = 0.75;
 /** wrong this many times in a row on one topic → her teacher is told (once per ESCALATE_EVERY_MS) */
 export const ESCALATE_AFTER = 3;
 export const ESCALATE_EVERY_MS = 3 * 86_400_000;
@@ -88,13 +89,16 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
 
   const picked = x.bookIds?.length ? x.bookIds : undefined;
   const inBook = picked ? x.hits.filter((h) => picked.includes(h.bookId)) : x.hits;
-  const good = (hs: BookHit[]) => hs.filter((h) => h.coverage >= GROUNDED_COVERAGE);
+  // chit-chat (the screen says off-topic) needs the book to cover it clearly before a page is shown for it
+  const need = x.safety === 'off_topic' ? OFF_TOPIC_COVERAGE : GROUNDED_COVERAGE;
+  const good = (hs: BookHit[]) => hs.filter((h) => h.coverage >= need);
   let grounding = good(inBook);
   let switchedBook: string | undefined;
   if (!grounding.length && picked && good(x.hits).length) { grounding = good(x.hits); switchedBook = grounding[0]!.bookId; }
   if (!grounding.length) {
     if (x.safety === 'off_topic') return { ...base, action: 'redirect', reason: 'not a study question and nothing in her books matches → kind redirect' };
-    return { ...base, action: x.online ? 'not_in_book' : 'show_passage', grounding: x.hits.slice(0, 2), reason: `nothing in her books covers this well (best coverage ${x.hits[0]?.coverage ?? 0}) → ${x.online ? 'say so, short general answer, marked as not from the textbook' : 'keep the question for when the signal is back'}`, candidates: [{ action: 'not_in_book', score: 0.7 }, { action: 'explain', score: 0.3 }] };
+    // online the model may still use the near misses as context; offline a weak page would only mislead her
+    return { ...base, action: x.online ? 'not_in_book' : 'show_passage', grounding: x.online ? x.hits.slice(0, 2) : [], reason: `nothing in her books covers this well (best coverage ${x.hits[0]?.coverage ?? 0}) → ${x.online ? 'say so, short general answer, marked as not from the textbook' : 'keep the question for when the signal is back'}`, candidates: [{ action: 'not_in_book', score: 0.7 }, { action: 'explain', score: 0.3 }] };
   }
   const h0 = grounding[0]!;
   const topic = topicKey(h0.bookId, h0.passage.ch);

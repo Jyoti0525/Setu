@@ -129,9 +129,10 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
       }
     };
     add('decide', 'gemini-lite', conf('GEMINI_DECIDE_MODEL'));
-    add('generate', 'gemini-flash', conf('GEMINI_GENERATE_MODEL'), conf('GEMINI_GEN_LANGS'));
-    // second Odia-capable writer: Flash-Lite used the textbook terms in P0.a and is often up when Flash is overloaded
+    // Flash-Lite writes first (2026-10-14): it used the textbook terms in P0.a, answers in 1–3 s, and is up when
+    // Flash is overloaded — Flash's 503s took ~7 s each, so trying it first spent the whole turn budget on failures
     add('generate', 'gemini-lite-gen', conf('GEMINI_DECIDE_MODEL'), conf('GEMINI_GEN_LANGS'));
+    add('generate', 'gemini-flash', conf('GEMINI_GENERATE_MODEL'), conf('GEMINI_GEN_LANGS'));
     // Gemma on the same key (PLAN §10.3 step 2) — slow on the free tier, so it is last for decisions
     add('generate', 'gemma', conf('GEMMA_MODEL'), conf('GEMMA_GEN_LANGS'));
   }

@@ -3,6 +3,7 @@ import type { ChapterPack } from '@setu/core';
 import { textIn, scrubPii, gradeNumeric, toScriptDigits, DATA_BUDGET_KB, DATA_LOW_FRACTION, LANGUAGES, bridgeLanguages, type Dimension, type LearnerState, type OutMsg, type SessionPlan, type Tier, type TraceStep } from '@setu/core';
 import { Agent, ensureDevice, ensurePack, importPack } from './agent.ts';
 import { Chat } from './chat.tsx';
+import { Icon, Logo } from './icons.tsx';
 import { sharePack, readPackFile } from './packfile.ts';
 import { pushSupported, pushOn, enablePush, disablePush } from './push.ts';
 import { prefetchEssential, warmVoice, setTextOnly, takeAudioBytes } from './audio.ts';
@@ -71,7 +72,7 @@ export function App() {
     return () => { off(); };
   }, []);
 
-  if (status === 'loading') return <div class="center">{t('or', 'loading')}</div>;
+  if (status === 'loading') return <div class="splash"><Logo size={72} /><span>{t('or', 'loading')}</span></div>;
   if (status === 'nopack') return <NoPack onPack={(p) => void start(p)} />;
   if (status === 'who') return <Who profiles={profiles} onPick={(p) => void enter(p)} onNew={() => setStatus('onboard')} />;
   if (status === 'onboard') return <Onboarding onDone={async (p) => {
@@ -94,7 +95,7 @@ export function App() {
   // PLAN v4: the tutor chat is the home screen; the hand-built Motion chapter is guided practice inside it
   if (!guided) return <Chat key={profile!.id + profile!.lang} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} />;
   return <>
-    <button class="link back" onClick={() => setGuided(false)}>← {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
+    <button class="link back" onClick={() => setGuided(false)}><Icon name="back" size={18} /> {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
     <Home agent={agent!} profile={profile!} tier={tier} onLang={onLang} onSwitch={() => void onSwitch()} />
   </>;
 }
@@ -127,39 +128,46 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
     return () => { live = false; };
   }, [code]);
   const L = lang ?? 'or';
+  const tagline: Record<string, string> = { or: 'ତୁମ ବହିର ପାଠ ସାଥୀ', hi: 'तुम्हारी किताब का पढ़ाई साथी', en: 'Your textbook study buddy' };
+  const ready = !!avatar && className !== null;
   return (
     <div class="onboard">
-      <h1>ସେତୁ · Setu</h1>
-      <p class="muted">{t(L, 'chooseLang')}</p>
-      <div class="grid">
+      <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div></div>
+      <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
+      <div class="grid langs">
         {LANGS.map((l) => (
-          <button class={'big ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => { setLang(l.id); setHome(null); speak(l.label, l.id); }} aria-pressed={lang === l.id && !home}>{l.label} 🔊</button>
+          <button class={'big langcard ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => { setLang(l.id); setHome(null); speak(l.label, l.id); }} aria-pressed={lang === l.id && !home}>{l.label}<Icon name="volume" size={18} /></button>
         ))}
       </div>
       {/* tier C (PLAN §7.4): never silently dropped — taught in the school language, with home-language words */}
-      <button class="link small" onClick={() => setShowHome(!showHome)}>{t(L, 'otherHome')}</button>
+      <button class="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setShowHome(!showHome)}>{t(L, 'otherHome')}</button>
       {showHome && <div class="row">{bridgeLanguages().map((h) => (
         <button class={home === h.id ? 'sel' : ''} aria-pressed={home === h.id} onClick={() => { setHome(h.id); setLang(h.school ?? 'or'); }}>{h.name}{h.name !== h.english ? ` · ${h.english}` : ''}</button>
       ))}</div>}
-      {home && <p class="small" role="status">{t(L, 'bridgeNote').replace('{0}', LANGUAGES[home]?.english ?? home).replace('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
+      {home && <p class="hint" role="status">{t(L, 'bridgeNote').replace('{0}', LANGUAGES[home]?.english ?? home).replace('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
       {lang && <>
-        <p class="muted">{t(lang, 'chooseAvatar')}</p>
+        <h2><span class="n">2</span>{t(lang, 'chooseAvatar')}</h2>
         <div class="grid avatars">
           {AVATARS.map((a) => <button class={'big ' + (avatar === a ? 'sel' : '')} onClick={() => setAvatar(a)} aria-label={a} aria-pressed={avatar === a}>{a}</button>)}
         </div>
         <input class="text" placeholder={t(lang, 'name')} aria-label={t(lang, 'name')} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
-        <p class="muted">{t(lang, 'chooseClass')}</p>
-        <div class="row">
+        <h2><span class="n">3</span>{t(lang, 'chooseClass')}</h2>
+        <div class="classes">
           {[8, 9, 10].map((n) => <button class={classLevel === n ? 'sel' : ''} aria-pressed={classLevel === n} disabled={n !== 9} onClick={() => setClassLevel(n)}>{t(lang, 'className')} {n}{n !== 9 ? ` · ${t(lang, 'soon')}` : ''}</button>)}
         </div>
-        <div class="row nowrap">
-          <input class="text" inputMode="numeric" maxLength={6} placeholder={t(lang, 'classCode')} aria-label={t(lang, 'classCode')} value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6))} />
-          {'mediaDevices' in navigator && <button aria-label={t(lang, 'scanQr')} onClick={() => void import('./qr.tsx').then((m) => setScan(() => m.QrScan))}>⌗ QR</button>}
-        </div>
+        <details class="optional" open={!!code}>
+          <summary>{t(lang, 'classCode')}</summary>
+          <div class="row nowrap">
+            <input class="text" inputMode="numeric" maxLength={6} placeholder="123456" aria-label={t(lang, 'classCode')} value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6))} />
+            {'mediaDevices' in navigator && <button aria-label={t(lang, 'scanQr')} onClick={() => void import('./qr.tsx').then((m) => setScan(() => m.QrScan))}><Icon name="qr" /></button>}
+          </div>
+          {code.length === 6 && <p class={'small ' + (className ? 'status-ok' : className === null ? 'status-bad' : 'muted')} role="status">{className ? `✓ ${className}` : className === null ? `✗ ${t(lang, 'noClass')}` : t(lang, 'checkLater')}</p>}
+          {code.length === 6 && name.trim() && <label class="small row"><input type="checkbox" checked={showName} onChange={(e) => setShowName((e.target as HTMLInputElement).checked)} /> {t(lang, 'showName')}</label>}
+        </details>
         {Scan && <Scan lang={lang} onCode={(c) => { setCode(c); setScan(null); }} onClose={() => setScan(null)} />}
-        {code.length === 6 && <p class="small" role="status">{className ? `✓ ${className}` : className === null ? `✗ ${t(lang, 'noClass')}` : t(lang, 'checkLater')}</p>}
-        {code.length === 6 && name.trim() && <label class="small row"><input type="checkbox" checked={showName} onChange={(e) => setShowName((e.target as HTMLInputElement).checked)} /> {t(lang, 'showName')}</label>}
-        <button class="primary" disabled={!avatar || className === null} onClick={() => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang, classLevel, classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) })}>{t(lang, 'start')} →</button>
+        <div class="cta">
+          <button class="primary" disabled={!ready} onClick={() => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang, classLevel, classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) })}>{t(lang, 'start')} →</button>
+        </div>
       </>}
     </div>
   );
@@ -592,12 +600,11 @@ function Hints(p: { m: Extract<OutMsg, { kind: 'hints' }>; lang: string; say: pr
 function Who({ profiles, onPick, onNew }: { profiles: Profile[]; onPick: (p: Profile) => void; onNew: () => void }) {
   const L = profiles[0]?.lang ?? 'or';
   return (
-    <div class="onboard">
-      <h1>ସେତୁ · Setu</h1>
-      <p class="muted">{t(L, 'whoIsIt')}</p>
+    <div class="onboard who-screen">
+      <div class="head"><Logo size={64} /><h1>{t(L, 'whoIsIt')}</h1></div>
       <div class="grid avatars">
         {profiles.map((p) => <button class="big who" onClick={() => onPick(p)}>{p.avatar}<span class="small">{p.name ?? ''}</span></button>)}
-        <button class="big" aria-label={t(L, 'newLearner')} onClick={onNew}>➕<span class="small">{t(L, 'newLearner')}</span></button>
+        <button class="big" aria-label={t(L, 'newLearner')} onClick={onNew}><span style={{ display: 'grid', placeItems: 'center' }}><Icon name="plus" size={30} /></span><span class="small">{t(L, 'newLearner')}</span></button>
       </div>
     </div>
   );

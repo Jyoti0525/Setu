@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTurn, buildBook, cleanOcr, emptyMemory, extractGlossary, looksLikeAnswer, openerFor, planTurn, Shelf, topicKey, type BookMeta, type TutorMemory } from '../src/index.ts';
+import { applyTurn, buildBook, cleanOcr, emptyMemory, fixOdiaOcr, focusQuote, extractGlossary, looksLikeAnswer, openerFor, planTurn, Shelf, topicKey, type BookMeta, type TutorMemory } from '../src/index.ts';
 
 const meta: BookMeta = {
   id: 'bio', subject: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, title: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, classLevel: 9, board: 'BSE Odisha', source: 'test', pageOffset: 2,
@@ -103,5 +103,22 @@ describe('tutor policy (P8.4–P8.8)', () => {
     const m: TutorMemory = { ...emptyMemory(), topics: { 'bio#1': { pKnown: 0.3, checks: 2, right: 0, wrongInARow: 2, doubts: 1, lastAt: now - 7 * 3600_000, tried: [] } } };
     expect(openerFor(m, now)).toMatchObject({ kind: 'review', topic: 'bio#1' });
     expect(openerFor(emptyMemory(), now).kind).toBe('welcome');
+  });
+});
+
+describe('readable book text (P8.16)', () => {
+  it('fixes the OCR misreadings that repeat across the books, keeps real words', () => {
+    expect(fixOdiaOcr('ଏଥୁରେ ମଧ୍ଯ ଶ୍ଵେତ ପୂଥୁବୀ ( Plasma )')).toBe('ଏଥିରେ ମଧ୍ୟ ଶ୍ୱେତ ପୃଥିବୀ (Plasma)');
+    expect(fixOdiaOcr('ପଥୁରିଆ ମାଟି')).toBe('ପଥୁରିଆ ମାଟି');
+  });
+  it('drops figure labels read as capitals, keeps abbreviations', () => {
+    expect(cleanOcr('ରକ୍ତରେ AYR ZUR RBC ଓ DNA ଥାଏ ।')).toBe('ରକ୍ତରେ RBC ଓ DNA ଥାଏ ।');
+  });
+  it('the 📖 card quotes the sentences that answer the question, not the whole block', () => {
+    const text = 'ରକ୍ତ ଏକ ତରଳ ସଂଯୋଜକ ଟିସୁ । ଏହାର ମାଟ୍ରିକ୍ସକୁ ପ୍ଲାଜମା କୁହାଯାଏ । ଶରୀରରେ ପ୍ରାୟ 5ରୁ 6 ଲିଟର ରକ୍ତ ଥାଏ । ଅଣୁଚକ୍ରିକା (Platelet) ରକ୍ତ ଜମାଟ ବାନ୍ଧିବାରେ ସାହାଯ୍ୟ କରେ । ରକ୍ତର pH 7.4 ଏବଂ ଏହା କ୍ଷାରୀୟ ।';
+    const q = focusQuote(text, 'platelet kana kama kare', 120);
+    expect(q).toContain('ଅଣୁଚକ୍ରିକା');
+    expect(q.length).toBeLessThan(text.length);
+    expect(focusQuote('ଛୋଟ ଅଂଶ ।', 'x')).toBe('ଛୋଟ ଅଂଶ ।');
   });
 });

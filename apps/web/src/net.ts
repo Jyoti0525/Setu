@@ -69,3 +69,14 @@ export function goodLink(): boolean {
   if (c.type === 'cellular' && c.effectiveType && c.effectiveType !== '4g') return false;
   return !c.effectiveType || c.effectiveType === '4g';
 }
+
+/**
+ * Link good enough to save textbooks for offline (text only, ~200 KB a book): anything but data-saver or slow 2G.
+ * Stricter than goodLink() on purpose: 3G is the usual rural link, and the books are what she reads with no signal.
+ */
+export function bookLink(): 'all' | 'picked' | false {
+  const c = (navigator as { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+  if (!c) return 'all';
+  if (c.saveData || c.effectiveType === 'slow-2g') return false;
+  return c.effectiveType === '2g' ? 'picked' : 'all';
+}
