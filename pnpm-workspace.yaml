@@ -7,3 +7,9 @@ packages:
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+  # install scripts not needed (same as the local install): pure-JS fallbacks or banner scripts
+  '@google/genai': false
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
+  tesseract.js: false
