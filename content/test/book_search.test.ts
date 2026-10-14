@@ -41,13 +41,18 @@ describe('offline textbook search (eval/book_search.json)', () => {
     const chat = cases.filter((c) => !c.want.length);
     expect(chat.filter((c) => !shown(c.q)).length).toBeGreaterThanOrEqual(9);
   });
-  it('every tap-to-ask card on the chat screen shows a page from its own book', () => {
-    const chat = readFileSync(resolve(here, '../../apps/web/src/chat.tsx'), 'utf8');
-    const block = /const IDEAS[^=]*= \{([\s\S]*?)\n\};/.exec(chat)![1]!;
-    const cards = [...block.matchAll(/'([\w-]+)': \{ or: \[(.*?)\], en: \[(.*?)\] \}/g)]
-      .flatMap((m) => [...`${m[2]},${m[3]}`.matchAll(/'((?:\\'|[^'])*)'/g)].map((q) => [m[1]!, q[1]!.replace(/\\'/g, "'")] as const));
-    expect(cards.length).toBeGreaterThanOrEqual(14);
-    for (const [book, q] of cards) expect(shown(q)?.split('#')[0], q).toBe(book);
+  it('every chapter on the shelf can be taught as a guided lesson, part by part, from its own pages', () => {
+    let chapters = 0;
+    for (const b of books) for (const c of b.meta.chapters) {
+      const parts = shelf.lessonParts(b.meta.id, c.n);
+      const pages = parts.flat().map((p) => p.page);
+      // a chapter with no readable page (e.g. all figures) has no lesson; the rest start on their own pages, in order
+      if (!parts.length) continue;
+      chapters++;
+      expect(parts.every((p) => p.length > 0 && p.every((x) => x.ch === c.n)), `${b.meta.id}#${c.n}`).toBe(true);
+      expect(pages, `${b.meta.id}#${c.n}`).toEqual([...pages].sort((x, y) => x - y));
+    }
+    expect(chapters).toBeGreaterThanOrEqual(60);
   });
   it('every Odia word in the English→Odia list is in the books', () => {
     const all = normalizeForMatch(books.flatMap((b) => b.passages.map((p) => p.text)).join(' '));

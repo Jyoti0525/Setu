@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildBook, Shelf, type BookMeta } from '@setu/core';
 import { Store } from '../src/db.ts';
 import { buildModels, ScriptedLlm } from '../src/llm.ts';
+import { Push } from '../src/push.ts';
 import { openTutor, runTutor, type TutorDeps } from '../src/tutor/run.ts';
 
 const meta: BookMeta = {
@@ -103,5 +104,35 @@ describe('tutor chat agent (PLAN v4)', () => {
     const r = await say('', { review: 'bio#2' });
     expect(r.trace.chosen).toMatch(/^review bio#2/);
     expect(r.messages[0]!.check).toContain('ପ୍ରାଣୀ କୋଷରେ');
+  });
+
+  it('3 wrong in a row → ESCALATED with evidence, she is told, and her class teacher’s phone buzzes (no name, no words)', async () => {
+    const { d, store, say, later } = setup((p) => p.includes('OPEN CHECK QUESTION')
+      ? JSON.stringify({ intent: 'answer', reply: 'ପୁଣି ଦେଖିବା।', used: [pid], terms: [], grade: { verdict: 'wrong', gap: 'thinks the wall is in animal cells' }, check: { question: 'ପ୍ରାଣୀ କୋଷରେ ପ୍ରାଚୀର ଅଛି କି?', key_ideas: ['no wall'] } })
+      : explainJson);
+    // she joined Mrs Das's class; the teacher turned alerts on for her phone
+    store.append([{ id: 'j1', profileId: PID, deviceId: 'phone', seq: 1, ts: 1, type: 'CLASS_JOINED', payload: { classCode: '482913' } } as never], 1);
+    const sent: { to: string; body: string }[] = [];
+    const push = new Push(store, { send: async (s, p) => { sent.push({ to: (s as { endpoint: string }).endpoint, body: p }); } });
+    push.subscribe('teacher-phone', 'class:482913', { endpoint: 'https://push.example/teacher', keys: { p256dh: 'k', auth: 'a' } }, 'en');
+    const noonIst = Date.UTC(2026, 9, 14, 6, 30);
+    d.onEscalate = (p, kind, chapter) => { for (const code of store.classesOf(p)) void push.teacherAlert(code, kind, chapter, noonIst); };
+
+    await say('koshika prachira kana?');
+    const r1 = await say('pata'); later(60_000);
+    const r2 = await say('jani nahi'); later(60_000);
+    expect([r1, r2].some((r) => r.messages.some((m) => m.tone === 'teacher'))).toBe(false);
+    const r3 = await say('achhi');
+    expect(r3.messages.at(-1)).toMatchObject({ tone: 'teacher', by: 'policy' });
+    expect(r3.trace.tools.map((t) => t.tool)).toContain('teacher.notify');
+    const esc = store.events(PID).filter((e) => e.type === 'ESCALATED');
+    expect(esc).toHaveLength(1);
+    expect(JSON.stringify(esc[0]!.payload)).toContain('still wrong after 3 tries');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent).toEqual([{ to: 'https://push.example/teacher', body: JSON.stringify({ title: 'Setu · Teacher', body: 'A learner is stuck and needs you. (The cell)', url: '/#teacher' }) }]);
+    // a 4th wrong answer the same day: no second alert (once per chapter per 3 days)
+    await say('jani nahi');
+    expect(store.events(PID).filter((e) => e.type === 'ESCALATED')).toHaveLength(1);
+    expect(sent).toHaveLength(1);
   });
 });

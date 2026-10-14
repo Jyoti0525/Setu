@@ -1,3 +1,4 @@
+import './install.ts'; // first: Chrome's install offer can fire before any screen is drawn
 import { render } from 'preact';
 import { App } from './app.tsx';
 import './styles.css';

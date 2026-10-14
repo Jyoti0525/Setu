@@ -187,4 +187,39 @@ describe('retention (P5.21)', () => {
     expect(store.canUse('old', 'phone2')).toBe(true); // no events, no grants left: the id is free again
     expect(store.traces(10, 'new')).toHaveLength(1);
   });
+
+  it('teachers too: notes are cleared after 90 days; a class the teacher left for a year is removed, an active one stays', () => {
+    const store = new Store();
+    new Push(store, { send: async () => {} }); // creates the reminder table
+    const DAY = 86_400_000, now = 1_800_000_000_000;
+    for (const code of ['OLD111', 'NEW222']) store.createClass({ code, name: code, lang: 'or', tokenHash: `h-${code}` });
+    store.db.prepare('UPDATE classes SET created_at = ?').run(now - 500 * DAY);
+    store.touchClass('NEW222', now - 30 * DAY); // the teacher opened this one last month
+    store.ack('OLD111', 'esc:a', 'done', 'old note');
+    store.ack('NEW222', 'esc:b', 'done', 'note from 4 months ago');
+    store.ack('NEW222', 'esc:c', 'done', 'fresh note');
+    store.db.prepare("UPDATE teacher_acks SET at = ? WHERE ref != 'esc:c'").run(now - 120 * DAY);
+    store.db.prepare('UPDATE teacher_acks SET at = ? WHERE ref = ?').run(now - 2 * DAY, 'esc:c');
+    store.cacheSet('anchors:OLD111', '{}');
+    store.db.prepare("INSERT INTO push_subs (endpoint, device_id, profile_id, sub, lang) VALUES ('x', 'd', 'class:OLD111', '{}', 'or')").run();
+    const r = store.prune(now);
+    expect(r.classes).toEqual(['OLD111']);
+    expect(store.classByCode('OLD111')).toBeUndefined();
+    expect(store.acks('OLD111').size).toBe(0);
+    expect(store.cacheGet('anchors:OLD111')).toBeUndefined();
+    expect(store.db.prepare("SELECT COUNT(*) AS n FROM push_subs WHERE profile_id = 'class:OLD111'").get()).toEqual({ n: 0 });
+    const kept = store.acks('NEW222');
+    expect(kept.get('esc:b')).toMatchObject({ action: 'done', body: undefined }); // the decision stays, her words go
+    expect(kept.get('esc:c')?.body).toBe('fresh note');
+  });
+
+  it('the live trace needs the presenter key once a key is set', async () => {
+    const store = new Store();
+    const { app } = createApp({ store, packs: [motionPack], models: buildModels(), liveGenLangs: [], demoKey: 'k1' });
+    expect((await app.request('/trace/live')).status).toBe(404);
+    expect((await app.request('/api/trace/recent')).status).toBe(404);
+    expect((await app.request('/trace/live?key=k1')).status).toBe(200);
+    expect((await app.request('/api/trace/recent?key=k1')).status).toBe(200);
+    expect((await app.request('/api/trace/recent', { headers: { 'x-demo-key': 'k1' } })).status).toBe(200);
+  });
 });

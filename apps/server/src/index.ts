@@ -15,6 +15,8 @@ import { createApp } from './app.ts';
 import { tick } from './agent/between.ts';
 import { LiveVoice, shippedClips } from './voice.ts';
 import { LocalAsr } from './asr.ts';
+import { warmOcr } from './vision.ts';
+import { NlpWorker, ragDir } from './rag.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const envFile = resolve(here, '../.env');
@@ -42,6 +44,14 @@ const localAsr = process.env.SETU_ASR === '0' ? undefined : new LocalAsr({
   log: (m) => console.log(m),
 });
 localAsr?.start();
+warmOcr(); // photo reading when the cloud vision models are busy
+// self-hosted IndicTrans2 (her question → English) + e5 embeddings for hybrid RAG (Postgres + pgvector); SETU_NLP=0 off
+const nlp = process.env.SETU_NLP === '0' ? undefined : new NlpWorker({
+  python: process.env.SETU_TTS_PYTHON || venvPython,
+  script: resolve(repo, 'tools/nlp/serve.py'),
+  log: (m) => console.log(m),
+});
+nlp?.start();
 // textbook indexes for the tutor chat (content/scripts/build_book.ts)
 const booksDir = resolve(repo, 'content/books/out');
 const books = existsSync(booksDir) ? readdirSync(booksDir).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(readFileSync(resolve(booksDir, f), 'utf8')) as BookIndex) : [];
@@ -49,6 +59,7 @@ const { app, deps } = createApp({
   store,
   packs: [motionPack],
   books,
+  figuresDir: resolve(repo, 'content/books/figures'),
   models,
   // Live generation per language follows its measured quality (core languages.ts, P3.27); SETU_LIVE_GEN overrides.
   liveGenLangs: process.env.SETU_LIVE_GEN ? process.env.SETU_LIVE_GEN.split(',').map((s) => s.trim()).filter(Boolean) : liveGenLanguages(),
@@ -65,6 +76,8 @@ const { app, deps } = createApp({
     sarvamKey: process.env.SARVAM_API_KEY || undefined,
     order: process.env.SETU_ASR_ORDER?.split(',').map((x) => x.trim()),
   },
+  nlp,
+  ragDir: ragDir(dataDir),
 });
 
 // SCHEDULE_TICK (PLAN §5.1): end sessions left open, run the between-session agent, detect drop-off
@@ -77,8 +90,15 @@ if (existsSync(webDist)) {
   // OCR cores are base64 WASM (3.9 MB) — gzip roughly halves what the phone downloads
   app.use('/ocr/*', compress());
   // pre-recorded voice clips: Opus in Ogg (hono's mime table has no .ogg)
-  app.use('/*', serveStatic({ root, onFound: (p, c) => { if (p.endsWith('.ogg')) c.header('content-type', 'audio/ogg'); } }));
-  app.get('/*', serveStatic({ path: `${root}/index.html` }));
+  // the installed app updates itself (P7.6): the service worker, its manifest and the page are always re-checked;
+  // hashed build files never change, so the phone keeps them
+  app.use('/*', serveStatic({ root, onFound: (p, c) => {
+    if (p.endsWith('.ogg')) c.header('content-type', 'audio/ogg');
+    if (p.endsWith('.webmanifest')) c.header('content-type', 'application/manifest+json');
+    if (/(^|[\\/])(sw|registerSW|push-sw|workbox-\w+)\.js$|\.webmanifest$|\.html$/.test(p)) c.header('cache-control', 'no-cache');
+    else if (/[\\/]assets[\\/]/.test(p)) c.header('cache-control', 'public, max-age=31536000, immutable');
+  } }));
+  app.get('/*', serveStatic({ path: `${root}/index.html`, onFound: (_p, c) => { c.header('cache-control', 'no-cache'); } }));
 }
 
 const port = Number(process.env.PORT ?? 8787);

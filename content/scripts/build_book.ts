@@ -22,7 +22,20 @@ const save = (b: BookIndex) => {
 for (const meta of metas) {
   const ocr = resolve(root, 'ocr', `${meta.id}.json`);
   if (!existsSync(ocr)) { console.warn(`skip ${meta.id}: no OCR yet (${ocr})`); continue; }
-  save(buildBook(meta, JSON.parse(readFileSync(ocr, 'utf8'))));
+  save(withFigures(buildBook(meta, JSON.parse(readFileSync(ocr, 'utf8')))));
+}
+
+/** The book's figures (scripts/figures.ts) join it as passages on their pages: what a picture shows, in words. */
+function withFigures(b: BookIndex): BookIndex {
+  const f = resolve(root, 'figures', `${b.meta.id}.json`);
+  if (!existsSync(f)) return b;
+  const figs = JSON.parse(readFileSync(f, 'utf8')) as { pdfPage: number; page: number; ch: number; n: number; label: string; caption: string; explain: string; img: string }[];
+  const have = figs.filter((x) => x.ch && existsSync(resolve(root, 'figures', b.meta.id, x.img)));
+  const passages = [...b.passages, ...have.map((x) => ({
+    id: `${b.meta.id}.f${x.pdfPage}.${x.n}`, ch: x.ch, page: x.page,
+    text: `${x.caption || x.label || '[ଚିତ୍ର]'} — ${x.explain}`, fig: `${b.meta.id}/${x.img}`,
+  }))];
+  return { ...b, passages, version: `${b.version}.f${have.length}` };
 }
 
 // Physical Science · Motion: the pack's textbook passages and its explanations, Odia text

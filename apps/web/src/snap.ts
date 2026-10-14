@@ -29,10 +29,10 @@ const b64 = async (b: Blob) => {
 };
 
 /** Online: vision model on the server. Returns undefined when it cannot (offline, no provider) — then OCR. */
-export async function readOnline(device: Device, file: Blob): Promise<{ text: string; kb: number } | undefined> {
+export async function readOnline(device: Device, file: Blob, lang?: string): Promise<{ text: string; kb: number } | undefined> {
   try {
     const img = await shrink(file, 1280, 0.7);
-    const body = JSON.stringify({ image: await b64(img), mime: 'image/jpeg' });
+    const body = JSON.stringify({ image: await b64(img), mime: 'image/jpeg', lang });
     const r = await fetchWithTimeout('/api/snap/read', { method: 'POST', headers: { 'content-type': 'application/json', 'x-device-token': device.token }, body }, 25000);
     if (!r.ok) return undefined;
     const j = (await r.json()) as { text: string };

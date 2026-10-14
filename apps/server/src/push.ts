@@ -14,6 +14,11 @@ const LINES: Record<string, string> = {
   hi: 'तुम्हारा अगला पाठ तैयार है।',
 };
 
+const TEACHER = {
+  academic: { or: 'ଜଣେ ଶିକ୍ଷାର୍ଥୀ ଅଟକି ଯାଇଛି — ଆପଣଙ୍କ ସାହାଯ୍ୟ ଦରକାର।', en: 'A learner is stuck and needs you.', hi: 'एक विद्यार्थी अटक गया है — आपकी मदद चाहिए।' },
+  wellbeing: { or: 'ଜଣେ ଶିକ୍ଷାର୍ଥୀଙ୍କ ସହ ଏକାନ୍ତରେ କଥା ହୁଅନ୍ତୁ।', en: 'Please check in privately with a learner.', hi: 'कृपया एक विद्यार्थी से अकेले में बात करें।' },
+};
+
 export const quietNow = (now: number) => {
   const h = Math.floor((((now / 60_000 + IST_OFFSET_MIN) % 1440) + 1440) % 1440 / 60);
   return h >= QUIET.from || h < QUIET.to;
@@ -46,6 +51,25 @@ export class Push {
 
   unsubscribe(deviceId: string, endpoint: string) {
     this.store.db.prepare('DELETE FROM push_subs WHERE endpoint = ? AND device_id = ?').run(endpoint, deviceId);
+  }
+
+  /**
+   * The agent escalated a learner of this class: buzz the teacher's phone. No name, no words — just that someone needs
+   * help and where; the details are on the dashboard behind her key. Not rate-limited here: the tutor already allows one
+   * academic alert per chapter per 3 days. Quiet hours hold for academic alerts, not for wellbeing.
+   */
+  async teacherAlert(code: string, kind: 'academic' | 'wellbeing', chapter?: string, now = Date.now()): Promise<'sent' | 'quiet' | 'none'> {
+    const subs = this.store.db.prepare('SELECT * FROM push_subs WHERE profile_id = ?').all(`class:${code}`) as { endpoint: string; sub: string; lang: string }[];
+    if (!subs.length) return 'none';
+    if (kind === 'academic' && quietNow(now)) return 'quiet';
+    const body = (TEACHER[kind] as Record<string, string>)[subs[0]!.lang] ?? TEACHER[kind].en;
+    const payload = JSON.stringify({ title: 'Setu · Teacher', body: chapter && kind === 'academic' ? `${body} (${chapter})` : body, url: '/#teacher' });
+    let sent = false;
+    for (const s of subs) {
+      try { await this.send(JSON.parse(s.sub), payload); this.store.db.prepare('UPDATE push_subs SET last_sent = ? WHERE endpoint = ?').run(now, s.endpoint); sent = true; }
+      catch (e) { const c = (e as { statusCode?: number }).statusCode; if (c === 404 || c === 410) this.store.db.prepare('DELETE FROM push_subs WHERE endpoint = ?').run(s.endpoint); }
+    }
+    return sent ? 'sent' : 'none';
   }
 
   /** After the between-session run prepared her next session. Returns what happened, for the trace/tests. */

@@ -7,7 +7,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { emptyMemory, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
 import type { Agent } from './agent.ts';
 import { getMeta, setMeta } from './db.ts';
-import { bookLink, fetchWithTimeout } from './net.ts';
+import { bookLink, fetchWithTimeout, goodLink } from './net.ts';
+import { install, installState, onInstall, type InstallState } from './install.ts';
 import { t, speak, LANGS } from './i18n.ts';
 import { readOnline, readOffline, ocrReady } from './snap.ts';
 import { canRecord, record, transcribe, hasWebSpeech, webSpeech, serverListens, type Recording } from './listen.ts';
@@ -15,10 +16,17 @@ import type { Tier } from '@setu/core';
 import { Icon, Logo } from './icons.tsx';
 
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
-interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string }
-interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; tone?: string; chips?: { label: string; text?: string; review?: string; bookId?: string }[]; by: 'model' | 'policy' }
+interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string; figures?: { src: string; text: string }[] }
+/** the figures printed on a source's page (the picture comes from the server, or the phone's cache with no signal) */
+const figs = (sh: Shelf, bookId: string, page: number) => {
+  const f = sh.figuresOn(bookId, page).slice(0, 3).map((p) => ({ src: `/figure/${p.fig}`, text: p.text }));
+  return f.length ? { figures: f } : {};
+};
+interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
 type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
-interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string }
+interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: { topic: string; part: number; parts: number; chapter: string } }
+/** A button in a tutor message: send text, quiz a chapter, pick a subject ([] = all) or chapter, learn a chapter, ask in it. */
+interface Chip { label: string; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
 interface Queued { id: string; text: string; bookIds?: string[]; at: number }
 
@@ -44,6 +52,9 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   const [lines, setLines] = useState<Line[]>([]);
   const [books, setBooks] = useState<BookInfo[]>([]);
   const [subject, setSubject] = useState<string[] | undefined>(undefined);
+  /** the chapter she picked (topic key `bookId#n`): her doubts are searched there first */
+  const [focus, setFocus] = useState<string | undefined>(undefined);
+  const field = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [memory, setMemory] = useState<Memory>({ topics: [] });
@@ -51,9 +62,14 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   const [showWhy, setShowWhy] = useState<number | null>(null);
   const [sheet, setSheet] = useState<'progress' | 'lang' | null>(null);
   const [mic, setMic] = useState<'idle' | 'rec' | 'live' | 'hearing'>('idle');
+  // install on the home screen (P7.6): Chrome's own sheet, or the Safari steps on an iPhone
+  const [inst, setInst] = useState<InstallState>(installState());
+  const [iosHelp, setIosHelp] = useState(false);
+  useEffect(() => onInstall(setInst), []);
   const rec = useRef<Recording | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const shelf = useRef<Shelf | null>(null);
+  const started = useRef(false);
   const headers = () => ({ 'content-type': 'application/json', 'x-device-token': agent.device!.token });
   const add = (l: Line[]) => setLines((p) => { const n = keep([...p, ...l]); void setMeta(`chat:${pid}`, n); return n; });
 
@@ -62,22 +78,39 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     void (async () => {
       setLines(await getMeta<Line[]>(`chat:${pid}`, []));
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
+      setFocus(await getMeta<string | undefined>(`chapter:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
       setBooks(await getMeta<BookInfo[]>('books', []));
       if (online) {
+        started.current = true;
         await agent.sync().catch(() => null); // her profile reaches the server before the tutor writes for her
         try {
           const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000);
           if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); }
         } catch { /* offline after all */ }
-        await openSession();
+        if (!(await openSession())) greetLocally();
         await sendQueued();
-      } else add([{ role: 'tutor', msg: { text: TL(lang, 'welcome_back'), by: 'policy' }, at: Date.now() }]);
+      } else add([{ role: 'tutor', msg: { text: `${TL(lang, 'welcome_back')}\n${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(await getMeta<BookInfo[]>('books', [])) }, at: Date.now() }]);
     })();
   }, []);
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }); }, [lines.length, busy]);
   // signal back → kept questions are answered now
   useEffect(() => { if (online) void sendQueued(); }, [tier]);
+  // opened before the link was known: once it is up, fetch her books and let the agent speak first
+  useEffect(() => {
+    if (!online || started.current) return;
+    started.current = true;
+    void (async () => {
+      try { const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000); if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); } } catch { /* stays local */ }
+      if (!(await openSession())) greetLocally();
+    })();
+  }, [online]);
+  /** the server did not answer the opener: the phone still asks which subject (never a silent, empty chat) */
+  async function greetLocally() {
+    const list = await getMeta<BookInfo[]>('books', []);
+    setLines((p) => p.length ? p : [{ role: 'tutor', msg: { text: `${TL(lang, 'welcome')}
+${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date.now() }]);
+  }
   // the books of her subject live on the phone for offline (text only, ~200 KB each), fetched on any usable link
   // (also when the link comes up: the first network check often finishes after the book list has loaded)
   useEffect(() => {
@@ -89,8 +122,18 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     for (const id of ids) {
       const info = books.find((b) => b.id === id);
       const have = await getMeta<BookIndex | null>(`book:${id}`, null);
-      if (!info || have?.version === info.version) continue;
-      try { const r = await fetchWithTimeout(`/api/book/${id}`, { headers: headers() }, 30000); if (r.ok) { await setMeta(`book:${id}`, await r.json()); shelf.current = null; } } catch { return; }
+      if (!info) continue;
+      if (have?.version === info.version) { void keepFigures(have); continue; } // a book saved before its pictures were
+      try { const r = await fetchWithTimeout(`/api/book/${id}`, { headers: headers() }, 30000); if (r.ok) { const b = (await r.json()) as BookIndex; await setMeta(`book:${id}`, b); shelf.current = null; void keepFigures(b); } } catch { return; }
+    }
+  }
+  /** the book's pictures (~40 KB each) into the phone's figure cache, on Wi-Fi/4G only, so answer cards show them offline */
+  async function keepFigures(b: BookIndex) {
+    if (!goodLink() || !('caches' in window)) return;
+    const cache = await caches.open('setu-figures');
+    for (const p of b.passages) {
+      if (!p.fig || (await cache.match(`/figure/${p.fig}`))) continue;
+      try { const r = await fetch(`/figure/${p.fig}`); if (r.ok) await cache.put(`/figure/${p.fig}`, r); } catch { return; }
     }
   }
   async function localShelf(): Promise<Shelf> {
@@ -101,10 +144,12 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     return shelf.current;
   }
 
-  async function openSession() {
+  async function openSession(): Promise<boolean> {
     try {
       const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject }) }, 8000);
-      if (!r.ok) return;
+      // the server no longer knows this phone (its data was reset): register again, once
+      if (r.status === 401 && !sessionStorage.getItem('re-device')) { sessionStorage.setItem('re-device', '1'); await setMeta('device', null); location.reload(); return false; }
+      if (!r.ok) return false;
       const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
       // reopening the app must not stack the same greeting again under the last one
       setLines((p) => {
@@ -115,19 +160,21 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
         return n;
       });
       setMemory(j.memory); void setMeta(`memory:${pid}`, j.memory);
-    } catch { /* stays quiet: she can still ask */ }
+      return true;
+    } catch { return false; }
   }
 
   /** One message to the agent: online the server; no signal (or it drops mid-way) the phone. */
-  async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; show?: string } = {}) {
+  async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; learn?: string; show?: string } = {}) {
     const msg = scrubPii(raw, profile.name ? [profile.name] : []).trim();
-    if (!msg && !opts.review) return;
+    if (!msg && !opts.review && !opts.learn) return;
     add([{ role: 'student', text: opts.show ?? msg, at: Date.now() }]);
     const turnId = crypto.randomUUID();
     if (online) {
       setBusy(t(lang, 'thinking'));
       try {
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, turnId }) }, 30000);
+        const chapter = opts.learn || opts.review ? undefined : focus;
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId }) }, 30000);
         if (r.ok) {
           const j = (await r.json()) as { messages: TMsg[]; memory: Memory; trace: { chosen: string; reason: string; tools: { tool: string; note?: string }[] } };
           const why = `${j.trace.chosen} — ${j.trace.reason}\n${j.trace.tools.map((x) => x.tool + (x.note ? ` (${x.note})` : '')).join(' → ')}`;
@@ -137,7 +184,55 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
         }
       } catch { /* signal dropped mid-turn → the phone answers below */ } finally { setBusy(null); }
     }
+    if (opts.learn || opts.review) return void await offlineLesson((opts.learn ?? opts.review)!, !!opts.learn);
     await offlineTurn(msg, turnId);
+  }
+
+  /** No signal in a lesson: she reads the part from her book now; the explanation and the check come when online. */
+  async function offlineLesson(topic: string, learning: boolean) {
+    const sh = await localShelf();
+    const [bookId, ch] = topic.split('#');
+    const part = learning && memory.lesson?.topic === topic ? memory.lesson.part : 0;
+    const ps = sh.lessonParts(bookId!, Number(ch))[part] ?? [];
+    const name = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'or' ? x.or : lang === 'hi' ? x.hi ?? x.en : x.en) : '');
+    const src: Source[] = ps.slice(0, 2).map((p) => ({ bookId: bookId!, subject: name(sh.books.get(bookId!)?.meta.subject), chapter: name(sh.chapterOf(bookId!, p.ch)?.title), page: p.page, passageId: p.id, quote: p.text, ...figs(sh, bookId!, p.page) }));
+    add([{ role: 'tutor', msg: { text: TL(lang, src.length ? 'offline_passage' : 'offline_none'), tone: 'offline', sources: src, by: 'policy' }, at: Date.now(), why: `no signal → lesson ${topic}: part ${part + 1} shown from the book on this phone` }]);
+  }
+
+  // ---------- the guided path: subject → chapter → teach / quiz / doubt (the agent asks; she can always just type) ----------
+  const titleOf = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'or' ? x.or : lang === 'hi' ? x.hi ?? x.en : x.en) : '');
+  function subjectChips(list: BookInfo[] = books): Chip[] { return subjectsOf(list).map((s) => ({ label: s.name[lang] ?? s.name.en ?? '', subject: s.ids })); }
+  function chapterChips(ids: string[]): Chip[] {
+    return ids.flatMap((id) => (books.find((b) => b.id === id)?.chapters ?? []).map((c) => ({ label: `${c.n}. ${titleOf(c.title)}`, chapter: `${id}#${c.n}` })));
+  }
+  const chapterName = (topic: string) => { const [id, n] = topic.split('#'); return titleOf(books.find((b) => b.id === id)?.chapters.find((c) => c.n === Number(n))?.title) || topic; };
+  const say = (text: string, chips?: Chip[], why?: string) => add([{ role: 'tutor', msg: { text, by: 'policy', ...(chips ? { chips } : {}) }, at: Date.now(), ...(why ? { why } : {}) }]);
+  const setChapter = async (c: string | undefined) => { setFocus(c); await setMeta(`chapter:${pid}`, c); };
+
+  async function onChip(c: Chip) {
+    const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
+    if (ids) {
+      add([{ role: 'student', text: c.label, at: Date.now() }]);
+      await setChapter(undefined);
+      if (!ids.length) { await pick(undefined); return say(TL(lang, 'ask_subject'), subjectChips(), 'she wants another subject → list her subjects'); }
+      await pick(ids);
+      const s = subjectsOf(books).find((x) => x.ids.some((id) => ids.includes(id)));
+      return say(TL(lang, 'ask_chapter', s?.name[lang] ?? s?.name.en ?? c.label), chapterChips(ids), 'subject picked → list its chapters');
+    }
+    if (c.chapter) {
+      add([{ role: 'student', text: c.label, at: Date.now() }]);
+      await setChapter(c.chapter);
+      return say(TL(lang, 'ask_mode', chapterName(c.chapter)), [{ label: `📖 ${TL(lang, 'mode_teach')}`, learn: c.chapter }, { label: `✍️ ${TL(lang, 'mode_quiz')}`, review: c.chapter }, { label: `❓ ${TL(lang, 'mode_ask')}`, ask: c.chapter }], 'chapter picked → teach it part by part, quiz her, or take her own doubt');
+    }
+    if (c.learn) { await setChapter(c.learn); return void ask('', { learn: c.learn, show: c.label }); }
+    if (c.review) return void ask('', { review: c.review, show: c.label });
+    if (c.ask) {
+      add([{ role: 'student', text: c.label, at: Date.now() }]);
+      await setChapter(c.ask);
+      say(TL(lang, 'ask_doubt', chapterName(c.ask)), undefined, 'her own doubt → searched in this chapter first');
+      return field.current?.focus();
+    }
+    if (c.text) void ask(c.text);
   }
 
   async function offlineTurn(msg: string, id: string) {
@@ -160,7 +255,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     const h = plan.grounding[0];
     const name = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'en' ? x.en : lang === 'hi' ? x.hi ?? x.en : x.or) : '');
     const quote = h ? focusQuote(h.passage.text, msg) : '';
-    const src: Source[] | undefined = h ? [{ bookId: h.bookId, subject: name(sh.books.get(h.bookId)?.meta.subject), chapter: name(sh.chapterOf(h.bookId, h.passage.ch)?.title), page: h.passage.page, passageId: h.passage.id, quote, ...(quote !== h.passage.text ? { full: h.passage.text } : {}) }] : undefined;
+    const src: Source[] | undefined = h ? [{ bookId: h.bookId, subject: name(sh.books.get(h.bookId)?.meta.subject), chapter: name(sh.chapterOf(h.bookId, h.passage.ch)?.title), page: h.passage.page, passageId: h.passage.id, quote, ...(quote !== h.passage.text ? { full: h.passage.text } : {}), ...figs(sh, h.bookId, h.passage.page) }] : undefined;
     add([{ role: 'tutor', msg: { text: TL(lang, h ? 'offline_passage' : 'offline_none'), tone: 'offline', sources: src, by: 'policy' }, at: Date.now(), why: `${plan.action} — ${plan.reason}` }]);
     const q = await getMeta<Queued[]>(`tutorQueue:${pid}`, []);
     await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, at: Date.now() }]);
@@ -214,7 +309,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     setBusy(t(lang, 'readingPhoto'));
     let read = '';
     try {
-      if (online && agent.device) read = (await readOnline(agent.device, file))?.text ?? '';
+      if (online && agent.device) read = (await readOnline(agent.device, file, lang))?.text ?? '';
       if (!read && (await ocrReady())) read = await readOffline(file).catch(() => '');
     } finally { setBusy(null); }
     if (!read.trim()) return void add([{ role: 'tutor', msg: { text: t(lang, 'voiceFailed'), by: 'policy', tone: 'info' }, at: Date.now() }]);
@@ -227,8 +322,6 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   const openCheck = [...lines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
   const answering = !!(memory.check && openCheck);
   const placeholder = answering ? U(lang, 'answerShort') : U(lang, 'askShort');
-  const current = subject ? subjects.find((s) => s.ids.every((id) => subject.includes(id))) : undefined;
-  const ideas = suggestions(current?.ids ?? subjects.flatMap((s) => s.ids), lang);
   const fresh = !lines.some((l) => l.role === 'student');
   const send = () => { if (!text.trim() || busy) return; const x = text; setText(''); void ask(x); };
   const listening = mic === 'rec' || mic === 'live';
@@ -245,15 +338,17 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
           </div>
         </div>
         <button class="iconbtn" aria-label={TL(lang, 'progress')} aria-pressed={sheet === 'progress'} onClick={() => setSheet('progress')}><Icon name="chart" /></button>
+        {(inst === 'prompt' || inst === 'ios') && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={() => (inst === 'prompt' ? void install() : setIosHelp(true))}><Icon name="install" /></button>}
         <button class="iconbtn" aria-label={t(lang, 'chooseLang')} aria-pressed={sheet === 'lang'} onClick={() => setSheet('lang')}><Icon name="globe" /></button>
       </header>
+      {iosHelp && <button class="installhelp" role="status" onClick={() => setIosHelp(false)}>{U(lang, 'installIos')} ✕</button>}
 
       <nav class="subjects" aria-label={TL(lang, 'pick_subject')}>
-        <button class={'pill' + (!subject ? ' on' : '')} aria-pressed={!subject} onClick={() => void pick(undefined)}><span class="emo">📚</span>{TL(lang, 'all_subjects')}</button>
+        <button class={'pill' + (!subject ? ' on' : '')} aria-pressed={!subject} onClick={() => { void pick(undefined); void setChapter(undefined); }}><span class="emo">📚</span>{TL(lang, 'all_subjects')}</button>
         {subjects.map((s) => {
           const on = !!subject && s.ids.every((id) => subject.includes(id));
           const look = subjectLook(s.name.en ?? '');
-          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void pick(s.ids)}><span class="emo">{look.emoji}</span>{s.name[lang] ?? s.name.en}</button>;
+          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void onChip({ label: s.name[lang] ?? s.name.en ?? '', subject: s.ids })}><span class="emo">{look.emoji}</span>{s.name[lang] ?? s.name.en}</button>;
         })}
       </nav>
 
@@ -267,18 +362,13 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
               <span><Icon name="mic" size={16} />{U(lang, 'wayVoice')}</span>
               <span><Icon name="offline" size={16} />{U(lang, 'wayOffline')}</span>
             </div>
+            {(inst === 'prompt' || inst === 'ios') && <button class="install" onClick={() => (inst === 'prompt' ? void install() : setIosHelp(!iosHelp))}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
           </section>
         )}
         {lines.map((l, i) => l.role === 'student'
           ? <div class="msg me"><div class="bubble">{l.text}</div></div>
           : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
-              onChip={(c) => { if (c.bookId) void pick([c.bookId]); else if (c.review) void ask('', { review: c.review, show: c.label }); else if (c.text) void ask(c.text); }} />)}
-        {fresh && !busy && ideas.length > 0 && (
-          <section class="ideas" aria-label={U(lang, 'tryAsking')}>
-            <h2><Icon name="spark" size={16} />{U(lang, 'tryAsking')}</h2>
-            {ideas.map((q) => <button class="idea" onClick={() => void ask(q)}><span>{q}</span><Icon name="chevron" size={18} /></button>)}
-          </section>
-        )}
+              onChip={(c) => { if (!busy) void onChip(c); }} />)}
         {busy && <div class="msg tutor"><span class="mark"><Logo size={28} /></span><div class="bubble typing" role="status" aria-label={busy}><i /><i /><i /><span class="sr">{busy}</span></div></div>}
         <div ref={end} />
       </main>
@@ -291,7 +381,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
             <Icon name="camera" />
             <input type="file" accept="image/*" capture="environment" hidden disabled={!!busy} onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; (e.target as HTMLInputElement).value = ''; if (f) void onPhoto(f); }} />
           </label>
-          <textarea class="field" rows={1} aria-label={t(lang, 'ask')} placeholder={placeholder} value={text}
+          <textarea ref={field} class="field" rows={1} aria-label={t(lang, 'ask')} placeholder={placeholder} value={text}
             onInput={(e) => { const el = e.target as HTMLTextAreaElement; setText(el.value); el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           {text.trim()
@@ -315,6 +405,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
               </div>
             );
           }) : <p class="empty">{TL(lang, 'no_progress')}</p>}
+          {(inst === 'prompt' || inst === 'ios') && <button class="wide ghost" onClick={() => { if (inst === 'prompt') void install(); else { setSheet(null); setIosHelp(true); } }}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
           {physics && <button class="wide" onClick={() => { setSheet(null); onGuided(); }}><Icon name="play" size={18} />{TL(lang, 'guided')}</button>}
           <button class="wide ghost" onClick={() => { setSheet(null); onSwitch(); }}><Icon name="users" size={18} />{t(lang, 'switchLearner')}</button>
         </section>
@@ -343,34 +434,10 @@ const LOOKS: Record<string, { emoji: string; color: string }> = {
 };
 const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
 
-/** First questions to tap, per book, written as a student would ask them (checked against the books' pages). */
-const IDEAS: Record<string, Record<string, string[]>> = {
-  'life-science-9': { or: ['ରକ୍ତ କଣିକା କେତେ ପ୍ରକାର?', 'ଜୀବକୋଷ କ\'ଣ?'], en: ['What are the types of blood cells?', 'What is a cell?'] },
-  'geography-economics-9': { or: ['ମୌସୁମୀ ବାୟୁ କ\'ଣ?', 'ବ୍ୟାଙ୍କ କ\'ଣ କାମ କରେ?'], en: ['What is the monsoon?', 'What does a bank do?'] },
-  'disaster-management-9': { or: ['ସଡ଼କ ଦୁର୍ଘଟଣାର କାରଣ କ\'ଣ?'], en: ['Why do road accidents happen?'] },
-  'physical-science-9': { or: ['ବେଗ ଓ ପରିବେଗ ମଧ୍ୟରେ ପାର୍ଥକ୍ୟ କ\'ଣ?', 'ମହାକର୍ଷଣ କ\'ଣ?'], en: ['What is the difference between speed and velocity?', 'What is gravitation?'] },
-  'history-polsci-9': { or: ['ପ୍ରଥମ ବିଶ୍ୱଯୁଦ୍ଧର କାରଣ କ\'ଣ?', 'ମୌଳିକ ଅଧିକାର କ\'ଣ?'], en: ['What caused the First World War?', 'What are fundamental rights?'] },
-  'algebra-9': { or: ['ସମ୍ଭାବ୍ୟତା କ\'ଣ?'], en: ['What is probability?'] },
-  'geometry-9': { or: ['ଚତୁର୍ଭୁଜ କେତେ ପ୍ରକାର?'], en: ['What are the types of quadrilaterals?'] },
-  // language books: each card names its lesson, so it finds the book with or without the subject picked
-  'odia-literature-9': { or: ['ବୁଢ଼ା ଶଙ୍ଖାରି ଗଳ୍ପଟି କାହା ବିଷୟରେ?', 'ହେ ମୋର କଲମ କବିତାର କବି କିଏ?'], en: ['What is the story Budha Sankhari about?', 'Who wrote the poem He Mora Kalama?'] },
-  'odia-grammar-9': { or: ['ସନ୍ଧି କ\'ଣ?', 'ସମାସ କେତେ ପ୍ରକାର?'], en: ['What is sandhi?', 'What are the kinds of samasa?'] },
-  'english-9': { or: ['The Lost Child ଗଳ୍ପରେ କ\'ଣ ହୁଏ?', 'Missile Man of India କିଏ?'], en: ['What happens in The Lost Child?', 'Who is the Missile Man of India?'] },
-  'hindi-9': { or: ['कबीर के दोहे का अर्थ क्या है?', 'ममता कहानी किसने लिखी?'], en: ['What do Kabir ke dohe mean?', 'Who wrote the story Mamta?'] },
-  'sanskrit-9': { or: ['सिंहशशककथा का सार क्या है?'], en: ['What is the Simha Shashaka Katha about?'] },
-};
-function suggestions(ids: string[], lang: string) {
-  const rank = (id: string) => { const i = Object.keys(IDEAS).indexOf(id); return i < 0 ? 99 : i; };
-  const per = [...new Set(ids)].sort((x, y) => rank(x) - rank(y)).map((id) => IDEAS[id]?.[lang] ?? IDEAS[id]?.en ?? []);
-  const out: string[] = [];
-  for (let i = 0; out.length < 4 && i < 3; i++) for (const qs of per) if (qs[i] && out.length < 4) out.push(qs[i]!);
-  return out;
-}
-
 const UI: Record<string, Record<string, string>> = {
-  or: { noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି' },
-  hi: { noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया' },
-  en: { noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided' },
+  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି' },
+  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया' },
+  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided' },
 };
 const U = (lang: string, k: string) => UI[lang]?.[k] ?? UI.en![k] ?? k;
 
@@ -402,6 +469,11 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip }
                 {s.page ? <span class="pg">{TL(lang, 'page')} {s.page}</span> : null}
                 <Icon name="down" size={16} />
               </button>
+              {s.figures?.length ? <div class="figs">{s.figures.map((f) => (
+                <figure class="fig">
+                  <a href={f.src} target="_blank" rel="noopener"><img src={f.src} alt={f.text} loading="lazy" onError={(e) => { (e.currentTarget.closest('figure') as HTMLElement).style.display = 'none'; }} /></a>
+                  <figcaption>{open ? f.text : f.text.split(' — ')[0]}</figcaption>
+                </figure>))}</div> : null}
               {open && <div class="quote">
                 <p>{full && s.full ? s.full : s.quote}</p>
                 {s.full && s.full !== s.quote && <button class="textbtn" onClick={() => setFull(!full)}>{U(lang, full ? 'showLess' : 'showMore')}</button>}

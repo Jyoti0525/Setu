@@ -51,6 +51,8 @@ export class Store {
     this.db.exec('CREATE TABLE IF NOT EXISTS grants (profile_id TEXT NOT NULL, device_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (profile_id, device_id))');
     // P4.4: which turn wrote an event (added after the first schema; old databases get the column here)
     if (!(this.db.prepare('PRAGMA table_info(events)').all() as { name: string }[]).some((c) => c.name === 'turn')) this.db.exec('ALTER TABLE events ADD COLUMN turn TEXT');
+    // retention for teachers too: when the teacher last opened the class
+    if (!(this.db.prepare('PRAGMA table_info(classes)').all() as { name: string }[]).some((c) => c.name === 'last_used')) this.db.exec('ALTER TABLE classes ADD COLUMN last_used INTEGER');
   }
 
   /** Idempotent append. Returns how many were new. */
@@ -79,18 +81,32 @@ export class Store {
   /**
    * Retention (P5.21, PLAN §10.6): decision traces (they quote what she asked) are kept 90 days; a learner silent for a
    * year has her whole server copy removed — events, traces, device grants. Her phone keeps its own copy.
+   * Teachers alike: notes a teacher wrote are cleared after 90 days, and a class the teacher has not opened for a year
+   * is removed with its notes, home-language words and alert subscription. Its learners keep their own records.
    */
-  prune(now = Date.now(), traceDays = 90, profileDays = 365): { traces: number; profiles: string[] } {
+  prune(now = Date.now(), traceDays = 90, profileDays = 365): { traces: number; profiles: string[]; classes: string[] } {
     const DAY = 86_400_000;
     const traces = this.db.prepare('DELETE FROM traces WHERE at < ?').run(now - traceDays * DAY).changes;
     // the chat quotes her words too: same 90 days
     this.db.prepare('DELETE FROM tutor_log WHERE at < ?').run(now - traceDays * DAY);
     const stale = (this.db.prepare('SELECT profile_id, MAX(received_at) AS last FROM events GROUP BY profile_id HAVING last < ?').all(now - profileDays * DAY) as any[]).map((r) => r.profile_id as string);
     const tx = this.db.transaction((ids: string[]) => {
-      for (const id of ids) for (const t of ['events', 'traces', 'grants', 'tutor_state', 'tutor_log']) this.db.prepare(`DELETE FROM ${t} WHERE profile_id = ?`).run(id);
+      for (const id of ids) for (const t of ['events', 'traces', 'grants', 'tutor_state', 'tutor_log', ...(push ? ['push_subs'] : [])]) this.db.prepare(`DELETE FROM ${t} WHERE profile_id = ?`).run(id);
     });
+    // reminder subscriptions live in a table the Push module creates (absent when push is off)
+    const push = !!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'push_subs'").get();
     tx(stale);
-    return { traces, profiles: stale };
+    this.db.prepare('UPDATE teacher_acks SET body = NULL WHERE at < ? AND body IS NOT NULL').run(now - traceDays * DAY);
+    const classes = (this.db.prepare('SELECT code FROM classes WHERE COALESCE(last_used, created_at) < ?').all(now - profileDays * DAY) as any[]).map((r) => r.code as string);
+    this.db.transaction((codes: string[]) => {
+      for (const code of codes) {
+        this.db.prepare('DELETE FROM teacher_acks WHERE class_code = ?').run(code);
+        this.db.prepare('DELETE FROM gen_cache WHERE key IN (?, ?)').run(`anchors:${code}`, `region:${code}`);
+        if (push) this.db.prepare('DELETE FROM push_subs WHERE profile_id = ?').run(`class:${code}`);
+        this.db.prepare('DELETE FROM classes WHERE code = ?').run(code);
+      }
+    })(classes);
+    return { traces, profiles: stale, classes };
   }
 
   tutorState<T>(profileId: string): T | undefined {
@@ -141,6 +157,10 @@ export class Store {
   classByToken(tokenHash: string): ClassRow | undefined {
     return classRow(this.db.prepare('SELECT * FROM classes WHERE token_hash = ?').get(tokenHash));
   }
+  /** the teacher opened the class: keeps it from the one-year clean-up */
+  touchClass(code: string, now = Date.now()) {
+    this.db.prepare('UPDATE classes SET last_used = ? WHERE code = ?').run(now, code);
+  }
   setExamDate(code: string, examDate: number | null) {
     this.db.prepare('UPDATE classes SET exam_date = ? WHERE code = ?').run(examDate, code);
   }
@@ -162,6 +182,12 @@ export class Store {
     const last = new Map<string, { classCode: string; displayName?: string; ts: number }>();
     for (const r of rows) last.set(r.profile_id, { ...JSON.parse(r.payload), ts: r.ts });
     return [...last].filter(([, j]) => j.classCode === code).map(([profileId, j]) => ({ profileId, displayName: j.displayName, joinedAt: j.ts }));
+  }
+  /** the class(es) a learner is in now (her latest CLASS_JOINED) */
+  classesOf(profileId: string): string[] {
+    const r = this.db.prepare("SELECT payload FROM events WHERE type = 'CLASS_JOINED' AND profile_id = ? ORDER BY server_seq DESC LIMIT 1").get(profileId) as { payload: string } | undefined;
+    const code = r ? (JSON.parse(r.payload) as { classCode?: string }).classCode : undefined;
+    return code ? [code] : [];
   }
   ack(code: string, ref: string, action: string, body?: string) {
     this.db.prepare('INSERT OR REPLACE INTO teacher_acks (class_code, ref, action, body, at) VALUES (?, ?, ?, ?, ?)').run(code, ref, action, body ?? null, Date.now());

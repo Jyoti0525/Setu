@@ -38,7 +38,7 @@ function index(lang: string): Promise<Index | null> {
 }
 
 /** Languages the server records replies in (others have device voices). */
-const LIVE = new Set(['or']);
+const LIVE = new Set(['or', 'hi']);
 const liveUrl = (text: string, lang: string) => `/voice/${lang}/${audioKey(text)}.ogg`;
 
 /** Plays the recorded clip for this exact text if there is one; false → caller uses the device voice. */
@@ -51,7 +51,12 @@ export async function playClip(text: string, lang: string): Promise<boolean> {
   if (!url) return false;
   try {
     playing?.pause();
-    const r = await fetchCounted(url);
+    let r = await fetchCounted(url);
+    // not recorded yet (a fixed line, an older reply): ask the server to record it, then fetch it (it waits ~15 s)
+    if (r.status === 404 && url.startsWith('/voice/') && navigator.onLine) {
+      const q = await fetch('/voice/say', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) }).catch(() => null);
+      if (q?.ok) r = await fetchCounted(url);
+    }
     if (!r.ok) return false;
     const src = URL.createObjectURL(await r.blob());
     playing = new Audio(src);

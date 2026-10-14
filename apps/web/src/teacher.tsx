@@ -5,6 +5,7 @@ import { useEffect, useState } from 'preact/hooks';
 import qrcode from 'qrcode-generator';
 import { ensureDevice } from './agent.ts';
 import { fetchWithTimeout } from './net.ts';
+import { pushSupported, teacherAlerts } from './push.ts';
 import { REGIONS, textIn } from '@setu/core';
 
 interface Saved { code: string; token: string; name: string; lang: string }
@@ -16,7 +17,7 @@ const save = (s: Saved | null) => { try { s ? localStorage.setItem(KEY, JSON.str
 
 const S = {
   or: {
-    title: 'ଶିକ୍ଷକ', create: 'ନୂଆ ଶ୍ରେଣୀ ତିଆରି କରନ୍ତୁ', className: 'ଶ୍ରେଣୀର ନାମ (ଯେପରି 9A ବିଜ୍ଞାନ)', lang: 'ଆପଣଙ୍କ ଭାଷା', haveKey: 'ମୋ ପାଖରେ ଶ୍ରେଣୀ ଚାବି ଅଛି', key: 'ଶ୍ରେଣୀ ଚାବି', open: 'ଖୋଲନ୍ତୁ',
+    alertMe: 'ଏହି ଫୋନରେ ସତର୍କ ସୂଚନା ପାଆନ୍ତୁ', alertOn: 'ସତର୍କ ସୂଚନା ଚାଲୁ ✓', title: 'ଶିକ୍ଷକ', create: 'ନୂଆ ଶ୍ରେଣୀ ତିଆରି କରନ୍ତୁ', className: 'ଶ୍ରେଣୀର ନାମ (ଯେପରି 9A ବିଜ୍ଞାନ)', lang: 'ଆପଣଙ୍କ ଭାଷା', haveKey: 'ମୋ ପାଖରେ ଶ୍ରେଣୀ ଚାବି ଅଛି', key: 'ଶ୍ରେଣୀ ଚାବି', open: 'ଖୋଲନ୍ତୁ',
     keyWarn: 'ଏହି ଚାବି ସାଇତି ରଖନ୍ତୁ — ଅନ୍ୟ ଫୋନରୁ ଶ୍ରେଣୀ ଖୋଲିବାକୁ ଦରକାର। କାହାକୁ ଦିଅନ୍ତୁ ନାହିଁ।',
     joinHow: 'ପିଲାମାନେ ଏହି QR ସ୍କାନ କରନ୍ତୁ ବା କୋଡ୍ ଲେଖନ୍ତୁ', copy: 'ଲିଙ୍କ କପି କରନ୍ତୁ', copied: 'କପି ହେଲା',
     needs: 'ଆପଣଙ୍କ ଦରକାର', none: 'ଏବେ କିଛି ନାହିଁ ✓', wellbeing: 'ମଙ୍ଗଳ (ଏକାନ୍ତରେ)', dropoff: 'ଆସୁନାହାନ୍ତି', days: 'ଦିନ ହେଲା ଆସିନାହାନ୍ତି',
@@ -28,7 +29,7 @@ const S = {
     region: 'ଅଞ୍ଚଳ (ସ୍ଥାନୀୟ ଉଦାହରଣ ପାଇଁ)', anchors: 'ଘର ଭାଷାର ଶବ୍ଦ', anchorsHow: 'ଯେଉଁ ପିଲାଙ୍କ ଘର ଭାଷା କୁଇ, ସାନ୍ତାଳି ବା ହୋ, ସେମାନଙ୍କ ପାଇଁ ମୁଖ୍ୟ ଶବ୍ଦ ଯୋଡ଼ନ୍ତୁ — ପାଠରେ ପାଠ୍ୟ ଶବ୍ଦ ପାଖରେ ଦେଖାଯିବ।', word: 'ଶବ୍ଦ', save: 'ସେଭ କରନ୍ତୁ',
   },
   en: {
-    title: 'Teacher', create: 'Create a class', className: 'Class name (e.g. 9A Science)', lang: 'Your language', haveKey: 'I have a class key', key: 'Class key', open: 'Open',
+    alertMe: 'Alert me on this phone when a learner is stuck', alertOn: 'Alerts on ✓', title: 'Teacher', create: 'Create a class', className: 'Class name (e.g. 9A Science)', lang: 'Your language', haveKey: 'I have a class key', key: 'Class key', open: 'Open',
     keyWarn: 'Save this key — you need it to open the class on another phone. Do not share it.',
     joinHow: 'Learners scan this QR or type the code', copy: 'Copy link', copied: 'Copied',
     needs: 'Needs you', none: 'Nothing right now ✓', wellbeing: 'Wellbeing (talk privately)', dropoff: 'Not coming', days: 'days since last visit',
@@ -50,6 +51,7 @@ export function Teacher() {
   const [view, setView] = useState<View | null>(null);
   const [err, setErr] = useState('');
   const [freshKey, setFreshKey] = useState(false);
+  const [alerts, setAlerts] = useState(false);
 
   useEffect(() => { document.title = 'Setu · Teacher'; void ensureDevice().then((d) => setDevice(d?.token ?? null)); }, []);
   const H = (extra: Record<string, string> = {}) => ({ 'content-type': 'application/json', 'x-device-token': device ?? '', ...(saved ? { 'x-teacher-token': saved.token } : {}), ...extra });
@@ -90,6 +92,7 @@ export function Teacher() {
             <button onClick={() => { void navigator.clipboard?.writeText(link).catch(() => {}); }}>{t('copy')}</button>
           </div>
         </section>
+        {pushSupported() && <button class="link small" aria-pressed={alerts} disabled={alerts} onClick={async () => setAlerts(await teacherAlerts(device ?? '', saved.token))}>{alerts ? t('alertOn') : '🔔 ' + t('alertMe')}</button>}
         {freshKey && <section class="card info escalated"><p><strong>{t('key')}:</strong> <code>{saved.token}</code></p><p class="small">{t('keyWarn')}</p></section>}
 
         {view && <>

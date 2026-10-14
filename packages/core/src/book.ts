@@ -27,7 +27,7 @@ export interface BookMeta {
    *  question, so it is searched only when she picks it or names one of its lessons */
   kind?: 'language';
 }
-export interface BookPassage { id: string; ch: number; page: number; text: string }
+export interface BookPassage { id: string; ch: number; page: number; text: string; /** a figure on the page, explained in words (P8.20): its picture, `<book-id>/p013-1.jpg` under content/books/figures */ fig?: string }
 export interface BookIndex { meta: BookMeta; passages: BookPassage[]; glossary: { or: string; en: string }[]; version: string }
 /** One page of a book's text: OCR by default; `by` marks text read some other way (P8.17). */
 export interface BookPage { page: number; text: string; conf?: number; by?: 'gemini' | 'text' }
@@ -252,7 +252,19 @@ export class Shelf {
 
   chapterOf(bookId: string, ch: number) { return this.books.get(bookId)?.meta.chapters.find((c) => c.n === ch); }
   passage(id: string) { return this.byId.get(id); }
+  /** the figures printed on a page (their explanations are passages too, so a question can find a figure by meaning) */
+  figuresOn(bookId: string, page: number): BookPassage[] { return (this.books.get(bookId)?.passages ?? []).filter((p) => p.fig && p.page === page); }
+  /** A chapter in teaching order, cut into parts of a few passages: one part is taught, then checked (guided lesson). */
+  lessonParts(bookId: string, ch: number, size = LESSON_PART_PASSAGES): BookPassage[][] {
+    const ps = (this.books.get(bookId)?.passages ?? []).filter((p) => p.ch === ch).sort((a, b) => a.page - b.page);
+    const parts: BookPassage[][] = [];
+    for (let i = 0; i < ps.length; i += size) parts.push(ps.slice(i, i + size));
+    return parts;
+  }
 }
+
+/** Passages per lesson part: about two printed pages, small enough for one explanation and one check. */
+export const LESSON_PART_PASSAGES = 4;
 
 /**
  * The sentences of a passage that answer her question (P8: the 📖 card shows these, the whole passage one tap away):

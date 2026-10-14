@@ -3,7 +3,8 @@
 //
 // Each turn: safety → search her books → recall what she knows → pick an action → (model) → update her memory.
 // Actions: care / decline / redirect (safety), grade (she answered the open check), explain, explain_differently (she
-// is still stuck: next strategy on the ladder), review (follow-up the agent started), not_in_book, show_passage (no model).
+// is still stuck: next strategy on the ladder), review (follow-up the agent started), teach (the next part of a lesson
+// she chose: subject → chapter → part by part, each part checked), lesson_done, not_in_book, show_passage (no model).
 
 import { bktUpdate, MASTERY_THRESHOLD, SOURCE_WEIGHT } from './bkt.ts';
 import type { BookHit } from './book.ts';
@@ -24,9 +25,11 @@ export interface TutorTopic {
   escalatedAt?: number;
 }
 export interface TutorCheck { question: string; keyIdeas: string[]; topic: string; passageIds: string[]; askedAt: number; ignored: number; /** graded tries so far */ tries: number }
-export interface TutorMemory { topics: Record<string, TutorTopic>; check?: TutorCheck; lastTopic?: string; turns: number }
+/** The lesson she chose (guided: subject → chapter → part by part); part = the next part to teach. */
+export interface TutorLesson { topic: string; part: number; parts: number }
+export interface TutorMemory { topics: Record<string, TutorTopic>; check?: TutorCheck; lastTopic?: string; turns: number; lesson?: TutorLesson }
 
-export type TutorAction = 'care' | 'decline' | 'redirect' | 'grade' | 'explain' | 'explain_differently' | 'review' | 'not_in_book' | 'show_passage';
+export type TutorAction = 'care' | 'decline' | 'redirect' | 'grade' | 'explain' | 'explain_differently' | 'review' | 'teach' | 'lesson_done' | 'not_in_book' | 'show_passage';
 export interface TutorPlan {
   action: TutorAction;
   topic?: string;
@@ -74,7 +77,7 @@ export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit
 }
 
 /** The agent's decision for one message. */
-export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; hits: BookHit[]; /** the subject she picked (one subject can be several books) */ bookIds?: string[]; online: boolean; now: number; review?: string }): TutorPlan {
+export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; hits: BookHit[]; /** the subject she picked (one subject can be several books) */ bookIds?: string[]; online: boolean; now: number; review?: string; /** she is learning this chapter part by part (hits = the part's passages) */ learn?: TutorLesson; /** the chapter she picked: its passages come first */ chapter?: string }): TutorPlan {
   const base = { grounding: [] as BookHit[], askCheck: false, escalate: false, candidates: [] as TutorPlan['candidates'] };
   if (x.safety === 'distress') return { ...base, action: 'care', reason: 'words of distress → caring message, trusted adult + helpline; nothing she wrote is kept or sent to a model' };
   if (x.safety === 'unsafe') return { ...base, action: 'decline', reason: 'unsafe topic → calm no, nothing generated' };
@@ -86,9 +89,21 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
     return { ...base, action: x.online ? 'review' : 'show_passage', topic: x.review, strategy: nextStrategy(t), grounding: x.hits, askCheck: x.online, reason: `follow-up the agent offered: ${x.review} (mastery ${pct(t?.pKnown)}) → one short check on it` };
   }
 
+  // the lesson she chose: the next part, taught then checked; after the last part the lesson is done
+  if (x.learn) {
+    const { topic, part, parts } = x.learn;
+    const t = m.topics[topic];
+    if (part >= parts) return { ...base, action: 'lesson_done', topic, reason: `all ${parts} parts of ${topic} taught (mastery ${pct(t?.pKnown)}) → lesson done; offer practice or the next lesson` };
+    const stuck = !!t && t.wrongInARow > 0;
+    const strategy = stuck ? nextStrategy(t) : 'textbook';
+    return { ...base, action: x.online ? 'teach' : 'show_passage', topic, strategy, grounding: x.hits, askCheck: x.online, reason: `lesson ${topic}: part ${part + 1} of ${parts} → teach it from the book, then one check${stuck ? ` (last answer was wrong → ${strategy})` : ''}` };
+  }
+
   if (looksLikeAnswer(x.text, m.check, x.hits)) {
     const topic = m.check!.topic;
-    return { ...base, action: x.online ? 'grade' : 'show_passage', topic, grounding: x.hits, reason: x.online ? `she is answering the open check on ${topic} → grade it against the book, then decide` : `answer to the check kept; graded when online (offline: the passage, no grading)`, candidates: [{ action: 'grade', score: 0.8 }, { action: 'explain', score: 0.2 }] };
+    // in a lesson a wrong answer gets a new, simpler check after the re-explanation: she goes on until she has it
+    const inLesson = m.lesson?.topic === topic;
+    return { ...base, action: x.online ? 'grade' : 'show_passage', topic, grounding: x.hits, askCheck: x.online && inLesson, reason: x.online ? `she is answering the open check on ${topic} → grade it against the book, then decide` : `answer to the check kept; graded when online (offline: the passage, no grading)`, candidates: [{ action: 'grade', score: 0.8 }, { action: 'explain', score: 0.2 }] };
   }
 
   const picked = x.bookIds?.length ? x.bookIds : undefined;
@@ -97,6 +112,8 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   const need = x.safety === 'off_topic' ? OFF_TOPIC_COVERAGE : GROUNDED_COVERAGE;
   const good = (hs: BookHit[]) => hs.filter((h) => h.coverage >= need);
   let grounding = good(inBook);
+  // she picked a chapter: its passages first (the answer may still come from elsewhere in her books)
+  if (x.chapter) grounding = [...grounding.filter((h) => topicKey(h.bookId, h.passage.ch) === x.chapter), ...grounding.filter((h) => topicKey(h.bookId, h.passage.ch) !== x.chapter)];
   let switchedBook: string | undefined;
   if (!grounding.length && picked && good(x.hits).length) { grounding = good(x.hits); switchedBook = grounding[0]!.bookId; }
   if (!grounding.length) {
@@ -136,14 +153,14 @@ export function nextStrategy(t?: TutorTopic): TutorStrategy {
 }
 
 /** Her memory after a turn: a grade moves mastery (free-text evidence weight), a doubt is counted. */
-export function applyTurn(m: TutorMemory, x: { plan: TutorPlan; now: number; grade?: { verdict: 'right' | 'partly' | 'wrong'; gap?: string }; newCheck?: Omit<TutorCheck, 'askedAt' | 'ignored' | 'tries'>; escalated?: boolean }): TutorMemory {
+export function applyTurn(m: TutorMemory, x: { plan: TutorPlan; now: number; grade?: { verdict: 'right' | 'partly' | 'wrong'; gap?: string }; newCheck?: Omit<TutorCheck, 'askedAt' | 'ignored' | 'tries'>; escalated?: boolean; /** the lesson after this turn (null: none) */ lesson?: TutorLesson | null }): TutorMemory {
   const topics = { ...m.topics };
   const touch = (k: string) => (topics[k] = { ...(topics[k] ?? newTopic(x.now)), lastAt: x.now });
   let check = m.check;
   const p = x.plan;
-  if (p.topic && ['explain', 'explain_differently', 'review'].includes(p.action)) {
+  if (p.topic && ['explain', 'explain_differently', 'review', 'teach'].includes(p.action)) {
     const t = touch(p.topic);
-    if (p.action !== 'review') t.doubts += 1;
+    if (p.action === 'explain' || p.action === 'explain_differently') t.doubts += 1;
     if (p.strategy) t.tried = [...t.tried.filter((s) => s !== p.strategy), p.strategy];
     if (x.escalated) t.escalatedAt = x.now;
   }
@@ -163,7 +180,8 @@ export function applyTurn(m: TutorMemory, x: { plan: TutorPlan; now: number; gra
     check = check.ignored >= 1 ? undefined : { ...check, ignored: check.ignored + 1 };
   }
   if (x.newCheck) check = { ...x.newCheck, askedAt: x.now, ignored: 0, tries: 0 };
-  return { topics, check, lastTopic: p.topic ?? m.lastTopic, turns: m.turns + 1 };
+  const lesson = x.lesson === null ? undefined : x.lesson ?? m.lesson;
+  return { topics, check, lastTopic: p.topic ?? m.lastTopic, turns: m.turns + 1, ...(lesson ? { lesson } : {}) };
 }
 
 /** What the agent opens a session with — a follow-up nobody asked for (PS: "follow up without being asked"). */
@@ -203,6 +221,21 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     progress: 'ମୋ ପ୍ରଗତି',
     no_progress: 'ପ୍ରଶ୍ନ ପଚାରିଲେ ଏଠାରେ ପ୍ରତି ଅଧ୍ୟାୟର ପ୍ରଗତି ଦେଖାଯିବ।',
     page: 'ପୃଷ୍ଠା',
+    ask_subject: 'କେଉଁ ବିଷୟ ପଢ଼ିବାକୁ ଚାହୁଁଛ? ବାଛ — କିମ୍ବା ସିଧା ତୁମ ପ୍ରଶ୍ନ ପଚାର।',
+    ask_chapter: '{0} — କେଉଁ ଅଧ୍ୟାୟ?',
+    ask_mode: '"{0}" — କ\'ଣ କରିବା?',
+    mode_teach: 'ଏହି ଅଧ୍ୟାୟ ବୁଝାଅ',
+    mode_quiz: 'ମୋତେ ପ୍ରଶ୍ନ ପଚାର',
+    mode_ask: 'ମୋର ଗୋଟିଏ ସନ୍ଦେହ ଅଛି',
+    ask_doubt: '"{0}" ବିଷୟରେ ତୁମ ସନ୍ଦେହ ପଚାର — ଲେଖି, କହି କିମ୍ବା ବହିର ଫଟୋ ଉଠାଇ।',
+    part_of: 'ଅଂଶ {0}/{1}',
+    next_part: 'ପରବର୍ତ୍ତୀ ଅଂଶ ▶',
+    lesson_done: '"{0}" ଅଧ୍ୟାୟ ସାରିଲ! 🎉 ତୁମ ବୁଝିବା: {1}।',
+    lesson_more: 'ଆଉ ଅଭ୍ୟାସ',
+    other_chapter: 'ଅନ୍ୟ ଅଧ୍ୟାୟ',
+    other_subject: 'ଅନ୍ୟ ବିଷୟ',
+    continue_lesson: 'ଗତଥର "{0}" ଅଧ୍ୟାୟର ଅଂଶ {1} ଯାଏଁ ପଢ଼ିଥିଲ। ଜାରି ରଖିବା?',
+    continue_yes: 'ହଁ, ଜାରି ରଖ',
   },
   en: {
     welcome: 'Hello! I am your study partner. Ask me anything from your textbooks — type, speak, or take a photo of the page.',
@@ -226,6 +259,21 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     progress: 'My progress',
     no_progress: 'Ask questions and your progress per chapter shows here.',
     page: 'page',
+    ask_subject: 'Which subject do you want to study? Pick one — or just ask your question.',
+    ask_chapter: '{0} — which lesson?',
+    ask_mode: '"{0}" — what shall we do?',
+    mode_teach: 'Teach me this lesson',
+    mode_quiz: 'Quiz me',
+    mode_ask: 'I have a doubt',
+    ask_doubt: 'Ask your doubt about "{0}" — type, speak, or take a photo of the page.',
+    part_of: 'Part {0} of {1}',
+    next_part: 'Next part ▶',
+    lesson_done: 'You finished "{0}"! 🎉 Your understanding: {1}.',
+    lesson_more: 'Practise more',
+    other_chapter: 'Another lesson',
+    other_subject: 'Another subject',
+    continue_lesson: 'Last time you reached part {1} of "{0}". Shall we continue?',
+    continue_yes: 'Yes, continue',
   },
   hi: {
     welcome: 'नमस्ते! मैं तुम्हारा पढ़ाई साथी हूँ। अपनी पाठ्यपुस्तक से कुछ भी पूछो — लिखकर, बोलकर या किताब की फ़ोटो लेकर।',
@@ -249,6 +297,21 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     progress: 'मेरी प्रगति',
     no_progress: 'सवाल पूछो, यहाँ हर अध्याय की प्रगति दिखेगी।',
     page: 'पृष्ठ',
+    ask_subject: 'कौन सा विषय पढ़ना चाहते हो? चुनो — या सीधे अपना सवाल पूछो।',
+    ask_chapter: '{0} — कौन सा अध्याय?',
+    ask_mode: '"{0}" — क्या करें?',
+    mode_teach: 'यह अध्याय समझाओ',
+    mode_quiz: 'मुझसे सवाल पूछो',
+    mode_ask: 'मेरा एक सवाल है',
+    ask_doubt: '"{0}" के बारे में अपना सवाल पूछो — लिखकर, बोलकर या किताब की फ़ोटो लेकर।',
+    part_of: 'भाग {0}/{1}',
+    next_part: 'अगला भाग ▶',
+    lesson_done: '"{0}" अध्याय पूरा! 🎉 तुम्हारी समझ: {1}।',
+    lesson_more: 'और अभ्यास',
+    other_chapter: 'दूसरा अध्याय',
+    other_subject: 'दूसरा विषय',
+    continue_lesson: 'पिछली बार तुम "{0}" के भाग {1} तक पहुँचे थे। आगे पढ़ें?',
+    continue_yes: 'हाँ, आगे',
   },
 };
 

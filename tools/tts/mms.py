@@ -37,7 +37,21 @@ UNITS = [  # longest first
     (r'÷', ' ଭାଗ '), (r'×', ' ଗୁଣନ '), (r'=', ' ସମାନ '), (r'\+', ' ଯୋଗ '), (r'(?<=\s)-(?=\s)', ' ବିୟୋଗ '),
 ]
 
+HI_ONES = ['शून्य', 'एक', 'दो', 'तीन', 'चार', 'पाँच', 'छह', 'सात', 'आठ', 'नौ']
+
+def speakable_hi(text: str) -> list[tuple[str, float]]:
+    # Hindi MMS reads Devanagari letters only: English in brackets dropped, digits read one by one
+    t = re.sub(r'\(([^)]*[A-Za-z][^)]*)\)', '', text)
+    t = re.sub(r'[0-9०-९]', lambda m: ' ' + HI_ONES[int(m.group(0).translate(str.maketrans('०१२३४५६७८९', '0123456789')))] + ' ', t)
+    parts, out = re.split(r'([।?!.]|[,—;:])', t), []
+    for i in range(0, len(parts), 2):
+        seg = re.sub(r'\s+', ' ', re.sub(r'[^ऀ-ॿ\s]', ' ', parts[i])).strip()
+        sep = parts[i + 1] if i + 1 < len(parts) else '।'
+        if seg: out.append((seg, 0.35 if sep in '।?!.' else 0.15))
+    return out
+
 def speakable(text: str) -> list[tuple[str, float]]:
+    if re.search(r'[ऀ-ॿ]', text) and not re.search(r'[଀-୿]', text): return speakable_hi(text)
     t = re.sub(r'\(([^)]*[A-Za-z][^)]*)\)', '', text)  # "(Speed)" — the English exam term is for reading, not hearing
     for a, b in UNITS: t = re.sub(a, b, t)
     t = re.sub(r'[0-9୦-୯]+(?:[.,][0-9୦-୯]+)*', number, t)

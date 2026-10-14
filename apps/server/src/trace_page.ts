@@ -47,7 +47,8 @@ return(!ov||t.override)&&(!fb||t.fallback_used||t.status==='fallback')&&(!tier||
 function add(t){all.push(t);const d=card(t);d.style.display=visible(t)?'':'none';list.appendChild(d);n.textContent=all.length+' steps'}
 function refilter(){for(const d of list.children)d.style.display=visible(d._t)?'':'none'}
 for(const el of [fOv,fFb,fTier,fTool])el.addEventListener('input',refilter);
-fetch('/api/trace/recent').then(r=>r.json()).then(ts=>ts.forEach(add));
-const es=new EventSource('/api/trace/stream');es.addEventListener('trace',e=>{if(e.data)add(JSON.parse(e.data))});
+const key=new URLSearchParams(location.search).get('key')||'',q=key?'?key='+encodeURIComponent(key):'';
+fetch('/api/trace/recent'+q).then(r=>r.json()).then(ts=>ts.forEach(add));
+const es=new EventSource('/api/trace/stream'+q);es.addEventListener('trace',e=>{if(e.data)add(JSON.parse(e.data))});
 </script></body></html>`;
 }

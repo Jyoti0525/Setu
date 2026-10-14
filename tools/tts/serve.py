@@ -7,7 +7,12 @@ sys.stdout.reconfigure(encoding='utf-8', line_buffering=True)
 sys.stdin.reconfigure(encoding='utf-8')
 from mms import Voice
 
-voice = Voice()
+# one model per language, loaded on first use (Odia at start: it is the demo language)
+MODELS = {'or': 'facebook/mms-tts-ory', 'hi': 'facebook/mms-tts-hin'}
+voices = {'or': Voice(MODELS['or'])}
+def voice_for(lang):
+    if lang not in voices: voices[lang] = Voice(MODELS[lang])
+    return voices[lang]
 print(json.dumps({'ready': True}), flush=True)
 for line in sys.stdin:
     try:
@@ -17,7 +22,7 @@ for line in sys.stdin:
     try:
         os.makedirs(os.path.dirname(job['out']), exist_ok=True)
         tmp = job['out'] + '.part.ogg'
-        spoken = voice.record(job['text'], tmp, seed=7)
+        spoken = voice_for(job.get('lang', 'or')).record(job['text'], tmp, seed=7)
         if spoken is None:
             print(json.dumps({'key': job['key'], 'ok': False, 'error': 'nothing speakable'}), flush=True)
             continue

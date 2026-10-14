@@ -14,9 +14,11 @@ import { traceLivePage } from './trace_page.ts';
 import { createClass, classView, applyExamGoal, hashToken, keptCandidates } from './teacher.ts';
 import { readPage, MAX_IMAGE_BYTES } from './vision.ts';
 import { translateNote } from './translate.ts';
+import { HybridRag, type NlpWorker } from './rag.ts';
 import type { LiveVoice } from './voice.ts';
 import { listen, MAX_AUDIO_BYTES, type ListenDeps } from './asr.ts';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { compress } from 'hono/compress';
 
 export interface AppOptions {
@@ -41,6 +43,12 @@ export interface AppOptions {
   voice?: LiveVoice;
   /** speech in: self-hosted IndicConformer, Sarvam key, chain order (Gemini audio comes from `models`) */
   asr?: Omit<ListenDeps, 'models'>;
+  /** self-hosted IndicTrans2 + e5 embeddings: question translation and hybrid RAG (tools/nlp/serve.py) */
+  nlp?: NlpWorker;
+  /** where Postgres (PGlite + pgvector) keeps the passage vectors; in memory when absent */
+  ragDir?: string;
+  /** textbook figures cut from the PDFs (content/scripts/figures.ts) */
+  figuresDir?: string;
 }
 
 export function packHash(p: ChapterPack): string {
@@ -103,11 +111,19 @@ export function createApp(o: AppOptions) {
     if (cls?.examDate) applyExamGoal(deps, cls, [profileId]);
   };
 
+  const traceKeys = [o.demoKey, o.adminKey].filter(Boolean);
+  const traceAllowed = (c: { req: { header: (n: string) => string | undefined; query: (n: string) => string | undefined } }) => {
+    if (!traceKeys.length) return true; // local development: no keys set
+    const k = c.req.header('x-demo-key') ?? c.req.query('key');
+    return !!k && traceKeys.includes(k);
+  };
   // ---- device auth + rate limit (the demo tunnel URL is public) ----
   const hits = new Map<string, number[]>();
   app.use('/api/*', async (c, next) => {
-    const open = c.req.path === '/api/device' || c.req.path === '/api/health' || c.req.path.startsWith('/api/pack') || c.req.path.startsWith('/api/trace');
+    const open = c.req.path === '/api/device' || c.req.path === '/api/health' || c.req.path.startsWith('/api/pack');
     if (open) return next();
+    // the live trace quotes what learners asked: on a public link only the presenter (demo or admin key) may watch it
+    if (c.req.path.startsWith('/api/trace')) return traceAllowed(c) ? next() : c.json({ error: 'not found' }, 404);
     const token = c.req.header('x-device-token') ?? '';
     const deviceId = store.deviceFor(token);
     if (!deviceId) return c.json({ error: 'unknown device' }, 401);
@@ -122,7 +138,14 @@ export function createApp(o: AppOptions) {
 
   // ---- tutor chat over her textbooks (PLAN v4) ----
   const shelf = new Shelf(o.books ?? []);
-  const tutor: TutorDeps = { store, shelf, models, onTrace: (pid, step) => publish(pid, step, 'server') };
+  // hybrid RAG: passage vectors are built in the background; until then the keyword search answers alone
+  const rag = o.nlp ? new HybridRag({ shelf, worker: o.nlp, dir: o.ragDir, log: (m) => console.log(m) }) : undefined;
+  if (rag) void rag.index().catch((e) => console.error('hybrid RAG index failed', e));
+  const tutor: TutorDeps = {
+    store, shelf, models, rag, nlp: o.nlp, onTrace: (pid, step) => publish(pid, step, 'server'),
+    // her class teacher's phone buzzes (only if the teacher turned alerts on); never her name or words
+    onEscalate: (pid, kind, chapter) => { for (const code of store.classesOf(pid)) void o.push?.teacherAlert(code, kind, chapter); },
+  };
   const bookList = () => [...shelf.books.values()].map((b) => ({ ...b.meta, version: b.version, passages: b.passages.length, kb: Math.round(JSON.stringify(b).length / 1024) }));
   app.get('/api/books', (c) => c.json(bookList()));
   // textbooks for offline (~200 KB of Odia text each) shrink to about a quarter: it matters on a 3G data pack
@@ -237,10 +260,10 @@ export function createApp(o: AppOptions) {
 
   // ---- Snap online: read the photo (image discarded after this request) ----
   app.post('/api/snap/read', async (c) => {
-    const b = (await c.req.json().catch(() => ({}))) as { image?: string; mime?: string };
+    const b = (await c.req.json().catch(() => ({}))) as { image?: string; mime?: string; lang?: string };
     const mime = /^image\/(jpeg|png|webp)$/.test(b.mime ?? '') ? b.mime! : 'image/jpeg';
     if (!b.image || b.image.length * 0.75 > MAX_IMAGE_BYTES) return c.json({ error: 'image missing or too large' }, 400);
-    const r = await readPage(models, b.image, mime);
+    const r = await readPage(models, b.image, mime, ['or', 'en', 'hi'].includes(b.lang ?? '') ? b.lang : 'or');
     return 'error' in r ? c.json(r, 503) : c.json(r);
   });
 
@@ -283,7 +306,11 @@ export function createApp(o: AppOptions) {
     store.cacheSet(`anchors:${cls.code}`, JSON.stringify(a));
     return c.json({ anchors: a });
   });
-  const teacherClass = (token?: string) => (token ? store.classByToken(hashToken(token)) : undefined);
+  const teacherClass = (token?: string) => {
+    const cls = token ? store.classByToken(hashToken(token)) : undefined;
+    if (cls) store.touchClass(cls.code);
+    return cls;
+  };
   app.get('/api/teacher', (c) => {
     const cls = teacherClass(c.req.header('x-teacher-token'));
     return cls ? c.json({ ...classView(deps, cls), anchors: anchors(cls.code), concepts: Object.values(pack.graph.concepts).map((x) => ({ id: x.id, name: textIn(x.name, cls.lang) })), homeLangs: bridgeLanguages().map((l) => ({ id: l.id, name: `${l.name} (${l.english})` })) }) : c.json({ error: 'unknown class key' }, 403);
@@ -310,6 +337,20 @@ export function createApp(o: AppOptions) {
   });
 
   // ---- live voice (TODO P3.9): only replies the server recorded; the phone falls back to its own voice on 404 ----
+  // a line on her screen with no recording yet (fixed Hindi lines, older replies): record it now, then GET it
+  app.post('/voice/say', async (c) => {
+    const b = (await c.req.json().catch(() => ({}))) as { text?: string };
+    if (typeof b.text !== 'string' || b.text.length > 1500) return c.json({ error: 'bad text' }, 400);
+    const key = o.voice?.say(b.text);
+    return key ? c.json({ key }) : c.json({ error: 'no voice' }, 404);
+  });
+  // a textbook figure for the answer card: public book pictures, so no device token (an <img> sends none)
+  app.get('/figure/:book/:file', async (c) => {
+    const { book, file } = c.req.param();
+    if (!o.figuresDir || !/^[a-z0-9-]+$/.test(book) || !/^p\d{3}-\d{1,2}\.jpg$/.test(file)) return c.body(null, 404);
+    const f = await readFile(resolve(o.figuresDir, book, file)).catch(() => undefined);
+    return f ? c.body(f, 200, { 'content-type': 'image/jpeg', 'cache-control': 'public, max-age=604800' }) : c.body(null, 404);
+  });
   app.get('/voice/:lang/:file', async (c) => {
     const key = c.req.param('file').replace(/\.ogg$/, '');
     const f = o.voice && (await o.voice.file(c.req.param('lang'), key));
@@ -334,7 +375,7 @@ export function createApp(o: AppOptions) {
     if (!evs.some((e) => e.deviceId === deviceId)) return c.json({ error: 'not your profile' }, 403);
     return c.json(evs);
   });
-  app.get('/trace/live', (c) => c.html(traceLivePage()));
+  app.get('/trace/live', (c) => (traceAllowed(c) ? c.html(traceLivePage()) : c.text('not found', 404)));
 
   // operator: run the schedule tick now (demo + cron). Disabled unless SETU_ADMIN_KEY is set.
   app.post('/admin/tick', async (c) => {
@@ -385,6 +426,14 @@ export function createApp(o: AppOptions) {
     if (!o.push) return c.json({ error: 'push off' }, 404);
     const b = (await c.req.json()) as { profileId: string; sub: import('web-push').PushSubscription; lang: string };
     return o.push.subscribe(c.get('deviceId' as never) as string, b.profileId, b.sub, b.lang) ? c.json({ ok: true }) : c.json({ error: 'bad subscription' }, 400);
+  });
+  // the teacher's phone: alerts when the agent escalates one of her learners
+  app.post('/api/teacher/push', async (c) => {
+    const cls = teacherClass(c.req.header('x-teacher-token'));
+    if (!cls) return c.json({ error: 'not found' }, 404);
+    if (!o.push) return c.json({ error: 'push off' }, 404);
+    const b = (await c.req.json()) as { sub: import('web-push').PushSubscription };
+    return o.push.subscribe(c.get('deviceId' as never) as string, `class:${cls.code}`, b.sub, cls.lang) ? c.json({ ok: true }) : c.json({ error: 'bad subscription' }, 400);
   });
   app.post('/api/push/unsubscribe', async (c) => {
     const b = (await c.req.json()) as { endpoint: string };

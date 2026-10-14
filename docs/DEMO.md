@@ -30,7 +30,7 @@ For the person running the demo. Every beat lists what to do, what to point at, 
 
 ## On stage — screens
 
-Left: phone via scrcpy. Right: `https://<tunnel>/trace/live` (every decision, live). Teacher view in a second tab.
+Left: phone via scrcpy. Right: `https://<tunnel>/trace/live?key=<SETU_DEMO_KEY or SETU_ADMIN_KEY>` (every decision, live; locked without the key). Teacher view in a second tab.
 
 | # | Do | Point at | If it fails |
 |---|---|---|---|

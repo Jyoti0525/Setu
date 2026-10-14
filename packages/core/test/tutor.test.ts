@@ -130,3 +130,40 @@ describe('readable book text (P8.16)', () => {
     expect(focusQuote('ଛୋଟ ଅଂଶ ।', 'x')).toBe('ଛୋଟ ଅଂଶ ।');
   });
 });
+
+describe('guided lesson: subject → chapter → part by part (P8.19)', () => {
+  const topic = topicKey('bio', 1);
+  const parts = shelf.lessonParts('bio', 1, 1);
+  const hitsOf = (i: number) => parts[i]!.map((passage) => ({ passage, bookId: 'bio', score: 1, coverage: 1 }));
+  it('cuts a chapter into parts in page order, only its own passages', () => {
+    expect(parts.length).toBeGreaterThanOrEqual(2);
+    expect(parts.flat().every((p) => p.ch === 1)).toBe(true);
+    expect(parts.flat().map((p) => p.page)).toEqual([...parts.flat().map((p) => p.page)].sort((a, b) => a - b));
+  });
+  it('teaches the next part, then checks; after the last part the lesson is done', () => {
+    const p0 = planTurn(emptyMemory(), { safety: 'ok', text: '', hits: hitsOf(0), online: true, now: 1, learn: { topic, part: 0, parts: parts.length } });
+    expect([p0.action, p0.topic, p0.askCheck, p0.strategy]).toEqual(['teach', topic, true, 'textbook']);
+    const m = applyTurn(emptyMemory(), { plan: p0, now: 1, lesson: { topic, part: 1, parts: parts.length } });
+    expect(m.lesson).toEqual({ topic, part: 1, parts: parts.length });
+    const end = planTurn(m, { safety: 'ok', text: '', hits: [], online: true, now: 2, learn: { topic, part: parts.length, parts: parts.length } });
+    expect(end.action).toBe('lesson_done');
+    expect(applyTurn(m, { plan: end, now: 2, lesson: null }).lesson).toBeUndefined();
+    // no signal: she reads the part from her book
+    expect(planTurn(emptyMemory(), { safety: 'ok', text: '', hits: hitsOf(0), online: false, now: 1, learn: { topic, part: 0, parts: parts.length } }).action).toBe('show_passage');
+  });
+  it('in a lesson, her answer is graded and a wrong one may get a new check (she goes on until she has it)', () => {
+    const m: TutorMemory = { ...emptyMemory(), lesson: { topic, part: 1, parts: parts.length }, check: { question: 'କୋଷ ପ୍ରାଚୀର କାହିଁକି ଦରକାର?', keyIdeas: ['support'], topic, passageIds: [parts[0]![0]!.id], askedAt: 1, ignored: 0, tries: 0 } };
+    const g = planTurn(m, { safety: 'ok', text: 'ଏହା ଦୃଢ଼ତା ଦିଏ', hits: hitsOf(0), online: true, now: 2 });
+    expect([g.action, g.askCheck]).toEqual(['grade', true]);
+    const outside = planTurn({ ...m, lesson: undefined }, { safety: 'ok', text: 'ଏହା ଦୃଢ଼ତା ଦିଏ', hits: hitsOf(0), online: true, now: 2 });
+    expect([outside.action, outside.askCheck]).toEqual(['grade', false]);
+    // a new check written after a wrong answer replaces the old one
+    const after = applyTurn(m, { plan: g, now: 3, grade: { verdict: 'wrong', gap: 'support' }, newCheck: { question: 'ସହଜ ପ୍ରଶ୍ନ?', keyIdeas: ['x'], topic, passageIds: [] } });
+    expect([after.check?.question, after.topics[topic]!.wrongInARow, after.lesson?.part]).toEqual(['ସହଜ ପ୍ରଶ୍ନ?', 1, 1]);
+  });
+  it('a doubt asked inside the chapter she picked is answered from that chapter first', () => {
+    const hits = [...shelf.search('କୋଷ ଟିସୁ ରକ୍ତ', { limit: 6 })].map((h) => ({ ...h, coverage: 1 }));
+    const p = planTurn(emptyMemory(), { safety: 'ok', text: 'କୋଷ ଟିସୁ ରକ୍ତ କ\'ଣ?', hits, online: true, now: 1, chapter: topicKey('bio', 2) });
+    expect(p.grounding[0]!.passage.ch).toBe(2);
+  });
+});

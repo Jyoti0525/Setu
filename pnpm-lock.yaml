@@ -178,6 +178,12 @@ importers:
 
   apps/server:
     dependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.8
+        version: 0.5.8
+      '@electric-sql/pglite-pgvector':
+        specifier: 0.0.9
+        version: 0.0.9(@electric-sql/pglite@0.5.8)
       '@google/adk':
         specifier: 2.2.1
         version: 2.2.1(@grpc/grpc-js@1.14.6)
@@ -199,6 +205,9 @@ importers:
       hono:
         specifier: ^4.13.13
         version: 4.13.13
+      tesseract.js:
+        specifier: 7.0.0
+        version: 7.0.0
       web-push:
         specifier: 3.6.7
         version: 3.6.7
@@ -837,6 +846,14 @@ packages:
 
   '@dabh/diagnostics@2.0.9':
     resolution: {integrity: sha512-R6siwR65Hm+3yfgP7o8DKhNvputQAwfoz9zTc3kyDudnomj2/BcLmD+uGQQPICjuFUp8ounPBU+jmKsocwVVAg==}
+
+  '@electric-sql/pglite-pgvector@0.0.9':
+    resolution: {integrity: sha512-ue4iBW651gDQwBwn97Ekv1lYGPvXa1ymHbRbTCSL0Ib286PRDD1VDOwzwEoekZuO/wctMbTzKzlwdgDwYrqZ8A==}
+    peerDependencies:
+      '@electric-sql/pglite': 0.5.8
+
+  '@electric-sql/pglite@0.5.8':
+    resolution: {integrity: sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q==}
 
   '@esbuild/aix-ppc64@0.21.5':
     resolution: {integrity: sha512-1SDgH6ZSPTlggy1yI6+Dbkiz8xzpHJEVAlF/AM1tHPLsf5STom9rwtjE4hKAF20FfXXNTFqEYXyJNWh1GiZedQ==}
@@ -4043,6 +4060,12 @@ snapshots:
       '@so-ric/colorspace': 1.1.6
       enabled: 2.0.0
       kuler: 2.0.0
+
+  '@electric-sql/pglite-pgvector@0.0.9(@electric-sql/pglite@0.5.8)':
+    dependencies:
+      '@electric-sql/pglite': 0.5.8
+
+  '@electric-sql/pglite@0.5.8': {}
 
   '@esbuild/aix-ppc64@0.21.5':
     optional: true

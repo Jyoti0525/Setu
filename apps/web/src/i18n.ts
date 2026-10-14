@@ -71,18 +71,36 @@ export function speak(text: string, lang: string) {
   void playClip(text, lang).then((ok) => { if (!ok) deviceVoice(text, lang); });
 }
 
-function deviceVoice(text: string, lang: string) {
+/** voices load late in Chrome: wait for them once (max 1.5 s) */
+const voicesReady = () => new Promise<SpeechSynthesisVoice[]>((res) => {
+  const s = window.speechSynthesis;
+  if (s.getVoices().length) return res(s.getVoices());
+  const done = () => res(s.getVoices());
+  s.addEventListener('voiceschanged', done, { once: true });
+  setTimeout(done, 1500);
+});
+
+async function deviceVoice(text: string, lang: string) {
   try {
     const synth = window.speechSynthesis;
     if (!synth) return false;
     const tag = { or: 'or-IN', en: 'en-IN', hi: 'hi-IN' }[lang] ?? lang;
-    const voice = synth.getVoices().find((v) => v.lang.toLowerCase().startsWith(tag.toLowerCase().slice(0, 2)));
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = tag;
-    if (voice) u.voice = voice;
-    synth.cancel();
+    const voices = await voicesReady();
+    const voice = voices.find((v) => v.lang.toLowerCase() === tag.toLowerCase()) ?? voices.find((v) => v.lang.toLowerCase().startsWith(tag.slice(0, 2)));
+    // what is read: no emoji, no "(book page 23)", no other-script words; one sentence at a time (Chrome stops long utterances)
+    const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\((?:book page|ବହି ପୃଷ୍ଠା|किताब पृष्ठ)[^)]*\)/g, '')
+      .replace(lang === 'en' ? /\s*\([^)]*[ऀ-෿][^)]*\)|[ऀ-෿]+/g : /$^/g, '').replace(/·/g, ',');
+    const parts = clean.match(/[^.!?।\n]+[.!?।]?/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
     stopClip();
-    synth.speak(u);
+    synth.cancel();
+    // Chrome drops a speak() right after cancel(): give it a tick
+    await new Promise((r) => setTimeout(r, 60));
+    for (const p of parts) {
+      const u = new SpeechSynthesisUtterance(p);
+      u.lang = tag;
+      if (voice) u.voice = voice;
+      synth.speak(u);
+    }
     return !!voice;
   } catch { return false; }
 }

@@ -33,3 +33,16 @@ export async function disablePush(device: Device): Promise<void> {
   await sub.unsubscribe();
   try { await fetchWithTimeout('/api/push/unsubscribe', { method: 'POST', headers: { 'content-type': 'application/json', 'x-device-token': device.token }, body: JSON.stringify({ endpoint: sub.endpoint }) }, 6000); } catch { /* offline: the server forgets it on the next failed send */ }
 }
+
+/** The teacher's phone: buzz when the agent escalates one of her learners (only that someone needs help, never who said what). */
+export async function teacherAlerts(deviceToken: string, teacherToken: string): Promise<boolean> {
+  if (!pushSupported() || (await Notification.requestPermission()) !== 'granted') return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const key = (await (await fetchWithTimeout('/api/push/key', { headers: { 'x-device-token': deviceToken } }, 6000)).json()) as { key?: string };
+    if (!key.key) return false;
+    const sub = (await reg.pushManager.getSubscription()) ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key.key) });
+    const r = await fetchWithTimeout('/api/teacher/push', { method: 'POST', headers: { 'content-type': 'application/json', 'x-device-token': deviceToken, 'x-teacher-token': teacherToken }, body: JSON.stringify({ sub: sub.toJSON() }) }, 6000);
+    return r.ok;
+  } catch { return false; }
+}

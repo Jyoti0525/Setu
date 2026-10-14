@@ -11,7 +11,7 @@ import { createInterface } from 'node:readline';
 import { audioKey } from '@setu/core';
 
 /** Languages with a server voice, and how to recognise their text (a reply is in one script). */
-const SCRIPTS: Record<string, RegExp> = { or: /[଀-୿]/ };
+const SCRIPTS: Record<string, RegExp> = { or: /[଀-୿]/, hi: /[ऀ-ॿ]/ };
 const MAX_CHARS = 1500;
 const MAX_QUEUE = 50;
 
@@ -32,7 +32,7 @@ export class LiveVoice {
   private ready = false;
   private failures = 0;
   private readonly waiting = new Map<string, { done: Promise<boolean>; resolve: (ok: boolean) => void }>();
-  private readonly queue: { key: string; text: string; out: string }[] = [];
+  private readonly queue: { key: string; text: string; out: string; lang: string }[] = [];
   private busy = false;
 
   constructor(private readonly o: VoiceOptions) {}
@@ -58,7 +58,7 @@ export class LiveVoice {
     let resolve!: (ok: boolean) => void;
     const done = new Promise<boolean>((r) => { resolve = r; });
     this.waiting.set(`${lang}/${key}`, { done, resolve });
-    this.queue.push({ key, text: t.slice(0, MAX_CHARS), out: this.path(lang, key) });
+    this.queue.push({ key, text: t.slice(0, MAX_CHARS), out: this.path(lang, key), lang });
     this.start();
     this.pump();
     return key;
@@ -107,7 +107,7 @@ export class LiveVoice {
   private onLine(line: string) {
     let m: { ready?: boolean; key?: string; ok?: boolean; error?: string };
     try { m = JSON.parse(line); } catch { return; }
-    if (m.ready) { this.ready = true; this.failures = 0; this.o.log?.('live voice ready (MMS Odia)'); this.pump(); return; }
+    if (m.ready) { this.ready = true; this.failures = 0; this.o.log?.('live voice ready (MMS Odia + Hindi)'); this.pump(); return; }
     const head = this.queue.shift();
     this.busy = false;
     if (head) {
