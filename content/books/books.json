@@ -2104,5 +2104,253 @@
     "endPage": 258
    }
   ]
+ },
+ {
+  "id": "cbse-science-9-hi",
+  "subject": {
+   "or": "ବିଜ୍ଞାନ",
+   "en": "Science",
+   "hi": "विज्ञान"
+  },
+  "title": {
+   "or": "ବିଜ୍ଞାନ — ଅନ୍ୱେଷଣ (NCERT, ହିନ୍ଦୀ)",
+   "en": "Science — Anveshan (NCERT, Hindi medium)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (ihsc101–ihsc113); OCR (Tesseract hin+eng): the PDF text layer is broken",
+  "pageOffset": 0,
+  "lang": "hi",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଅନ୍ୱେଷଣ: ମାଧ୍ୟମିକ ବିଜ୍ଞାନ ଦୁନିଆରେ ପ୍ରବେଶ",
+     "en": "Exploration: Entering the World of Secondary Science",
+     "hi": "अन्वेषण — माध्यमिक विज्ञान के संसार में प्रवेश"
+    },
+    "startPage": 1,
+    "endPage": 7
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ଜୀବକୋଷ: ଜୀବନର ମୂଳ ଏକକ",
+     "en": "Cell: The Building Block of Life",
+     "hi": "कोशिका — जीवन की निर्माण इकाई"
+    },
+    "startPage": 8,
+    "endPage": 27
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "କାମ କରୁଥିବା ଟିସୁ",
+     "en": "Tissues in Action",
+     "hi": "क्रियाशील ऊतक"
+    },
+    "startPage": 28,
+    "endPage": 47
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଆମ ଚାରିପାଖର ଗତିର ବର୍ଣ୍ଣନା",
+     "en": "Describing Motion Around Us",
+     "hi": "अपने परिवेश में गति का वर्णन"
+    },
+    "startPage": 48,
+    "endPage": 71
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ମିଶ୍ରଣ ଓ ସେଗୁଡ଼ିକର ପୃଥକୀକରଣ",
+     "en": "Exploring Mixtures and their Separation",
+     "hi": "मिश्रण एवं उनके पृथक्करण का अन्वेषण"
+    },
+    "startPage": 72,
+    "endPage": 93
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ବଳ ଗତିକୁ କିପରି ପ୍ରଭାବିତ କରେ",
+     "en": "How Forces Affect Motion",
+     "hi": "गति पर बलों का प्रभाव"
+    },
+    "startPage": 94,
+    "endPage": 115
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "କାର୍ଯ୍ୟ, ଶକ୍ତି ଓ ସରଳ ଯନ୍ତ୍ର",
+     "en": "Work, Energy, and Simple Machines",
+     "hi": "कार्य, ऊर्जा एवं सरल मशीनें"
+    },
+    "startPage": 116,
+    "endPage": 139
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ପରମାଣୁ ଭିତରକୁ ଯାତ୍ରା",
+     "en": "Journey Inside the Atom",
+     "hi": "एक यात्रा — परमाणु के भीतर"
+    },
+    "startPage": 140,
+    "endPage": 161
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ପଦାର୍ଥର ପରମାଣବିକ ମୂଳଦୁଆ",
+     "en": "Atomic Foundations of Matter",
+     "hi": "द्रव्य का परमाण्विक आधार"
+    },
+    "startPage": 162,
+    "endPage": 183
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ଶବ୍ଦ ତରଙ୍ଗ: ଗୁଣ ଓ ପ୍ରୟୋଗ",
+     "en": "Sound Waves: Characteristics and Applications",
+     "hi": "ध्वनि तरंगें — अभिलक्षण एवं अनुप्रयोग"
+    },
+    "startPage": 184,
+    "endPage": 207
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "ପ୍ରଜନନ: ଜୀବନ କିପରି ଆଗକୁ ବଢ଼େ",
+     "en": "Reproduction: How Life Continues",
+     "hi": "जनन — जीवन की निरंतरता"
+    },
+    "startPage": 208,
+    "endPage": 227
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "ଜୀବଜଗତର ଢାଞ୍ଚା: ବିବିଧତା ଓ ବର୍ଗୀକରଣ",
+     "en": "Patterns in Life: Diversity and Classification",
+     "hi": "जीवजगत का स्वरूप — विविधता एवं वर्गीकरण"
+    },
+    "startPage": 228,
+    "endPage": 251
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "ପୃଥିବୀ ଏକ ତନ୍ତ୍ର: ଶକ୍ତି, ପଦାର୍ଥ ଓ ଜୀବନ",
+     "en": "Earth as a System: Energy, Matter, and Life",
+     "hi": "पृथ्वी एक तंत्र — ऊर्जा, द्रव्य और जीवन"
+    },
+    "startPage": 252,
+    "endPage": 270
+   }
+  ]
+ },
+ {
+  "id": "cbse-maths-9-hi",
+  "subject": {
+   "or": "ଗଣିତ",
+   "en": "Mathematics",
+   "hi": "गणित"
+  },
+  "title": {
+   "or": "ଗଣିତ — ଗଣିତ ମଞ୍ଜରୀ (NCERT, ହିନ୍ଦୀ)",
+   "en": "Mathematics — Ganita Manjari (NCERT, Hindi medium)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (ihmh101–ihmh108); OCR (Tesseract hin+eng): the PDF text layer is broken",
+  "pageOffset": 0,
+  "lang": "hi",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ନିଜ ସ୍ଥାନ ଜାଣିବା: ସ୍ଥାନାଙ୍କର ବ୍ୟବହାର",
+     "en": "Orienting Yourself: The Use of Coordinates",
+     "hi": "स्वयं को प्रवृत्त करना — निर्देशांकों का उपयोग"
+    },
+    "startPage": 1,
+    "endPage": 15
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ରୈଖିକ ବହୁପଦୀର ପରିଚୟ",
+     "en": "Introduction to Linear Polynomials",
+     "hi": "रैखिक बहुपदों का परिचय"
+    },
+    "startPage": 16,
+    "endPage": 40
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ସଂଖ୍ୟାର ଦୁନିଆ",
+     "en": "The World of Numbers",
+     "hi": "संख्याओं का संसार"
+    },
+    "startPage": 41,
+    "endPage": 67
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ବୀଜଗାଣିତିକ ଅଭେଦର ଅନ୍ୱେଷଣ",
+     "en": "Exploring Algebraic Identities",
+     "hi": "बीजीय सर्वसमिकाओं का अन्वेषण"
+    },
+    "startPage": 68,
+    "endPage": 91
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ମୁଁ ଉପର-ତଳ, ଗୋଲ-ଗୋଲ",
+     "en": "I’m Up and Down, and Round and Round",
+     "hi": "मैं हूँ गोल-गोल, ऊपर-नीचे"
+    },
+    "startPage": 92,
+    "endPage": 117
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ସ୍ଥାନ ମାପ: ପରିସୀମା ଓ କ୍ଷେତ୍ରଫଳ",
+     "en": "Measuring Space: Perimeter and Area",
+     "hi": "समष्टि मापन — परिमाप और क्षेत्रफल"
+    },
+    "startPage": 118,
+    "endPage": 154
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ହୁଏତର ଗଣିତ: ସମ୍ଭାବ୍ୟତାର ପରିଚୟ",
+     "en": "The Mathematics of Maybe: Introduction to Probability",
+     "hi": "संभावनाओं का गणित — प्रायिकता का परिचय"
+    },
+    "startPage": 155,
+    "endPage": 173
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ପରେ କ'ଣ ଆସିବ: ଅନୁକ୍ରମ ଓ ଶ୍ରେଢ଼ୀ",
+     "en": "Predicting What Comes Next: Exploring Sequences and Progressions",
+     "hi": "अगले पद का पूर्वानुमान — अनुक्रमों और श्रेढ़ियों का अन्वेषण"
+    },
+    "startPage": 174,
+    "endPage": 200
+   }
+  ]
  }
 ]
