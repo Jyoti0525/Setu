@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Auth, AuthCredential, ConfirmationResult, RecaptchaVerifier, User } from 'firebase/auth';
 import { getAuthOnce } from './firebase.ts';
 import { App as LearnerApp, LOCAL } from './app.tsx';
-import { Logo } from './icons.tsx';
+import { Icon, Logo } from './icons.tsx';
+import { LANGUAGES } from '@setu/core';
 
 type Page = 'login' | 'register' | 'dashboard';
 const NO_ACCOUNT = 'setu-no-account';
@@ -69,12 +70,57 @@ const W: Record<string, Record<string, string>> = {
   hi: { createEyebrow: 'अपना खाता बनाओ', loginEyebrow: 'तुम्हारी पढ़ाई की जगह', getStarted: 'शुरू करें', welcome: 'फिर से स्वागत है', createSub: 'खाता बनाने का तरीका चुनो।', loginSub: 'पढ़ाई जारी रखने के लिए लॉग इन करो।', google: 'Google से आगे बढ़ें', or: 'या', email: 'ईमेल', phone: 'फ़ोन', fullName: 'पूरा नाम', emailAddr: 'ईमेल पता', password: 'पासवर्ड', show: 'दिखाओ', hide: 'छिपाओ', forgot: 'पासवर्ड भूल गए?', wait: 'थोड़ा रुको…', create: 'खाता बनाओ', login: 'लॉग इन', phoneNo: 'फ़ोन नंबर', code: 'OTP कोड', verify: 'जाँच कर आगे बढ़ें', verifying: 'जाँच हो रही है…', resendIn: '{0} सेकंड बाद फिर भेजें', resend: 'कोड फिर भेजें', changePhone: 'फ़ोन नंबर बदलें', sending: 'कोड भेज रहे हैं…', send: 'OTP भेजें', sent: 'तुम्हारे फ़ोन पर कोड भेजा गया।', have: 'खाता है?', new: 'सेतु पर नए हो?', makeOne: 'खाता बनाओ', skip: 'बिना खाते के आगे बढ़ें', skipNote: 'बिना खाते के भी सारी पढ़ाई चलेगी — इसी फ़ोन पर, बिना नेट के भी।', back: '← सेतु पर वापस', resetFirst: 'पहले ईमेल लिखो, फिर "पासवर्ड भूल गए?" दबाओ।', resetSent: 'उस ईमेल पर खाता हो तो नया पासवर्ड लिंक जा रहा है।', linkPhone: 'यह फ़ोन नंबर दूसरे खाते में है। उस खाते से लॉग इन करो, फ़ोन जुड़ जाएगा।', linkGoogle: 'यह ईमेल दूसरे तरीके से बना है। उसी तरीके से लॉग इन करो, Google जुड़ जाएगा।', failed: 'लॉग इन नहीं हुआ। जानकारी देखकर फिर कोशिश करो।', badLogin: 'ईमेल या पासवर्ड सही नहीं है।', inUse: 'इस ईमेल पर पहले से खाता है। लॉग इन करो।', weak: 'कम से कम 6 अक्षर का पासवर्ड रखो।', badEmail: 'सही ईमेल पता लिखो।', badPhone: 'सही फ़ोन नंबर लिखो।', badCode: 'कोड मेल नहीं खाता। फिर देखो।', tooMany: 'बहुत बार कोशिश हुई। थोड़ी देर बाद करो।', net: 'इंटरनेट देखकर फिर कोशिश करो।', domain: 'यह वेबसाइट Firebase में अनुमति नहीं पाई है (Authorized domains)।', disabled: 'यह लॉग इन तरीका Firebase में चालू नहीं है।', popup: 'Google लॉग इन विंडो बंद हो गई।' },
   en: { createEyebrow: 'Create your account', loginEyebrow: 'Your learning space', getStarted: 'Get started', welcome: 'Welcome back', createSub: 'Choose how you would like to sign up.', loginSub: 'Sign in to continue learning.', google: 'Continue with Google', or: 'or continue with', email: 'Email', phone: 'Phone', fullName: 'Full name', emailAddr: 'Email address', password: 'Password', show: 'Show', hide: 'Hide', forgot: 'Forgot password?', wait: 'Please wait…', create: 'Create account', login: 'Log in', phoneNo: 'Phone number', code: 'Verification code', verify: 'Verify and continue', verifying: 'Verifying…', resendIn: 'Resend code in {0}s', resend: 'Resend code', changePhone: 'Change phone number', sending: 'Sending code…', send: 'Send verification code', sent: 'A verification code has been sent to your phone.', have: 'Already have an account?', new: 'New to Setu?', makeOne: 'Create an account', skip: 'Continue without an account', skipNote: 'Everything works without an account too — on this phone, even with no internet.', back: '← Back to Setu', resetFirst: 'Enter your email address first, then choose Forgot password.', resetSent: 'If an account uses that address, a reset link is on its way.', linkPhone: 'This phone is already linked to an account. Sign in with that account’s other method to connect this phone number.', linkGoogle: 'This email already has another sign-in method. Sign in with it here and Setu will connect Google to that account.', failed: 'We could not complete sign-in. Check your details and try again.', badLogin: 'That email and password combination was not recognized.', inUse: 'An account already uses that email. Try logging in instead.', weak: 'Choose a password with at least 6 characters.', badEmail: 'Enter a valid email address.', badPhone: 'Enter a valid phone number.', badCode: 'That verification code did not match. Check it and try again.', tooMany: 'Too many attempts. Wait a little before trying again.', net: 'Check your internet connection and try again.', domain: 'This website is not in Firebase Authentication’s authorized domains.', disabled: 'This sign-in method is not enabled in Firebase Authentication.', popup: 'Google sign-in was closed before it finished.' },
 };
-const LANG_NAMES: [string, string][] = [['or', 'ଓଡ଼ିଆ'], ['hi', 'हिन्दी'], ['en', 'English']];
+// the page's main words in the other Indian languages (AI drafts like the rest of those languages' screens; the
+// rarer messages fall back to English). Tribal languages and Bhojpuri read the page in their school language.
+const MORE: Record<string, Record<string, string>> = {
+  bn: { createEyebrow: 'তোমার অ্যাকাউন্ট খোলো', loginEyebrow: 'তোমার পড়ার জায়গা', getStarted: 'শুরু করো', welcome: 'আবার স্বাগতম', createSub: 'কীভাবে অ্যাকাউন্ট খুলবে বেছে নাও।', loginSub: 'পড়া চালিয়ে যেতে লগ ইন করো।', google: 'Google দিয়ে এগোও', or: 'অথবা', email: 'ইমেল', phone: 'ফোন', fullName: 'পুরো নাম', emailAddr: 'ইমেল ঠিকানা', password: 'পাসওয়ার্ড', show: 'দেখাও', hide: 'লুকাও', forgot: 'পাসওয়ার্ড ভুলে গেছ?', wait: 'একটু অপেক্ষা করো…', create: 'অ্যাকাউন্ট খোলো', login: 'লগ ইন', phoneNo: 'ফোন নম্বর', code: 'OTP কোড', verify: 'যাচাই করে এগোও', send: 'OTP পাঠাও', have: 'অ্যাকাউন্ট আছে?', new: 'সেতুতে নতুন?', makeOne: 'অ্যাকাউন্ট খোলো', skip: 'অ্যাকাউন্ট ছাড়াই এগোও', skipNote: 'অ্যাকাউন্ট ছাড়াও সব পড়া চলবে — এই ফোনেই, নেট না থাকলেও।' },
+  kn: { createEyebrow: 'ನಿನ್ನ ಖಾತೆ ತೆರೆ', loginEyebrow: 'ನಿನ್ನ ಓದಿನ ಜಾಗ', getStarted: 'ಆರಂಭಿಸು', welcome: 'ಮತ್ತೆ ಸ್ವಾಗತ', createSub: 'ಖಾತೆ ತೆರೆಯುವ ವಿಧಾನ ಆರಿಸು.', loginSub: 'ಓದು ಮುಂದುವರಿಸಲು ಲಾಗ್ ಇನ್ ಮಾಡು.', google: 'Google ಮೂಲಕ ಮುಂದುವರಿ', or: 'ಅಥವಾ', email: 'ಇಮೇಲ್', phone: 'ಫೋನ್', fullName: 'ಪೂರ್ಣ ಹೆಸರು', emailAddr: 'ಇಮೇಲ್ ವಿಳಾಸ', password: 'ಪಾಸ್‌ವರ್ಡ್', show: 'ತೋರಿಸು', hide: 'ಮರೆಮಾಡು', forgot: 'ಪಾಸ್‌ವರ್ಡ್ ಮರೆತೆಯಾ?', wait: 'ಸ್ವಲ್ಪ ಕಾಯಿ…', create: 'ಖಾತೆ ತೆರೆ', login: 'ಲಾಗ್ ಇನ್', phoneNo: 'ಫೋನ್ ಸಂಖ್ಯೆ', code: 'OTP ಕೋಡ್', verify: 'ಪರಿಶೀಲಿಸಿ ಮುಂದುವರಿ', send: 'OTP ಕಳುಹಿಸು', have: 'ಖಾತೆ ಇದೆಯಾ?', new: 'ಸೇತುವಿಗೆ ಹೊಸಬರಾ?', makeOne: 'ಖಾತೆ ತೆರೆ', skip: 'ಖಾತೆ ಇಲ್ಲದೆ ಮುಂದುವರಿ', skipNote: 'ಖಾತೆ ಇಲ್ಲದೆಯೂ ಎಲ್ಲ ಓದು ನಡೆಯುತ್ತದೆ — ಇದೇ ಫೋನಿನಲ್ಲಿ, ನೆಟ್ ಇಲ್ಲದಿದ್ದರೂ.' },
+  te: { createEyebrow: 'నీ ఖాతా తెరువు', loginEyebrow: 'నీ చదువు చోటు', getStarted: 'మొదలుపెట్టు', welcome: 'మళ్ళీ స్వాగతం', createSub: 'ఖాతా ఎలా తెరవాలో ఎంచుకో.', loginSub: 'చదువు కొనసాగించడానికి లాగిన్ అవ్వు.', google: 'Google తో కొనసాగు', or: 'లేదా', email: 'ఈమెయిల్', phone: 'ఫోన్', fullName: 'పూర్తి పేరు', emailAddr: 'ఈమెయిల్ చిరునామా', password: 'పాస్‌వర్డ్', show: 'చూపించు', hide: 'దాచు', forgot: 'పాస్‌వర్డ్ మర్చిపోయావా?', wait: 'కొంచెం ఆగు…', create: 'ఖాతా తెరువు', login: 'లాగిన్', phoneNo: 'ఫోన్ నంబర్', code: 'OTP కోడ్', verify: 'తనిఖీ చేసి కొనసాగు', send: 'OTP పంపు', have: 'ఖాతా ఉందా?', new: 'సేతుకు కొత్తా?', makeOne: 'ఖాతా తెరువు', skip: 'ఖాతా లేకుండా కొనసాగు', skipNote: 'ఖాతా లేకపోయినా చదువంతా సాగుతుంది — ఈ ఫోన్‌లోనే, నెట్ లేకపోయినా.' },
+  ta: { createEyebrow: 'உன் கணக்கைத் தொடங்கு', loginEyebrow: 'உன் படிப்பு இடம்', getStarted: 'தொடங்கு', welcome: 'மீண்டும் வருக', createSub: 'கணக்கைத் தொடங்கும் வழியைத் தேர்ந்தெடு.', loginSub: 'படிப்பைத் தொடர உள்நுழை.', google: 'Google மூலம் தொடர்', or: 'அல்லது', email: 'மின்னஞ்சல்', phone: 'தொலைபேசி', fullName: 'முழுப் பெயர்', emailAddr: 'மின்னஞ்சல் முகவரி', password: 'கடவுச்சொல்', show: 'காட்டு', hide: 'மறை', forgot: 'கடவுச்சொல் மறந்ததா?', wait: 'சற்றுக் காத்திரு…', create: 'கணக்கைத் தொடங்கு', login: 'உள்நுழை', phoneNo: 'தொலைபேசி எண்', code: 'OTP குறியீடு', verify: 'சரிபார்த்துத் தொடர்', send: 'OTP அனுப்பு', have: 'கணக்கு உள்ளதா?', new: 'சேதுவுக்குப் புதியவரா?', makeOne: 'கணக்கைத் தொடங்கு', skip: 'கணக்கு இல்லாமல் தொடர்', skipNote: 'கணக்கு இல்லாமலும் எல்லாப் படிப்பும் நடக்கும் — இந்தத் தொலைபேசியிலேயே, இணையம் இல்லாவிட்டாலும்.' },
+  mr: { createEyebrow: 'तुझे खाते उघड', loginEyebrow: 'तुझी अभ्यासाची जागा', getStarted: 'सुरू कर', welcome: 'पुन्हा स्वागत', createSub: 'खाते कसे उघडायचे ते निवड.', loginSub: 'अभ्यास पुढे चालू ठेवण्यासाठी लॉग इन कर.', google: 'Google ने पुढे जा', or: 'किंवा', email: 'ईमेल', phone: 'फोन', fullName: 'पूर्ण नाव', emailAddr: 'ईमेल पत्ता', password: 'पासवर्ड', show: 'दाखव', hide: 'लपव', forgot: 'पासवर्ड विसरलास?', wait: 'थोडं थांब…', create: 'खाते उघड', login: 'लॉग इन', phoneNo: 'फोन नंबर', code: 'OTP कोड', verify: 'तपासून पुढे जा', send: 'OTP पाठव', have: 'खाते आहे?', new: 'सेतूवर नवीन?', makeOne: 'खाते उघड', skip: 'खात्याशिवाय पुढे जा', skipNote: 'खात्याशिवायही सगळा अभ्यास चालेल — याच फोनवर, नेट नसतानाही.' },
+};
+const pageLang = (l: string) => (W[l] || MORE[l] ? l : LANGUAGES[l]?.school ?? 'en');
+
+/** the language for this page: a button that opens a list of all her languages, with a search */
+function LangMenu({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const box = useRef<HTMLDivElement>(null);
+  const find = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    // type straight away with a keyboard; on a touch phone the keyboard opens only when she taps the search
+    if (matchMedia('(pointer: fine)').matches) find.current?.focus();
+    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
+    addEventListener('pointerdown', away);
+    return () => removeEventListener('pointerdown', away);
+  }, [open]);
+  const t = q.trim().toLocaleLowerCase();
+  const shown = Object.values(LANGUAGES).filter((l) => !t || [l.name, l.english, l.id].some((v) => v.toLocaleLowerCase().includes(t)));
+  const cur = LANGUAGES[value];
+  return <div class="lang-menu" ref={box} onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.preventDefault(); setOpen(false); } }}>
+    <button type="button" class="lang-menu-button" aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen(!open); setQ(''); }}>
+      <Icon name="globe" size={17} /><span>{cur?.name ?? value}</span>{cur && cur.english !== cur.name && <span class="lang-menu-en">{cur.english}</span>}<Icon name="down" size={16} />
+    </button>
+    {open && <div class="lang-menu-pop">
+      <label class="lang-menu-search"><Icon name="search" size={16} /><input ref={find} type="search" value={q} placeholder="Search · ଖୋଜ · खोजें" aria-label="Search language"
+        onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)}
+        onKeyDown={(e) => { if (e.key === 'Enter' && shown[0]) { e.preventDefault(); onPick(shown[0].id); setOpen(false); } }} /></label>
+      <ul role="listbox" aria-label="Language">
+        {shown.map((l) => <li><button type="button" role="option" aria-selected={l.id === value} class={l.id === value ? 'active' : ''} onClick={() => { onPick(l.id); setOpen(false); }}>
+          <span>{l.name}</span>{l.english !== l.name && <span class="lang-menu-en">{l.english}</span>}{l.id === value && <Icon name="check" size={16} />}
+        </button></li>)}
+        {!shown.length && <li class="lang-menu-none">—</li>}
+      </ul>
+    </div>}
+  </div>;
+}
 
 function AuthPage({ mode, auth, pending, setPending, onSkip }: { mode: 'login' | 'register'; auth: Auth; pending: AuthCredential | null; setPending: (c: AuthCredential | null) => void; onSkip: () => void }) {
   const isRegister = mode === 'register';
-  const [L, setL] = useState(() => keep('setu-auth-lang') ?? 'or');
-  const w = (k: string) => W[L]?.[k] ?? W.en![k] ?? k;
+  const [lang, setLang] = useState(() => { const k = keep('setu-auth-lang'); return k && LANGUAGES[k] ? k : 'or'; });
+  const L = pageLang(lang);
+  const w = (k: string) => W[L]?.[k] ?? MORE[L]?.[k] ?? W.en![k] ?? k;
   const [method, setMethod] = useState<'email' | 'phone'>('email');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -131,7 +177,7 @@ function AuthPage({ mode, auth, pending, setPending, onSkip }: { mode: 'login' |
   return <main class={'auth-page' + (!isRegister ? ' login-page' : '')} lang={L}>
     <div class={'auth-side' + (!isRegister ? ' login-side' : '')}><span class="wordmark"><Logo size={36} /><span>Setu</span></span></div>
     <section class="auth-panel"><div class="auth-card">
-      <div class="auth-langs" role="group" aria-label="Language">{LANG_NAMES.map(([id, label]) => <button type="button" class={L === id ? 'active' : ''} aria-pressed={L === id} onClick={() => { setL(id); keep('setu-auth-lang', id); }}>{label}</button>)}</div>
+      <LangMenu value={lang} onPick={(id) => { setLang(id); keep('setu-auth-lang', id); }} />
       <p class="eyebrow">{w(isRegister ? 'createEyebrow' : 'loginEyebrow')}</p>
       <h2>{w(isRegister ? 'getStarted' : 'welcome')}</h2>
       <p class="auth-subtitle">{w(isRegister ? 'createSub' : 'loginSub')}</p>

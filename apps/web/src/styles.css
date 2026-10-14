@@ -480,6 +480,20 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
 .auth-langs { display: flex; gap: 6px; margin-bottom: 12px; }
 .auth-langs button { min-height: 36px; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--pub-line); background: var(--pub-paper); color: var(--pub-muted); font-size: .85rem; }
 .auth-langs button.active { background: var(--pub-accent); border-color: var(--pub-accent); color: #fffdf9; font-weight: 700; }
+.lang-menu { position: relative; margin-bottom: 12px; }
+.lang-menu-button { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 12px; border: 1px solid var(--pub-line); border-radius: 999px; background: var(--pub-paper); color: var(--pub-ink); font-size: .88rem; font-weight: 700; }
+.lang-menu-button:hover, .lang-menu-button[aria-expanded="true"] { border-color: var(--pub-accent); }
+.lang-menu-en { color: var(--pub-muted); font-size: .76rem; font-weight: 500; }
+.lang-menu-pop { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: min(300px, calc(100vw - 40px)); padding: 8px; border: 1px solid var(--pub-line); border-radius: 14px; background: var(--pub-paper); box-shadow: 0 12px 32px rgba(48, 35, 22, .2); }
+.lang-menu-search { display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--pub-line); border-radius: 10px; color: var(--pub-muted); }
+.lang-menu-search input { flex: 1; min-width: 0; min-height: 40px; border: 0; outline: 0; background: transparent; color: var(--pub-ink); font: inherit; font-size: .85rem; }
+.lang-menu-search:focus-within { border-color: var(--pub-accent); }
+.lang-menu-pop ul { max-height: min(300px, 50dvh); margin: 6px 0 0; padding: 0; overflow-y: auto; list-style: none; }
+.lang-menu-pop li button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--pub-ink); font-size: .9rem; text-align: left; }
+.lang-menu-pop li button:hover, .lang-menu-pop li button:focus-visible { background: #f1e7d9; }
+.lang-menu-pop li button.active { font-weight: 750; color: var(--pub-accent); }
+.lang-menu-pop li button svg { margin-left: auto; }
+.lang-menu-none { padding: 10px; color: var(--pub-muted); text-align: center; }
 .auth-skip { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--pub-line); text-align: center; }
 .skip-button { width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid var(--pub-line); background: transparent; color: var(--pub-ink); font-weight: 700; font-size: .9rem; }
 .skip-button:hover { background: var(--pub-paper); }
