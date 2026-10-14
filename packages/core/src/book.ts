@@ -7,8 +7,9 @@ import { normalizeForMatch, tokenizeLoose as tokenize } from './matcher.ts';
 import { lexiconFor } from './lexicon.ts';
 import { normalizeDigits } from './numerals.ts';
 import { latexToText } from './latex.ts';
+import { LANGUAGES } from './languages.ts';
 
-export interface BookChapter { n: number; title: { or: string; en: string }; startPage: number; endPage: number }
+export interface BookChapter { n: number; title: { or: string; en: string; hi?: string }; startPage: number; endPage: number }
 export interface BookMeta {
   id: string;
   /** subject as she would name it, per language */
@@ -26,6 +27,8 @@ export interface BookMeta {
   /** a language book (Odia, English, Hindi, Sanskrit): its stories and poems share everyday words with every
    *  question, so it is searched only when she picks it or names one of its lessons */
   kind?: 'language';
+  /** the language the book is written in (default 'or'): an NCERT book is 'en' or 'hi' */
+  lang?: string;
 }
 export interface BookPassage { id: string; ch: number; page: number; text: string; /** a figure on the page, explained in words (P8.20): its picture, `<book-id>/p013-1.jpg` under content/books/figures */ fig?: string }
 export interface BookIndex { meta: BookMeta; passages: BookPassage[]; glossary: { or: string; en: string }[]; version: string }
@@ -170,6 +173,23 @@ export interface BookHit { passage: BookPassage; bookId: string; score: number; 
 
 interface ShelfDoc { id: string; bookId: string; text: string; chapter: string }
 
+/** A book, subject or chapter name in her language: Odia and Hindi as printed, English for the rest; a learner taught in
+ *  a school language (Santali, Kui… → Odia; Bhojpuri → Hindi) sees her school's names. */
+export function nameIn(x: { or: string; en: string; hi?: string } | undefined, lang: string): string {
+  if (!x) return '';
+  const l = lang === 'or' || lang === 'hi' || lang === 'en' ? lang : LANGUAGES[lang]?.school ?? 'en';
+  return l === 'or' ? x.or : l === 'hi' ? x.hi ?? x.en : x.en;
+}
+
+/** "BSE-Odisha", "BSE Odisha" → "bseodisha": one name per board, however it is written */
+export const boardKey = (board: string) => board.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** Boards Setu has books for: id (profile), name shown, who sets it. */
+export const BOARDS = [
+  { id: 'BSE Odisha', name: { or: 'BSE ଓଡ଼ିଶା', en: 'BSE Odisha', hi: 'BSE ओडिशा' }, by: 'Board of Secondary Education, Odisha', lang: 'or' },
+  { id: 'CBSE', name: { or: 'CBSE (NCERT)', en: 'CBSE (NCERT)', hi: 'CBSE (NCERT)' }, by: 'Central Board of Secondary Education — NCERT textbooks', lang: 'en' },
+] as const;
+
 /** Every book on this phone or server, searchable as one shelf (by spelling and by sound, any script). */
 export class Shelf {
   private readonly ms: MiniSearch<ShelfDoc>;
@@ -207,8 +227,9 @@ export class Shelf {
     }
   }
 
-  /** `picked`: the books of the subject she chose (a language book is searched only then, or when she names a lesson) */
-  search(query: string, opts: { bookId?: string; limit?: number; picked?: string[] } = {}): BookHit[] {
+  /** `picked`: the books of the subject she chose (a language book is searched only then, or when she names a lesson);
+   *  `only`: the books she may be answered from at all (her board's) */
+  search(query: string, opts: { bookId?: string; limit?: number; picked?: string[]; only?: string[] } = {}): BookHit[] {
     // କ'ଣ is one word (କଣ, "what"), not କ and ଣ
     const q0 = normalizeDigits(query).replace(/([\p{L}\p{M}])['’](?=\p{L})/gu, '$1');
     // an English word also searches as the Odia word the book uses ("earthquake" → ଭୂମିକମ୍ପ); found by either, it counts once
@@ -226,7 +247,8 @@ export class Shelf {
     };
     const open = (r: { bookId: string; match: Record<string, string[]> }) =>
       this.books.get(r.bookId)?.meta.kind !== 'language' || opts.bookId === r.bookId || !!opts.picked?.includes(r.bookId) || names(r) >= Math.min(2, Math.max(1, Math.ceil(groups.length / 2)));
-    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : {}).filter((r) => open(r as never)).slice(0, 60);
+    const only = opts.only ? new Set(opts.only) : undefined;
+    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : only ? { filter: (r) => only.has(r.bookId) } : {}).filter((r) => open(r as never)).slice(0, 60);
     // a chapter about the question has several passages that match, a stray mention has one: each passage gets a
     // share of the next best passages of its own chapter (so "janasankhya briddhi" lands in Population, not Wildlife)
     const byChapter = new Map<string, number[]>();
@@ -248,6 +270,13 @@ export class Shelf {
       return { passage: hit.passage, bookId: hit.bookId, score, coverage: Math.round((found / groups.length) * weak * 100) / 100 };
     });
     return ranked.sort((a, b) => b.score - a.score).slice(0, opts.limit ?? 5);
+  }
+
+  /** the books of one board ("BSE Odisha", "CBSE"); every book when the board is not given or has no books here */
+  booksOf(board?: string): string[] {
+    const all = [...this.books.values()];
+    const mine = board ? all.filter((b) => boardKey(b.meta.board) === boardKey(board)) : all;
+    return (mine.length ? mine : all).map((b) => b.meta.id);
   }
 
   chapterOf(bookId: string, ch: number) { return this.books.get(bookId)?.meta.chapters.find((c) => c.n === ch); }

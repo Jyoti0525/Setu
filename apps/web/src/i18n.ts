@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+import { addLocale, localeOf, type Locale } from '@setu/core';
 import { playClip, stopClip } from './audio.ts';
 // UI strings (PLAN §7: fully localised interface): Odia, Hindi, English. Every key exists in every language (test).
 
@@ -5,7 +7,7 @@ const S = {
   or: {
     app: 'ସେତୁ', chooseLang: 'ଭାଷା ବାଛ', chooseAvatar: 'ତୁମ ଛବି ବାଛ', name: 'ନାମ (ଇଚ୍ଛା ହେଲେ)', start: 'ଆରମ୍ଭ କର',
     ask: 'ପ୍ରଶ୍ନ ପଚାର', askPlaceholder: 'ତୁମ ପ୍ରଶ୍ନ ଲେଖ — ଓଡ଼ିଆ ବା English ଅକ୍ଷରରେ', send: 'ପଠାଅ',
-    today: 'ଆଜିର ପାଠ', next: 'ଆଗକୁ', why: 'କାହିଁକି?', answer: 'ଉତ୍ତର', typeNumber: 'ସଂଖ୍ୟା ଲେଖ', whoIsIt: 'ଏବେ କିଏ ପଢ଼ୁଛ?', otherHome: 'ମୋ ଘର ଭାଷା ଅଲଗା (କୁଇ, ସାନ୍ତାଳି, ହୋ…)', bridgeNote: 'ସେତୁ ଏବେ {0} କହିପାରେ ନାହିଁ — ତୁମ ସ୍କୁଲ ଭାଷା {1} ରେ ପଢ଼ାଇବ, ଆଉ ତୁମ ଶିକ୍ଷକ {0} ଶବ୍ଦ ଯୋଡ଼ିପାରିବେ।', ack: 'ଶୁଣିଲି — ଟିକେ ଦେଖୁଛି…', switchLearner: 'ଅନ୍ୟ ଶିକ୍ଷାର୍ଥୀ', timeToday: 'ଆଜି କେତେ ସମୟ ପଢ଼ିବ?', startLesson: 'ଆରମ୍ଭ କର', remindOff: 'ପାଠ ପ୍ରସ୍ତୁତ ହେଲେ ମନେ ପକାଅ', remindOn: 'ମନେ ପକାଇବା ଚାଲୁ ଅଛି', newLearner: 'ନୂଆ ଶିକ୍ଷାର୍ଥୀ', sharePack: 'ପାଠ ସାଙ୍ଗକୁ ପଠାଅ (ଫାଇଲ)', openPackFile: 'ସାଙ୍ଗ ପଠାଇଥିବା ପାଠ ଫାଇଲ ଖୋଲ', packBad: 'ଏହି ଫାଇଲ ଠିକ୍ ନାହିଁ (ବଦଳିଯାଇଛି) — ବ୍ୟବହାର କରାଗଲା ନାହିଁ।', packFormat: 'ଏହା ସେତୁ ପାଠ ଫାଇଲ ନୁହେଁ।', typeWords: 'ନିଜ ଭାଷାରେ ଲେଖ', nextHint: 'ଆଉ ଗୋଟିଏ ସୂଚନା', showAnswer: 'ଉତ୍ତର ଦେଖ', hintRight: 'ଠିକ୍! ତୁମେ ନିଜେ କଲ 👏', hintWrong: 'ଏଥର ମିଳିଲା ନାହିଁ — ସୂଚନା ଦେଖି ଆଉ ଥରେ ଚେଷ୍ଟା କର।',
+    today: 'ଆଜିର ପାଠ', next: 'ଆଗକୁ', why: 'କାହିଁକି?', answer: 'ଉତ୍ତର', typeNumber: 'ସଂଖ୍ୟା ଲେଖ', whoIsIt: 'ଏବେ କିଏ ପଢ଼ୁଛ?', otherHome: 'ମୋ ଘର ଭାଷା ଅଲଗା (କୁଇ, କୁଭି, ହୋ, ସଉରା, ମୁଣ୍ଡା…)', bridgeNote: 'ସେତୁ ଏବେ {0} ଲେଖିପାରେ ନାହିଁ — ସହଜ {1}ରେ ପଢ଼ାଇବ, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ ଶବ୍ଦକୋଷରୁ {0} ଶବ୍ଦ ଯୋଡ଼ିବ।', chooseBoard: 'କେଉଁ ବୋର୍ଡ?', ack: 'ଶୁଣିଲି — ଟିକେ ଦେଖୁଛି…', switchLearner: 'ଅନ୍ୟ ଶିକ୍ଷାର୍ଥୀ', timeToday: 'ଆଜି କେତେ ସମୟ ପଢ଼ିବ?', startLesson: 'ଆରମ୍ଭ କର', remindOff: 'ପାଠ ପ୍ରସ୍ତୁତ ହେଲେ ମନେ ପକାଅ', remindOn: 'ମନେ ପକାଇବା ଚାଲୁ ଅଛି', newLearner: 'ନୂଆ ଶିକ୍ଷାର୍ଥୀ', sharePack: 'ପାଠ ସାଙ୍ଗକୁ ପଠାଅ (ଫାଇଲ)', openPackFile: 'ସାଙ୍ଗ ପଠାଇଥିବା ପାଠ ଫାଇଲ ଖୋଲ', packBad: 'ଏହି ଫାଇଲ ଠିକ୍ ନାହିଁ (ବଦଳିଯାଇଛି) — ବ୍ୟବହାର କରାଗଲା ନାହିଁ।', packFormat: 'ଏହା ସେତୁ ପାଠ ଫାଇଲ ନୁହେଁ।', typeWords: 'ନିଜ ଭାଷାରେ ଲେଖ', nextHint: 'ଆଉ ଗୋଟିଏ ସୂଚନା', showAnswer: 'ଉତ୍ତର ଦେଖ', hintRight: 'ଠିକ୍! ତୁମେ ନିଜେ କଲ 👏', hintWrong: 'ଏଥର ମିଳିଲା ନାହିଁ — ସୂଚନା ଦେଖି ଆଉ ଥରେ ଚେଷ୍ଟା କର।',
     cloud: 'ଅନଲାଇନ', weak: 'ଦୁର୍ବଳ ସିଗନାଲ', device: 'ଫୋନରେ (ଅଫଲାଇନ)', practice: 'ଅଭ୍ୟାସ',
     syncDone: 'ସିଙ୍କ ହେଲା', thinking: 'ଭାବୁଛି…', end: 'ଆଜି ପାଇଁ ଶେଷ', mastery: 'ଶିଖିବା', dataUsed: 'ଡାଟା',
     loading: 'ପାଠ ଆଣୁଛି…', noPack: 'ପ୍ରଥମ ଥର ପାଇଁ ଇଣ୍ଟରନେଟ ଦରକାର।', speak: 'ଶୁଣ',
@@ -23,7 +25,7 @@ const S = {
   hi: {
     app: 'सेतु', chooseLang: 'भाषा चुनो', chooseAvatar: 'अपनी तस्वीर चुनो', name: 'नाम (चाहो तो)', start: 'शुरू करो',
     ask: 'सवाल पूछो', askPlaceholder: 'अपना सवाल लिखो — हिंदी या English अक्षरों में', send: 'भेजो',
-    today: 'आज का पाठ', next: 'आगे', why: 'क्यों?', answer: 'जवाब', typeNumber: 'संख्या लिखो', whoIsIt: 'अभी कौन पढ़ रहा है?', otherHome: 'मेरी घर की भाषा अलग है (कुई, संताली, हो…)', bridgeNote: 'सेतु अभी {0} नहीं बोल पाता — तुम्हारी स्कूल की भाषा {1} में पढ़ाएगा, और तुम्हारे शिक्षक {0} के शब्द जोड़ सकते हैं।', ack: 'सुन लिया — ज़रा देख रहा हूँ…', switchLearner: 'दूसरा विद्यार्थी', timeToday: 'आज कितनी देर पढ़ोगे?', startLesson: 'शुरू करो', remindOff: 'पाठ तैयार हो तो याद दिलाओ', remindOn: 'याद दिलाना चालू है', newLearner: 'नया विद्यार्थी', sharePack: 'पाठ दोस्त को भेजो (फ़ाइल)', openPackFile: 'दोस्त की भेजी पाठ फ़ाइल खोलो', packBad: 'यह फ़ाइल ठीक नहीं है (बदली हुई) — इस्तेमाल नहीं की।', packFormat: 'यह सेतु की पाठ फ़ाइल नहीं है।', typeWords: 'अपने शब्दों में लिखो', nextHint: 'एक और संकेत', showAnswer: 'जवाब देखो', hintRight: 'सही! तुमने खुद किया 👏', hintWrong: 'अभी नहीं — संकेत देखकर एक बार और कोशिश करो।',
+    today: 'आज का पाठ', next: 'आगे', why: 'क्यों?', answer: 'जवाब', typeNumber: 'संख्या लिखो', whoIsIt: 'अभी कौन पढ़ रहा है?', otherHome: 'मेरी घर की भाषा अलग है (कुई, कुवि, हो, सौरा, मुंडा…)', bridgeNote: 'सेतु अभी {0} नहीं लिख पाता — आसान {1} में पढ़ाएगा, और ओडिशा सरकार के शब्दकोश से {0} के शब्द जोड़ेगा।', chooseBoard: 'कौन सा बोर्ड?', ack: 'सुन लिया — ज़रा देख रहा हूँ…', switchLearner: 'दूसरा विद्यार्थी', timeToday: 'आज कितनी देर पढ़ोगे?', startLesson: 'शुरू करो', remindOff: 'पाठ तैयार हो तो याद दिलाओ', remindOn: 'याद दिलाना चालू है', newLearner: 'नया विद्यार्थी', sharePack: 'पाठ दोस्त को भेजो (फ़ाइल)', openPackFile: 'दोस्त की भेजी पाठ फ़ाइल खोलो', packBad: 'यह फ़ाइल ठीक नहीं है (बदली हुई) — इस्तेमाल नहीं की।', packFormat: 'यह सेतु की पाठ फ़ाइल नहीं है।', typeWords: 'अपने शब्दों में लिखो', nextHint: 'एक और संकेत', showAnswer: 'जवाब देखो', hintRight: 'सही! तुमने खुद किया 👏', hintWrong: 'अभी नहीं — संकेत देखकर एक बार और कोशिश करो।',
     cloud: 'ऑनलाइन', weak: 'कमज़ोर सिग्नल', device: 'फ़ोन पर (ऑफ़लाइन)', practice: 'अभ्यास',
     syncDone: 'सिंक हुआ', thinking: 'सोच रहा हूँ…', end: 'आज के लिए बस', mastery: 'सीखना', dataUsed: 'डेटा',
     loading: 'पाठ ला रहा हूँ…', noPack: 'पहली बार इंटरनेट चाहिए।', speak: 'सुनो',
@@ -41,7 +43,7 @@ const S = {
   en: {
     app: 'Setu', chooseLang: 'Choose language', chooseAvatar: 'Pick your picture', name: 'Name (optional)', start: 'Start',
     ask: 'Ask a doubt', askPlaceholder: 'Type your question — in Odia or English letters', send: 'Send',
-    today: "Today's lesson", next: 'Next', why: 'Why?', answer: 'Answer', typeNumber: 'Type a number', whoIsIt: 'Who is learning now?', otherHome: 'My home language is different (Kui, Santali, Ho…)', bridgeNote: 'Setu cannot speak {0} yet — it will teach in your school language, {1}, and your teacher can add {0} words.', ack: 'Got it — looking…', switchLearner: 'Switch learner', timeToday: 'How long can you study today?', startLesson: 'Start', remindOff: 'Remind me when a lesson is ready', remindOn: 'Reminders on', newLearner: 'New learner', sharePack: 'Send the lesson to a friend (file)', openPackFile: 'Open a lesson file from a friend', packBad: 'This file is damaged or changed — not used.', packFormat: 'This is not a Setu lesson file.', typeWords: 'Write in your own words', nextHint: 'One more hint', showAnswer: 'Show the answer', hintRight: 'Right! You did it yourself 👏', hintWrong: 'Not yet — look at the hints and try once more.',
+    today: "Today's lesson", next: 'Next', why: 'Why?', answer: 'Answer', typeNumber: 'Type a number', whoIsIt: 'Who is learning now?', otherHome: 'My home language is different (Kui, Kuvi, Ho, Saora, Munda…)', bridgeNote: 'Setu cannot write {0} yet — it will teach you in easy {1}, with {0} words from the Government of Odisha dictionary.', chooseBoard: 'Which board?', ack: 'Got it — looking…', switchLearner: 'Switch learner', timeToday: 'How long can you study today?', startLesson: 'Start', remindOff: 'Remind me when a lesson is ready', remindOn: 'Reminders on', newLearner: 'New learner', sharePack: 'Send the lesson to a friend (file)', openPackFile: 'Open a lesson file from a friend', packBad: 'This file is damaged or changed — not used.', packFormat: 'This is not a Setu lesson file.', typeWords: 'Write in your own words', nextHint: 'One more hint', showAnswer: 'Show the answer', hintRight: 'Right! You did it yourself 👏', hintWrong: 'Not yet — look at the hints and try once more.',
     cloud: 'Online', weak: 'Weak signal', device: 'On phone (offline)', practice: 'practice',
     syncDone: 'Synced', thinking: 'Thinking…', end: 'Done for today', mastery: 'Learning', dataUsed: 'Data',
     loading: 'Getting your lessons…', noPack: 'Internet is needed the first time.', speak: 'Listen',
@@ -59,10 +61,24 @@ const S = {
 } as const;
 
 export type Key = keyof typeof S.en;
-export const t = (lang: string, k: Key) => (S as Record<string, Record<Key, string>>)[lang]?.[k] ?? S.en[k];
+export const t = (lang: string, k: Key) => (S as Record<string, Record<Key, string>>)[lang]?.[k] ?? localeOf(lang)?.ui[k] ?? S.en[k];
 
-/** Language picker: each name is spoken in its own language when tapped. */
-export const LANGS = [{ id: 'or', label: 'ଓଡ଼ିଆ' }, { id: 'hi', label: 'हिन्दी' }, { id: 'en', label: 'English' }];
+/** Language picker: each name is spoken in its own language when tapped. Odia, Hindi, English are built in; the
+ *  others are drafts (packages/core/src/locales), loaded only when chosen. */
+export const LANGS = [
+  { id: 'or', label: 'ଓଡ଼ିଆ' }, { id: 'hi', label: 'हिन्दी' }, { id: 'en', label: 'English' },
+  { id: 'sat', label: 'ᱥᱟᱱᱛᱟᱲᱤ' }, { id: 'bn', label: 'বাংলা' }, { id: 'kn', label: 'ಕನ್ನಡ' }, { id: 'te', label: 'తెలుగు' },
+  { id: 'ta', label: 'தமிழ்' }, { id: 'mr', label: 'मराठी' }, { id: 'bho', label: 'भोजपुरी' },
+];
+
+// each drafted language is its own small file: a learner downloads only hers (and it is kept for offline)
+const LOCALE_FILES = import.meta.glob<Locale>('../../../packages/core/src/locales/*.json', { import: 'default' });
+/** Make her language's lines available (call before showing anything in it). Built-in languages need nothing. */
+export async function loadLocale(lang: string): Promise<void> {
+  if (lang in S || localeOf(lang)) return;
+  const f = LOCALE_FILES[`../../../packages/core/src/locales/${lang}.json`];
+  if (f) addLocale(lang, await f());
+}
 /** Lines the app itself speaks (not the tutor engine): pre-recorded with the tutor's lines (content/scripts/audio_texts.ts). */
 export const spokenUi = (lang: string) => [...LANGS.filter((l) => l.id === lang).map((l) => l.label), ...(['photoKept', 'voiceKept', 'voiceFailed', 'gboardHint', 'ack', 'timeToday', 'whoIsIt', 'hintWrong'] as const).map((k) => t(lang, k))];
 
@@ -84,13 +100,13 @@ async function deviceVoice(text: string, lang: string) {
   try {
     const synth = window.speechSynthesis;
     if (!synth) return false;
-    const tag = { or: 'or-IN', en: 'en-IN', hi: 'hi-IN' }[lang] ?? lang;
+    const tag = ({ or: 'or-IN', en: 'en-IN', hi: 'hi-IN', bn: 'bn-IN', kn: 'kn-IN', te: 'te-IN', ta: 'ta-IN', mr: 'mr-IN', bho: 'hi-IN' } as Record<string, string>)[lang] ?? lang;
     const voices = await voicesReady();
     const voice = voices.find((v) => v.lang.toLowerCase() === tag.toLowerCase()) ?? voices.find((v) => v.lang.toLowerCase().startsWith(tag.slice(0, 2)));
     // what is read: no emoji, no "(book page 23)", no other-script words; one sentence at a time (Chrome stops long utterances)
     const clean = text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '').replace(/\((?:book page|ବହି ପୃଷ୍ଠା|किताब पृष्ठ)[^)]*\)/g, '')
       .replace(lang === 'en' ? /\s*\([^)]*[ऀ-෿][^)]*\)|[ऀ-෿]+/g : /$^/g, '').replace(/·/g, ',');
-    const parts = clean.match(/[^.!?।\n]+[.!?।]?/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
+    const parts = clean.match(/[^.!?।᱾\n]+[.!?।᱾]?/g)?.map((x) => x.trim()).filter(Boolean) ?? [];
     stopClip();
     synth.cancel();
     // Chrome drops a speak() right after cancel(): give it a tick

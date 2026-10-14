@@ -2,6 +2,9 @@
 
 An agentic tutor for a Class 9 student on a shared low-end phone: it teaches in Odia (and other Indian languages), checks understanding, diagnoses misconceptions, keeps working offline, and syncs when the signal returns.
 
+**Languages.** Odia, Hindi, English (full); Bengali, Kannada, Telugu, Tamil, Marathi, Bhojpuri and Santali (Ol Chiki) — AI-written, marked as drafts until a speaker reviews them. Kui, Kuvi, Ho, Saora and Munda, which no free model writes: taught in easy Odia with the student's own words from the Government of Odisha's Odia–tribal dictionaries (`content/tribal`), never invented ones.
+**Boards (Class 9).** BSE Odisha (12 books, Odia) and CBSE (NCERT 2026-27: Science *Exploration*, Maths *Ganita Manjari* I–II, Social Science *Understanding Society* I–II, English *Kaveri*; Hindi-medium *Anveshan* and *Ganita Manjari*). A student is answered only from her own board's books.
+
 - Plan: [docs/PLAN.md](docs/PLAN.md) · Build tracker: [docs/TODO.md](docs/TODO.md) · Spike results: [spikes/RESULTS.md](spikes/RESULTS.md)
 
 ## Run
@@ -23,7 +26,9 @@ Without API keys the agent runs on its deterministic policy and the reviewed cha
 | Path | What |
 |---|---|
 | `packages/core` | Shared brain (phone + server): event log, `fold`, BKT, policy, `solve`, numerals, multi-script matcher, turn engine |
-| `content` | Chapter packs (Class 9 Motion). Odia text is a draft awaiting native review |
+| `content` | Textbook indexes (`books/books.json` → `books/out`), chapter packs (Motion), home-language word lists (`tribal/`), scripts that build them |
+| `packages/core/src/locales` | Interface lines for the drafted languages (`content/scripts/translate_ui.ts`) |
+| `tools/books` | PDF → pages: `render.py` (scans → OCR), `pdf_text.py`, `ncert_book.py` (NCERT chapter PDFs) |
 | `apps/server` | Hono + SQLite + Google ADK agent cycle, critic, model failover, sync, `/trace/live` |
 | `apps/web` | Preact PWA: onboarding, ask, checks, offline device tier, outbox sync |
 | `spikes` | Feasibility spikes (ADK, Odia TTS) |

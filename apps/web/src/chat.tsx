@@ -4,7 +4,7 @@
 // textbook passage and keeps the question; the full answer arrives when the signal is back.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { emptyMemory, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
+import { boardKey, nameIn, emptyMemory, LANGUAGES, localeOf, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
 import type { Agent } from './agent.ts';
 import { getMeta, setMeta } from './db.ts';
 import { bookLink, fetchWithTimeout, goodLink } from './net.ts';
@@ -22,7 +22,7 @@ const figs = (sh: Shelf, bookId: string, page: number) => {
   const f = sh.figuresOn(bookId, page).slice(0, 3).map((p) => ({ src: `/figure/${p.fig}`, text: p.text }));
   return f.length ? { figures: f } : {};
 };
-interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
+interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[] }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
 type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: { topic: string; part: number; parts: number; chapter: string } }
 /** A button in a tutor message: send text, quiz a chapter, pick a subject ([] = all) or chapter, learn a chapter, ask in it. */
@@ -44,10 +44,13 @@ function subjectsOf(books: BookInfo[]) {
 }
 
 export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }: {
-  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string };
+  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; home?: string };
   onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>;
 }) {
   const pid = profile.id;
+  // her board's books only (one phone may hold learners of different boards: the list is kept whole, filtered here)
+  const board = profile.board ?? 'BSE Odisha';
+  const mine = (list: BookInfo[]) => { const m = list.filter((b) => boardKey(b.board) === boardKey(board)); return m.length ? m : list; };
   const online = tier !== 'device' && !!agent.device;
   const [lines, setLines] = useState<Line[]>([]);
   const [books, setBooks] = useState<BookInfo[]>([]);
@@ -80,17 +83,17 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
       setFocus(await getMeta<string | undefined>(`chapter:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
-      setBooks(await getMeta<BookInfo[]>('books', []));
+      setBooks(mine(await getMeta<BookInfo[]>('books', [])));
       if (online) {
         started.current = true;
         await agent.sync().catch(() => null); // her profile reaches the server before the tutor writes for her
         try {
           const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000);
-          if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); }
+          if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(mine(list)); await setMeta('books', list); }
         } catch { /* offline after all */ }
         if (!(await openSession())) greetLocally();
         await sendQueued();
-      } else add([{ role: 'tutor', msg: { text: `${TL(lang, 'welcome_back')}\n${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(await getMeta<BookInfo[]>('books', [])) }, at: Date.now() }]);
+      } else add([{ role: 'tutor', msg: { text: `${TL(lang, 'welcome_back')}\n${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(mine(await getMeta<BookInfo[]>('books', []))) }, at: Date.now() }]);
     })();
   }, []);
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }); }, [lines.length, busy]);
@@ -101,13 +104,13 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     if (!online || started.current) return;
     started.current = true;
     void (async () => {
-      try { const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000); if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); } } catch { /* stays local */ }
+      try { const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000); if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(mine(list)); await setMeta('books', list); } } catch { /* stays local */ }
       if (!(await openSession())) greetLocally();
     })();
   }, [online]);
   /** the server did not answer the opener: the phone still asks which subject (never a silent, empty chat) */
   async function greetLocally() {
-    const list = await getMeta<BookInfo[]>('books', []);
+    const list = mine(await getMeta<BookInfo[]>('books', []));
     setLines((p) => p.length ? p : [{ role: 'tutor', msg: { text: `${TL(lang, 'welcome')}
 ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date.now() }]);
   }
@@ -146,7 +149,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
 
   async function openSession(): Promise<boolean> {
     try {
-      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject }) }, 8000);
+      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject, board }) }, 8000);
       // the server no longer knows this phone (its data was reset): register again, once
       if (r.status === 401 && !sessionStorage.getItem('re-device')) { sessionStorage.setItem('re-device', '1'); await setMeta('device', null); location.reload(); return false; }
       if (!r.ok) return false;
@@ -174,7 +177,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
       setBusy(t(lang, 'thinking'));
       try {
         const chapter = opts.learn || opts.review ? undefined : focus;
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId, board, home: profile.home }) }, 30000);
         if (r.ok) {
           const j = (await r.json()) as { messages: TMsg[]; memory: Memory; trace: { chosen: string; reason: string; tools: { tool: string; note?: string }[] } };
           const why = `${j.trace.chosen} — ${j.trace.reason}\n${j.trace.tools.map((x) => x.tool + (x.note ? ` (${x.note})` : '')).join(' → ')}`;
@@ -194,14 +197,14 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     const [bookId, ch] = topic.split('#');
     const part = learning && memory.lesson?.topic === topic ? memory.lesson.part : 0;
     const ps = sh.lessonParts(bookId!, Number(ch))[part] ?? [];
-    const name = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'or' ? x.or : lang === 'hi' ? x.hi ?? x.en : x.en) : '');
+    const name = (x?: { or: string; en: string; hi?: string }) => nameIn(x, lang);
     const src: Source[] = ps.slice(0, 2).map((p) => ({ bookId: bookId!, subject: name(sh.books.get(bookId!)?.meta.subject), chapter: name(sh.chapterOf(bookId!, p.ch)?.title), page: p.page, passageId: p.id, quote: p.text, ...figs(sh, bookId!, p.page) }));
     add([{ role: 'tutor', msg: { text: TL(lang, src.length ? 'offline_passage' : 'offline_none'), tone: 'offline', sources: src, by: 'policy' }, at: Date.now(), why: `no signal → lesson ${topic}: part ${part + 1} shown from the book on this phone` }]);
   }
 
   // ---------- the guided path: subject → chapter → teach / quiz / doubt (the agent asks; she can always just type) ----------
-  const titleOf = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'or' ? x.or : lang === 'hi' ? x.hi ?? x.en : x.en) : '');
-  function subjectChips(list: BookInfo[] = books): Chip[] { return subjectsOf(list).map((s) => ({ label: s.name[lang] ?? s.name.en ?? '', subject: s.ids })); }
+  const titleOf = (x?: { or: string; en: string; hi?: string }) => nameIn(x, lang);
+  function subjectChips(list: BookInfo[] = books): Chip[] { return subjectsOf(list).map((s) => ({ label: nameIn(s.name as { or: string; en: string; hi?: string }, lang), subject: s.ids })); }
   function chapterChips(ids: string[]): Chip[] {
     return ids.flatMap((id) => (books.find((b) => b.id === id)?.chapters ?? []).map((c) => ({ label: `${c.n}. ${titleOf(c.title)}`, chapter: `${id}#${c.n}` })));
   }
@@ -253,7 +256,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
       return;
     }
     const h = plan.grounding[0];
-    const name = (x?: { or: string; en: string; hi?: string }) => (x ? (lang === 'en' ? x.en : lang === 'hi' ? x.hi ?? x.en : x.or) : '');
+    const name = (x?: { or: string; en: string; hi?: string }) => nameIn(x, lang);
     const quote = h ? focusQuote(h.passage.text, msg) : '';
     const src: Source[] | undefined = h ? [{ bookId: h.bookId, subject: name(sh.books.get(h.bookId)?.meta.subject), chapter: name(sh.chapterOf(h.bookId, h.passage.ch)?.title), page: h.passage.page, passageId: h.passage.id, quote, ...(quote !== h.passage.text ? { full: h.passage.text } : {}), ...figs(sh, h.bookId, h.passage.page) }] : undefined;
     add([{ role: 'tutor', msg: { text: TL(lang, h ? 'offline_passage' : 'offline_none'), tone: 'offline', sources: src, by: 'policy' }, at: Date.now(), why: `${plan.action} — ${plan.reason}` }]);
@@ -267,7 +270,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     const left: Queued[] = [];
     for (const x of q) {
       try {
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, queuedAt: x.at, turnId: x.id }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, queuedAt: x.at, turnId: x.id, board, home: profile.home }) }, 30000);
         if (!r.ok) { left.push(x); continue; }
         const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
         add([{ role: 'tutor', msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))]);
@@ -348,7 +351,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         {subjects.map((s) => {
           const on = !!subject && s.ids.every((id) => subject.includes(id));
           const look = subjectLook(s.name.en ?? '');
-          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void onChip({ label: s.name[lang] ?? s.name.en ?? '', subject: s.ids })}><span class="emo">{look.emoji}</span>{s.name[lang] ?? s.name.en}</button>;
+          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void onChip({ label: nameIn(s.name as { or: string; en: string; hi?: string }, lang), subject: s.ids })}><span class="emo">{look.emoji}</span>{nameIn(s.name as { or: string; en: string; hi?: string }, lang)}</button>;
         })}
       </nav>
 
@@ -362,6 +365,8 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
               <span><Icon name="mic" size={16} />{U(lang, 'wayVoice')}</span>
               <span><Icon name="offline" size={16} />{U(lang, 'wayOffline')}</span>
             </div>
+            {LANGUAGES[lang]?.draft && <p class="small muted">{U(lang, 'draftLang')}</p>}
+            {profile.home && LANGUAGES[profile.home] && <p class="small muted">🏠 {LANGUAGES[profile.home]!.name} · {U(lang, 'homeNote').replace('{0}', LANGUAGES[profile.home]!.name)}</p>}
             {(inst === 'prompt' || inst === 'ios') && <button class="install" onClick={() => (inst === 'prompt' ? void install() : setIosHelp(!iosHelp))}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
           </section>
         )}
@@ -423,6 +428,8 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
 
 const LOOKS: Record<string, { emoji: string; color: string }> = {
   'Life Science': { emoji: '🌿', color: '#2f855a' },
+  Science: { emoji: '🔬', color: '#2f855a' },
+  'Social Science': { emoji: '🌏', color: '#2b6cb0' },
   'Geography & Economics': { emoji: '🌏', color: '#2b6cb0' },
   'Physical Science': { emoji: '⚡', color: '#6b46c1' },
   'History & Political Science': { emoji: '🏛️', color: '#b7791f' },
@@ -435,11 +442,11 @@ const LOOKS: Record<string, { emoji: string; color: string }> = {
 const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
 
 const UI: Record<string, Record<string, string>> = {
-  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି' },
-  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया' },
-  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided' },
+  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି', draftLang: 'ଏହି ଭାଷାର ଉତ୍ତର AI ଲେଖେ — ଏ ଭାଷା ଜାଣିଥିବା ଶିକ୍ଷକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।', homeWords: 'ତୁମ ଘର ଭାଷାର ଶବ୍ଦ', homeNote: 'ମୁଁ ସହଜ ଓଡ଼ିଆରେ ବୁଝାଇବି, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ {0} ଶବ୍ଦକୋଷରୁ ତୁମ ଘର ଭାଷାର ଶବ୍ଦ ଯୋଡ଼ିବି।' },
+  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया', draftLang: 'इस भाषा के जवाब AI लिखता है — इस भाषा के किसी शिक्षक ने अभी तक इन्हें जाँचा नहीं है।', homeWords: 'तुम्हारी घर की भाषा के शब्द', homeNote: 'मैं आसान ओड़िया में समझाऊँगा, और ओडिशा सरकार के {0} शब्दकोश से तुम्हारी घर की भाषा के शब्द जोड़ूँगा।' },
+  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided', draftLang: 'Replies in this language are written by AI and not yet checked by a teacher who speaks it.', homeWords: 'Words in your home language', homeNote: 'I explain in easy Odia and add words of your home language from the Government of Odisha {0} dictionary.' },
 };
-const U = (lang: string, k: string) => UI[lang]?.[k] ?? UI.en![k] ?? k;
+const U = (lang: string, k: string) => UI[lang]?.[k] ?? localeOf(lang)?.chat[k] ?? UI.en![k] ?? k;
 
 const TONE: Record<string, { icon: string; key: string }> = {
   praise: { icon: 'check', key: 'right' }, hint: { icon: 'spark', key: 'partly' }, retry: { icon: 'help', key: 'wrong' },
@@ -458,6 +465,8 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip }
         {tone && <span class="badge"><Icon name={tone.icon} size={14} />{U(lang, tone.key)}</span>}
         <p class="say">{care ? m.text.split(/(1098|14416|112)/).map((x, i) => (i % 2 ? <a class="tel" href={`tel:${x}`}>{x}</a> : x)) : m.text}</p>
         {m.terms?.length ? <div class="terms" aria-label={U(lang, 'keyWords')}>{m.terms.map((x) => <span class="term"><b>{x.or}</b><i>{x.en}</i></span>)}</div> : null}
+        {/* her home language (Kui, Ho…): words from the Government of Odisha dictionary, never made up */}
+        {m.home?.words.length ? <div class="terms home" aria-label={`${U(lang, 'homeWords')} · ${m.home.name}`}><span class="small muted">🏠 {m.home.name}</span>{m.home.words.map((x) => <span class="term"><b>{x.or}</b><i>{x.home}</i></span>)}</div> : null}
         {m.check && <div class="qcheck"><span class="label"><Icon name="help" size={15} />{U(lang, 'quickCheck')}</span><p>{m.check}</p></div>}
         {m.sources?.map((s) => {
           const open = openSrc === s.passageId;

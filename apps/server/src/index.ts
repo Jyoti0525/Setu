@@ -11,6 +11,7 @@ import { liveGenLanguages, type BookIndex } from '@setu/core';
 import { Store } from './db.ts';
 import { Push } from './push.ts';
 import { buildModels } from './llm.ts';
+import { loadHomeWords } from './tutor/home.ts';
 import { createApp } from './app.ts';
 import { tick } from './agent/between.ts';
 import { LiveVoice, shippedClips } from './voice.ts';
@@ -60,6 +61,7 @@ const { app, deps } = createApp({
   packs: [motionPack],
   books,
   figuresDir: resolve(repo, 'content/books/figures'),
+  homeWords: loadHomeWords(resolve(repo, 'content/tribal')),
   models,
   // Live generation per language follows its measured quality (core languages.ts, P3.27); SETU_LIVE_GEN overrides.
   liveGenLangs: process.env.SETU_LIVE_GEN ? process.env.SETU_LIVE_GEN.split(',').map((s) => s.trim()).filter(Boolean) : liveGenLanguages(),

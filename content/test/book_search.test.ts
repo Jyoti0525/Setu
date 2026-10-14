@@ -6,7 +6,8 @@ import { emptyMemory, LEXICON, looseKey, normalizeForMatch, planTurn, screen, Sh
 
 const here = dirname(fileURLToPath(import.meta.url));
 const out = resolve(here, '../books/out');
-const books = readdirSync(out).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(readFileSync(resolve(out, f), 'utf8')) as BookIndex);
+// an Odia-medium learner's phone holds her board's books only (BSE Odisha); the CBSE books are another learner's
+const books = readdirSync(out).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(readFileSync(resolve(out, f), 'utf8')) as BookIndex).filter((b) => b.meta.board === 'BSE Odisha');
 const shelf = new Shelf(books);
 const { cases } = JSON.parse(readFileSync(resolve(here, '../eval/book_search.json'), 'utf8')) as { cases: { q: string; picked?: string[]; want: string[] }[] };
 

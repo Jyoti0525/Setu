@@ -2,9 +2,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   fold, runTurn, PackMatcher, pickExplanation, liveGenLanguages, bridgeLanguages, LANGUAGES, prefersTap, pickCheck, vocabFor, fixedStrings,
-  type AnyEvent, type EventDraft, type LearnerState, type OutMsg,
+  TUTOR_LINES, ENGINE_LINES, T, type AnyEvent, type EventDraft, type LearnerState, type OutMsg,
 } from '@setu/core';
 import { motionPack } from '../src/index.ts';
+import { LOCALES } from '@setu/core/locales';
 import { t, LANGS } from '../../apps/web/src/i18n.ts';
 
 const matcher = new PackMatcher(motionPack);
@@ -62,18 +63,38 @@ describe('language changes decisions (P3.23)', () => {
 
 describe('language tiers and quality-aware generation (P3.26, P3.27)', () => {
   it('live generation only where measured quality allows; tier C bridges to the school language', () => {
-    expect(liveGenLanguages().sort()).toEqual(['en', 'hi', 'or']);
-    expect(bridgeLanguages().every((l) => l.school && LANGUAGES[l.school]!.tier === 'A')).toBe(true);
+    // measured on the 2026-10-15 probe: the school languages, Bhojpuri and Santali are written live; Kui, Kuvi, Ho,
+    // Saora and Munda are not (no free model writes them) and are taught in Odia with dictionary words
+    expect(liveGenLanguages().sort()).toEqual(['bho', 'bn', 'en', 'hi', 'kn', 'mr', 'or', 'sat', 'ta', 'te']);
+    expect(bridgeLanguages().map((l) => l.id).sort()).toEqual(['hoc', 'kxu', 'kxv', 'srb', 'unr']);
+    expect(bridgeLanguages().every((l) => l.school && LANGUAGES[l.school]!.tier === 'A' && l.gen.score === null && l.words)).toBe(true);
+    // every language Setu writes but no speaker has checked says so
+    expect(Object.values(LANGUAGES).filter((l) => l.draft).map((l) => l.id).sort()).toEqual(['bho', 'bn', 'kn', 'mr', 'sat', 'ta', 'te']);
   });
 });
 
 describe('fully localised UI (P3.30)', () => {
   it('every UI key and every tutor line exists in Odia, Hindi and English', () => {
-    expect(LANGS.map((l) => l.id).sort()).toEqual(['en', 'hi', 'or']);
+    expect(LANGS.map((l) => l.id).sort()).toEqual(['bho', 'bn', 'en', 'hi', 'kn', 'mr', 'or', 'sat', 'ta', 'te']);
     const keys = ['ack', 'timeToday', 'voiceFailed', 'gboardHint', 'whoIsIt', 'hintWrong', 'sharePack', 'noPack'] as const;
     for (const k of keys) { expect(deva(t('hi', k))).toBe(true); expect(/[଀-୿]/.test(t('or', k))).toBe(true); }
     expect(fixedStrings('hi').length).toBe(fixedStrings('en').length);
     expect(fixedStrings('hi').every((x) => deva(x))).toBe(true);
+  });
+  it('every drafted language has every line of every table, in its own script, with the same slots and helplines', () => {
+    const en = { ui: Object.fromEntries((Object.keys(LOCALES.bn!.ui)).map((k) => [k, t('en', k as never)])), tutor: TUTOR_LINES.en!, engine: Object.fromEntries(Object.keys(LOCALES.bn!.engine).map((k) => [k, T('en', k)])) };
+    const SCRIPT: Record<string, RegExp> = { bn: /[ঀ-৿]/, kn: /[ಀ-೿]/, te: /[ఀ-౿]/, ta: /[஀-௿]/, mr: /[ऀ-ॿ]/, bho: /[ऀ-ॿ]/, sat: /[᱐-᱿]/ };
+    const slots = (x: string) => (x.match(/\{\d\}/g) ?? []).sort().join();
+    for (const [lang, l] of Object.entries(LOCALES)) {
+      expect(LANGUAGES[lang]?.draft).toBe(true);
+      expect(Object.keys(l.tutor).sort()).toEqual(Object.keys(en.tutor).sort());
+      expect(Object.keys(l.engine).sort()).toEqual(Object.keys(ENGINE_LINES.en!).sort());
+      expect(Object.keys(l.ui).sort()).toEqual(Object.keys(en.ui).sort());
+      for (const [k, v] of Object.entries(l.tutor)) { expect(slots(v), `${lang}.tutor.${k}`).toBe(slots(en.tutor[k]!)); expect(SCRIPT[lang]!.test(v), `${lang}.tutor.${k}`).toBe(true); }
+      // the safety line keeps the helplines (in any digits)
+      const ascii = l.engine.care!.replace(/[০-৯೦-೯౦-౯௦-௯०-९]/g, (d) => String((d.codePointAt(0)! & 0xf) - 6));
+      for (const n of ['1098', '14416', '112']) expect(ascii, `${lang} care`).toContain(n);
+    }
   });
 });
 

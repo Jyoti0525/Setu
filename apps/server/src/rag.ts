@@ -182,14 +182,15 @@ export class HybridRag {
   }
 
   /** nearest passages by meaning (cosine similarity, 1 = same meaning) */
-  async nearest(vec: number[], opts: { picked?: string[]; limit?: number }): Promise<{ id: string; sim: number }[]> {
+  async nearest(vec: number[], opts: { picked?: string[]; limit?: number; only?: string[] }): Promise<{ id: string; sim: number }[]> {
     if (!this.db || !this.table) return [];
-    // a language book (stories, poems) shares everyday meaning with everything: only when she picked it
+    // a language book (stories, poems) shares everyday meaning with everything: only when she picked it;
+    // `only`: her board's books
     const r = await this.db.query<{ id: string; sim: number }>(
       `select id, 1 - (emb <=> $1) as sim from ${this.table}
-       where emb is not null and (not language_book or book_id = any($2))
+       where emb is not null and (not language_book or book_id = any($2)) and ($4::text[] is null or book_id = any($4))
        order by emb <=> $1 limit $3`,
-      [toSql(vec), opts.picked ?? [], opts.limit ?? 20],
+      [toSql(vec), opts.picked ?? [], opts.limit ?? 20, opts.only ?? null],
     );
     return r.rows.map((x) => ({ id: x.id, sim: Number(x.sim) }));
   }
@@ -199,14 +200,14 @@ export class HybridRag {
    * Coverage (what the policy trusts) stays the keyword coverage; a passage only the meaning search found counts as
    * grounded only when the meaning search agrees on its chapter (agreedChapter).
    */
-  async search(q: string, opts: { picked?: string[]; limit?: number; en?: string } = {}): Promise<HybridResult> {
+  async search(q: string, opts: { picked?: string[]; limit?: number; en?: string; only?: string[] } = {}): Promise<HybridResult> {
     const limit = opts.limit ?? 6;
-    const kw = this.o.shelf.search(q, { limit: 20, picked: opts.picked });
-    const kwEn = opts.en ? this.o.shelf.search(opts.en, { limit: 20, picked: opts.picked }) : [];
+    const kw = this.o.shelf.search(q, { limit: 20, picked: opts.picked, only: opts.only });
+    const kwEn = opts.en ? this.o.shelf.search(opts.en, { limit: 20, picked: opts.picked, only: opts.only }) : [];
     if (!this.ready) return { hits: kw.slice(0, limit), note: 'keyword (BM25) only: vectors not ready', added: 0, semantic: false };
     const vecs = await this.o.worker.embed(opts.en ? [q, opts.en] : [q], 'query');
     if (!vecs) return { hits: kw.slice(0, limit), note: 'keyword (BM25) only: embedder busy', added: 0, semantic: false };
-    const near = await Promise.all(vecs.map((v) => this.nearest(v, { picked: opts.picked, limit: 20 })));
+    const near = await Promise.all(vecs.map((v) => this.nearest(v, { picked: opts.picked, limit: 20, only: opts.only })));
     return fuse(this.o.shelf, [
       { w: 1, ids: kw.map((h) => h.passage.id) },
       { w: EN_KEYWORD_WEIGHT, ids: kwEn.map((h) => h.passage.id) },

@@ -12,3 +12,4 @@ __pycache__/
 *.pyc
 content/books/pdf/
 content/books/pages/
+content/books/ocr/tribal/

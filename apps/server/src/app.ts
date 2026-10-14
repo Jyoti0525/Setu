@@ -1,5 +1,7 @@
 // HTTP API (PLAN §8.5, §10.7, §10.8).
 
+import { addAllLocales } from '@setu/core/locales';
+import type { HomeList } from './tutor/home.ts';
 import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
@@ -49,12 +51,17 @@ export interface AppOptions {
   ragDir?: string;
   /** textbook figures cut from the PDFs (content/scripts/figures.ts) */
   figuresDir?: string;
+  /** tier C home-language words from the government dictionaries (content/tribal) */
+  homeWords?: Map<string, HomeList>;
 }
 
 export function packHash(p: ChapterPack): string {
   const { hash: _h, ...rest } = p;
   return createHash('sha256').update(JSON.stringify(rest)).digest('hex');
 }
+
+// every drafted language's fixed lines (Bengali, Kannada, Telugu, Tamil, Marathi, Bhojpuri, Santali)
+addAllLocales();
 
 export function createApp(o: AppOptions) {
   const app = new Hono();
@@ -142,7 +149,7 @@ export function createApp(o: AppOptions) {
   const rag = o.nlp ? new HybridRag({ shelf, worker: o.nlp, dir: o.ragDir, log: (m) => console.log(m) }) : undefined;
   if (rag) void rag.index().catch((e) => console.error('hybrid RAG index failed', e));
   const tutor: TutorDeps = {
-    store, shelf, models, rag, nlp: o.nlp, onTrace: (pid, step) => publish(pid, step, 'server'),
+    store, shelf, models, rag, nlp: o.nlp, homeWords: o.homeWords, onTrace: (pid, step) => publish(pid, step, 'server'),
     // her class teacher's phone buzzes (only if the teacher turned alerts on); never her name or words
     onEscalate: (pid, kind, chapter) => { for (const code of store.classesOf(pid)) void o.push?.teacherAlert(code, kind, chapter); },
   };
@@ -153,7 +160,7 @@ export function createApp(o: AppOptions) {
   app.get('/api/book/:id', (c) => { const b = shelf.books.get(c.req.param('id')); return b ? c.json(b) : c.json({ error: 'no such book' }, 404); });
   app.post('/api/tutor/open', async (c) => {
     const deviceId = c.get('deviceId' as never) as string;
-    const body = (await c.req.json()) as { profileId: string; lang: string; bookIds?: string[] };
+    const body = (await c.req.json()) as { profileId: string; lang: string; bookIds?: string[]; board?: string };
     if (!store.canUse(body.profileId, deviceId)) return c.json({ error: 'not your profile' }, 403);
     // the chat may come before her first synced event: this phone keeps access after the tutor writes events for her
     store.grant(body.profileId, deviceId);

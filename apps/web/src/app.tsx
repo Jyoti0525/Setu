@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ChapterPack } from '@setu/core';
-import { textIn, scrubPii, gradeNumeric, toScriptDigits, DATA_BUDGET_KB, DATA_LOW_FRACTION, LANGUAGES, bridgeLanguages, type Dimension, type LearnerState, type OutMsg, type SessionPlan, type Tier, type TraceStep } from '@setu/core';
+import { BOARDS, textIn, scrubPii, gradeNumeric, toScriptDigits, DATA_BUDGET_KB, DATA_LOW_FRACTION, LANGUAGES, bridgeLanguages, type Dimension, type LearnerState, type OutMsg, type SessionPlan, type Tier, type TraceStep } from '@setu/core';
 import { Agent, ensureDevice, ensurePack, importPack } from './agent.ts';
 import { Chat } from './chat.tsx';
 import { Icon, Logo } from './icons.tsx';
@@ -9,11 +9,11 @@ import { pushSupported, pushOn, enablePush, disablePush } from './push.ts';
 import { prefetchEssential, warmVoice, setTextOnly, takeAudioBytes } from './audio.ts';
 import { getMeta, setMeta, persistStorage } from './db.ts';
 import { onTier, startProbing, currentTier, fetchWithTimeout, goodLink } from './net.ts';
-import { t, speak, LANGS } from './i18n.ts';
+import { t, speak, LANGS, loadLocale } from './i18n.ts';
 import { readOnline, readOffline, ocrReady, downloadOcr, keepSnap, queuedSnaps, dropSnap } from './snap.ts';
 import { canRecord, record, transcribe, serverListens, hasWebSpeech, webSpeech, keepVoice, queuedVoices, dropVoice, type Recording } from './listen.ts';
 
-interface Profile { id: string; avatar: string; name?: string; lang: string; classLevel?: number; classCode?: string; showName?: boolean; region?: string; /** tier-C home language (P3.26): taught in `lang`, with her teacher's words in this one */ home?: string }
+interface Profile { id: string; avatar: string; name?: string; lang: string; classLevel?: number; classCode?: string; showName?: boolean; region?: string; /** tier-C home language (P3.26): taught in `lang`, with her teacher's words in this one */ home?: string; /** her board: only its books answer her ('BSE Odisha', 'CBSE') */ board?: string }
 type Item = { msg: OutMsg; why?: string; answered?: string };
 
 const AVATARS = ['👧', '👦', '🧒', '👩‍🎓', '🧑‍🌾', '🐯'];
@@ -34,6 +34,7 @@ export function App() {
     const { pack, device } = boot.current!;
     await setMeta('profile', p);
     await setMeta('lastUsedAt', Date.now());
+    await loadLocale(p.lang);
     setProfile(p); setAgent(new Agent(pack, device, p.id)); setStatus('ready');
     if (device) void prefetchEssential(p.lang);
   };
@@ -80,7 +81,7 @@ export function App() {
     const a = new Agent(pack, device, p.id);
     if (device) void prefetchEssential(p.lang);
     await a.record([
-      { type: 'PROFILE_CREATED', payload: { avatar: p.avatar, classLevel: p.classLevel ?? 9, board: 'BSE-Odisha', language: { ui: p.lang, response: p.lang, inputMode: 'text', readingLevel: 3, ...(p.home ? { home: p.home } : {}) }, dataTier: 'low', sharedDevice: true } },
+      { type: 'PROFILE_CREATED', payload: { avatar: p.avatar, classLevel: p.classLevel ?? 9, board: p.board ?? 'BSE Odisha', language: { ui: p.lang, response: p.lang, inputMode: 'text', readingLevel: 3, ...(p.home ? { home: p.home } : {}) }, dataTier: 'low', sharedDevice: true } },
       // joining works offline too: the event syncs later (name only if she chose to show it to her teacher)
       ...(p.classCode ? [{ type: 'CLASS_JOINED' as const, payload: { classCode: p.classCode, ...(p.showName && p.name ? { displayName: p.name } : {}), ...(p.region ? { region: p.region } : {}) } }] : []),
     ]);
@@ -88,12 +89,13 @@ export function App() {
     await setMeta('profile', p);
     await setMeta('profiles', [...profiles.filter((x) => x.id !== p.id), p]);
     await setMeta('lastUsedAt', Date.now());
+    await loadLocale(p.lang);
     setProfile(p); setAgent(a); setStatus('ready');
   }} />;
-  const onLang = async (l: string) => { const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
+  const onLang = async (l: string) => { await loadLocale(l); const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
   const onSwitch = async () => { setProfiles(await getMeta<Profile[]>('profiles', [profile!])); setStatus('who'); };
   // PLAN v4: the tutor chat is the home screen; the hand-built Motion chapter is guided practice inside it
-  if (!guided) return <Chat key={profile!.id + profile!.lang} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} />;
+  if (!guided) return <Chat key={profile!.id + profile!.lang + (profile!.board ?? '')} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} />;
   return <>
     <button class="link back" onClick={() => setGuided(false)}><Icon name="back" size={18} /> {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
     <Home agent={agent!} profile={profile!} tier={tier} onLang={onLang} onSwitch={() => void onSwitch()} />
@@ -107,6 +109,9 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [classLevel, setClassLevel] = useState(9);
+  // her board: Odisha's for Odia, Santali and the tribal languages; NCERT (CBSE) otherwise — she can change it
+  const [board, setBoard] = useState<string | null>(null);
+  const boardFor = (l: string | null, h: string | null) => (h || !l || l === 'or' || l === 'sat' ? 'BSE Odisha' : 'CBSE');
   // a teacher's QR opens /#join=123456
   const [code, setCode] = useState(() => /^#join=(\d{6})$/.exec(location.hash)?.[1] ?? '');
   const [className, setClassName] = useState<string | null | undefined>(undefined); // undefined: not checked, null: not found
@@ -136,7 +141,7 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
       <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
       <div class="grid langs">
         {LANGS.map((l) => (
-          <button class={'big langcard ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => { setLang(l.id); setHome(null); speak(l.label, l.id); }} aria-pressed={lang === l.id && !home}>{l.label}<Icon name="volume" size={18} /></button>
+          <button class={'big langcard ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => void loadLocale(l.id).then(() => { setLang(l.id); setHome(null); speak(l.label, l.id); })} aria-pressed={lang === l.id && !home}>{l.label}<Icon name="volume" size={18} /></button>
         ))}
       </div>
       {/* tier C (PLAN §7.4): never silently dropped — taught in the school language, with home-language words */}
@@ -155,6 +160,10 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
         <div class="classes">
           {[8, 9, 10].map((n) => <button class={classLevel === n ? 'sel' : ''} aria-pressed={classLevel === n} disabled={n !== 9} onClick={() => setClassLevel(n)}>{t(lang, 'className')} {n}{n !== 9 ? ` · ${t(lang, 'soon')}` : ''}</button>)}
         </div>
+        <h2><span class="n">4</span>{t(lang, 'chooseBoard')}</h2>
+        <div class="classes">
+          {BOARDS.map((b) => <button class={(board ?? boardFor(lang, home)) === b.id ? 'sel' : ''} aria-pressed={(board ?? boardFor(lang, home)) === b.id} onClick={() => setBoard(b.id)}>{(b.name as Record<string, string>)[lang] ?? b.name.en}</button>)}
+        </div>
         <details class="optional" open={!!code}>
           <summary>{t(lang, 'classCode')}</summary>
           <div class="row nowrap">
@@ -166,7 +175,7 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
         </details>
         {Scan && <Scan lang={lang} onCode={(c) => { setCode(c); setScan(null); }} onClose={() => setScan(null)} />}
         <div class="cta">
-          <button class="primary" disabled={!ready} onClick={() => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang, classLevel, classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) })}>{t(lang, 'start')} →</button>
+          <button class="primary" disabled={!ready} onClick={() => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang, classLevel, board: board ?? boardFor(lang, home), classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) })}>{t(lang, 'start')} →</button>
         </div>
       </>}
     </div>

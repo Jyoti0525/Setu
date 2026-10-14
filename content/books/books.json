@@ -1497,5 +1497,612 @@
     "endPage": 80
    }
   ]
+ },
+ {
+  "id": "cbse-science-9",
+  "subject": {
+   "or": "ବିଜ୍ଞାନ",
+   "en": "Science",
+   "hi": "विज्ञान"
+  },
+  "title": {
+   "or": "ବିଜ୍ଞାନ — ଏକ୍ସପ୍ଲୋରେସନ (NCERT)",
+   "en": "Science — Exploration (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iesc101–iesc113); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଅନ୍ୱେଷଣ: ମାଧ୍ୟମିକ ବିଜ୍ଞାନ ଦୁନିଆରେ ପ୍ରବେଶ",
+     "en": "Exploration: Entering the World of Secondary Science",
+     "hi": "अन्वेषण — माध्यमिक विज्ञान के संसार में प्रवेश"
+    },
+    "startPage": 1,
+    "endPage": 7
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ଜୀବକୋଷ: ଜୀବନର ମୂଳ ଏକକ",
+     "en": "Cell: The Building Block of Life",
+     "hi": "कोशिका — जीवन की निर्माण इकाई"
+    },
+    "startPage": 8,
+    "endPage": 27
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "କାମ କରୁଥିବା ଟିସୁ",
+     "en": "Tissues in Action",
+     "hi": "क्रियाशील ऊतक"
+    },
+    "startPage": 28,
+    "endPage": 47
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଆମ ଚାରିପାଖର ଗତିର ବର୍ଣ୍ଣନା",
+     "en": "Describing Motion Around Us",
+     "hi": "अपने परिवेश में गति का वर्णन"
+    },
+    "startPage": 48,
+    "endPage": 71
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ମିଶ୍ରଣ ଓ ସେଗୁଡ଼ିକର ପୃଥକୀକରଣ",
+     "en": "Exploring Mixtures and their Separation",
+     "hi": "मिश्रण एवं उनके पृथक्करण का अन्वेषण"
+    },
+    "startPage": 72,
+    "endPage": 93
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ବଳ ଗତିକୁ କିପରି ପ୍ରଭାବିତ କରେ",
+     "en": "How Forces Affect Motion",
+     "hi": "गति पर बलों का प्रभाव"
+    },
+    "startPage": 94,
+    "endPage": 115
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "କାର୍ଯ୍ୟ, ଶକ୍ତି ଓ ସରଳ ଯନ୍ତ୍ର",
+     "en": "Work, Energy, and Simple Machines",
+     "hi": "कार्य, ऊर्जा एवं सरल मशीनें"
+    },
+    "startPage": 116,
+    "endPage": 139
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ପରମାଣୁ ଭିତରକୁ ଯାତ୍ରା",
+     "en": "Journey Inside the Atom",
+     "hi": "एक यात्रा — परमाणु के भीतर"
+    },
+    "startPage": 140,
+    "endPage": 161
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ପଦାର୍ଥର ପରମାଣବିକ ମୂଳଦୁଆ",
+     "en": "Atomic Foundations of Matter",
+     "hi": "द्रव्य का परमाण्विक आधार"
+    },
+    "startPage": 162,
+    "endPage": 183
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ଶବ୍ଦ ତରଙ୍ଗ: ଗୁଣ ଓ ପ୍ରୟୋଗ",
+     "en": "Sound Waves: Characteristics and Applications",
+     "hi": "ध्वनि तरंगें — अभिलक्षण एवं अनुप्रयोग"
+    },
+    "startPage": 184,
+    "endPage": 207
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "ପ୍ରଜନନ: ଜୀବନ କିପରି ଆଗକୁ ବଢ଼େ",
+     "en": "Reproduction: How Life Continues",
+     "hi": "जनन — जीवन की निरंतरता"
+    },
+    "startPage": 208,
+    "endPage": 227
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "ଜୀବଜଗତର ଢାଞ୍ଚା: ବିବିଧତା ଓ ବର୍ଗୀକରଣ",
+     "en": "Patterns in Life: Diversity and Classification",
+     "hi": "जीवजगत का स्वरूप — विविधता एवं वर्गीकरण"
+    },
+    "startPage": 228,
+    "endPage": 251
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "ପୃଥିବୀ ଏକ ତନ୍ତ୍ର: ଶକ୍ତି, ପଦାର୍ଥ ଓ ଜୀବନ",
+     "en": "Earth as a System: Energy, Matter, and Life",
+     "hi": "पृथ्वी एक तंत्र — ऊर्जा, द्रव्य और जीवन"
+    },
+    "startPage": 252,
+    "endPage": 272
+   }
+  ]
+ },
+ {
+  "id": "cbse-maths-9",
+  "subject": {
+   "or": "ଗଣିତ",
+   "en": "Mathematics",
+   "hi": "गणित"
+  },
+  "title": {
+   "or": "ଗଣିତ — ଗଣିତ ମଞ୍ଜରୀ ଭାଗ ୧ (NCERT)",
+   "en": "Mathematics — Ganita Manjari Part I (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iemh101–iemh108); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ନିଜ ସ୍ଥାନ ଜାଣିବା: ସ୍ଥାନାଙ୍କର ବ୍ୟବହାର",
+     "en": "Orienting Yourself: The Use of Coordinates",
+     "hi": "स्वयं को प्रवृत्त करना — निर्देशांकों का उपयोग"
+    },
+    "startPage": 1,
+    "endPage": 15
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ରୈଖିକ ବହୁପଦୀର ପରିଚୟ",
+     "en": "Introduction to Linear Polynomials",
+     "hi": "रैखिक बहुपदों का परिचय"
+    },
+    "startPage": 16,
+    "endPage": 40
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ସଂଖ୍ୟାର ଦୁନିଆ",
+     "en": "The World of Numbers",
+     "hi": "संख्याओं का संसार"
+    },
+    "startPage": 41,
+    "endPage": 67
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ବୀଜଗାଣିତିକ ଅଭେଦର ଅନ୍ୱେଷଣ",
+     "en": "Exploring Algebraic Identities",
+     "hi": "बीजीय सर्वसमिकाओं का अन्वेषण"
+    },
+    "startPage": 68,
+    "endPage": 91
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ମୁଁ ଉପର-ତଳ, ଗୋଲ-ଗୋଲ",
+     "en": "I’m Up and Down, and Round and Round",
+     "hi": "मैं हूँ गोल-गोल, ऊपर-नीचे"
+    },
+    "startPage": 92,
+    "endPage": 117
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ସ୍ଥାନ ମାପ: ପରିସୀମା ଓ କ୍ଷେତ୍ରଫଳ",
+     "en": "Measuring Space: Perimeter and Area",
+     "hi": "समष्टि मापन — परिमाप और क्षेत्रफल"
+    },
+    "startPage": 118,
+    "endPage": 154
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ହୁଏତର ଗଣିତ: ସମ୍ଭାବ୍ୟତାର ପରିଚୟ",
+     "en": "The Mathematics of Maybe: Introduction to Probability",
+     "hi": "संभावनाओं का गणित — प्रायिकता का परिचय"
+    },
+    "startPage": 155,
+    "endPage": 173
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ପରେ କ'ଣ ଆସିବ: ଅନୁକ୍ରମ ଓ ଶ୍ରେଢ଼ୀ",
+     "en": "Predicting What Comes Next: Exploring Sequences and Progressions",
+     "hi": "अगले पद का पूर्वानुमान — अनुक्रमों और श्रेढ़ियों का अन्वेषण"
+    },
+    "startPage": 174,
+    "endPage": 200
+   }
+  ]
+ },
+ {
+  "id": "cbse-maths-9-ii",
+  "subject": {
+   "or": "ଗଣିତ",
+   "en": "Mathematics",
+   "hi": "गणित"
+  },
+  "title": {
+   "or": "ଗଣିତ — ଗଣିତ ମଞ୍ଜରୀ ଭାଗ ୨ (NCERT)",
+   "en": "Mathematics — Ganita Manjari Part II (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iemh201–iemh206); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଉକ୍ତି ଓ ସେଗୁଡ଼ିକର ବିପରୀତ",
+     "en": "Propositions and their Converses",
+     "hi": "प्रतिज्ञप्तियाँ और उनके विलोम"
+    },
+    "startPage": 1,
+    "endPage": 7
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ରାଶି କିପରି ମିଶେ: ତଥ୍ୟ ବୁଝିବା",
+     "en": "How Quantities Combine: Understanding Data",
+     "hi": "राशियाँ कैसे मिलती हैं — आँकड़ों को समझना"
+    },
+    "startPage": 8,
+    "endPage": 36
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ଆଲଗୋରିଦମର ଦୁନିଆ",
+     "en": "The World of Algorithms",
+     "hi": "एल्गोरिद्म का संसार"
+    },
+    "startPage": 37,
+    "endPage": 50
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଚତୁର୍ଭୁଜ",
+     "en": "Quadrilaterals",
+     "hi": "चतुर्भुज"
+    },
+    "startPage": 51,
+    "endPage": 84
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ଦୁଇ ଚଳରାଶି, ଗୋଟିଏ ରେଖା",
+     "en": "Two Variables, One Line",
+     "hi": "दो चर, एक रेखा"
+    },
+    "startPage": 85,
+    "endPage": 122
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ସ୍ଥାନର ଗଣିତ: ପୃଷ୍ଠତଳ କ୍ଷେତ୍ରଫଳ ଓ ଘନଫଳ",
+     "en": "Math of Space: Surface Area and Volume",
+     "hi": "स्थान का गणित — पृष्ठीय क्षेत्रफल और आयतन"
+    },
+    "startPage": 123,
+    "endPage": 164
+   }
+  ]
+ },
+ {
+  "id": "cbse-social-9",
+  "subject": {
+   "or": "ସାମାଜିକ ବିଜ୍ଞାନ",
+   "en": "Social Science",
+   "hi": "सामाजिक विज्ञान"
+  },
+  "title": {
+   "or": "ସାମାଜିକ ବିଜ୍ଞାନ — ସମାଜକୁ ବୁଝିବା ଭାଗ ୧ (NCERT)",
+   "en": "Social Science — Understanding Society: India and Beyond, Part I (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iest101–iest109); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ସମାଜ ବିଜ୍ଞାନକୁ ବୁଝିବା",
+     "en": "Understanding Social Science",
+     "hi": "सामाजिक विज्ञान को समझना"
+    },
+    "startPage": 1,
+    "endPage": 12
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ପୃଥିବୀ ପୃଷ୍ଠର ଗଠନ",
+     "en": "Shaping of the Earth’s Surface",
+     "hi": "पृथ्वी की सतह का निर्माण"
+    },
+    "startPage": 13,
+    "endPage": 38
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ବାୟୁମଣ୍ଡଳ ଓ ଜଳବାୟୁ",
+     "en": "Atmosphere and Climate",
+     "hi": "वायुमंडल और जलवायु"
+    },
+    "startPage": 39,
+    "endPage": 60
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଆଦିମ ମଣିଷ ଓ ସଭ୍ୟତାର ଆରମ୍ଭ",
+     "en": "Early Humans and Beginning of Civilisation",
+     "hi": "आदिमानव और सभ्यता की शुरुआत"
+    },
+    "startPage": 61,
+    "endPage": 94
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "୧୦୦୦ ଖ୍ରୀଷ୍ଟାବ୍ଦ ଯାଏଁ ରାଜ୍ୟ ଓ ସମାଜ",
+     "en": "State and Society up to 1000 CE",
+     "hi": "1000 ई. तक राज्य और समाज"
+    },
+    "startPage": 95,
+    "endPage": 136
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ଗଣତନ୍ତ୍ର",
+     "en": "Democracy",
+     "hi": "लोकतंत्र"
+    },
+    "startPage": 137,
+    "endPage": 160
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ନିର୍ବାଚନ",
+     "en": "Elections",
+     "hi": "चुनाव"
+    },
+    "startPage": 161,
+    "endPage": 182
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ଅର୍ଥନୀତିର ମୂଳ କଥା: ବାଛିବାର ସମସ୍ୟା",
+     "en": "Building Blocks in Economics: The Problem of Choice",
+     "hi": "अर्थशास्त्र की बुनियाद — चयन की समस्या"
+    },
+    "startPage": 183,
+    "endPage": 194
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ଦାମର ପହେଳି: ବଜାରକୁ କ'ଣ ଚଳାଏ",
+     "en": "The Price Puzzle: What Drives the Market",
+     "hi": "कीमत की पहेली — बाज़ार को क्या चलाता है"
+    },
+    "startPage": 195,
+    "endPage": 220
+   }
+  ]
+ },
+ {
+  "id": "cbse-social-9-ii",
+  "subject": {
+   "or": "ସାମାଜିକ ବିଜ୍ଞାନ",
+   "en": "Social Science",
+   "hi": "सामाजिक विज्ञान"
+  },
+  "title": {
+   "or": "ସାମାଜିକ ବିଜ୍ଞାନ — ସମାଜକୁ ବୁଝିବା ଭାଗ ୨ (NCERT)",
+   "en": "Social Science — Understanding Society: India and Beyond, Part II (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iest201–iest206); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ମହାସାଗର ଓ ଜୀବନ",
+     "en": "Oceans and Life",
+     "hi": "महासागर और जीवन"
+    },
+    "startPage": 1,
+    "endPage": 20
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ପୃଥିବୀରେ ଜୀବନ",
+     "en": "Life on Earth",
+     "hi": "पृथ्वी पर जीवन"
+    },
+    "startPage": 21,
+    "endPage": 44
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ପ୍ରତିରୋଧ ଓ ସହନଶୀଳତା (୧୦୦୦–୧୭୦୦ ଖ୍ରୀ.)",
+     "en": "Resistance and Resilience (1000–1700 CE)",
+     "hi": "प्रतिरोध और दृढ़ता (1000–1700 ई.)"
+    },
+    "startPage": 45,
+    "endPage": 80
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଶାସନ ଓ ସାର୍ବଜନୀନ ନୀତି",
+     "en": "Governance and Public Policy",
+     "hi": "शासन और सार्वजनिक नीति"
+    },
+    "startPage": 81,
+    "endPage": 106
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ନିଜ ଟଙ୍କାପଇସାର ପରିଚାଳନା",
+     "en": "Managing Your Personal Finances",
+     "hi": "अपने निजी वित्त का प्रबंधन"
+    },
+    "startPage": 107,
+    "endPage": 124
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ଚିନ୍ତାରୁ ଷ୍ଟାର୍ଟଅପ୍ ଯାଏଁ",
+     "en": "From Ideas to Startups",
+     "hi": "विचार से स्टार्टअप तक"
+    },
+    "startPage": 125,
+    "endPage": 152
+   }
+  ]
+ },
+ {
+  "id": "cbse-english-9",
+  "subject": {
+   "or": "ଇଂରାଜୀ",
+   "en": "English",
+   "hi": "अंग्रेज़ी"
+  },
+  "title": {
+   "or": "ଇଂରାଜୀ — କାବେରୀ (NCERT)",
+   "en": "English — Kaveri (NCERT)"
+  },
+  "classLevel": 9,
+  "board": "CBSE",
+  "source": "NCERT (2026-27 edition), official chapter PDFs from https://ncert.nic.in/textbook.php (iebe101–iebe108); text from the PDF itself",
+  "pageOffset": 0,
+  "lang": "en",
+  "kind": "language",
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "How I Taught My Grandmother to Read",
+     "en": "How I Taught My Grandmother to Read"
+    },
+    "startPage": 1,
+    "endPage": 32
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "The Pot Maker",
+     "en": "The Pot Maker"
+    },
+    "startPage": 33,
+    "endPage": 68
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "Winds of Change",
+     "en": "Winds of Change"
+    },
+    "startPage": 69,
+    "endPage": 96
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "Vitamin M",
+     "en": "Vitamin M"
+    },
+    "startPage": 97,
+    "endPage": 136
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "The World of Limitless Possibilities",
+     "en": "The World of Limitless Possibilities"
+    },
+    "startPage": 137,
+    "endPage": 168
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "Twin Melodies",
+     "en": "Twin Melodies"
+    },
+    "startPage": 169,
+    "endPage": 202
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "Carrier of Words",
+     "en": "Carrier of Words"
+    },
+    "startPage": 203,
+    "endPage": 230
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "Follow That Dream",
+     "en": "Follow That Dream"
+    },
+    "startPage": 231,
+    "endPage": 258
+   }
+  ]
  }
 ]

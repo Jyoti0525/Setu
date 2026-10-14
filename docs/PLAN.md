@@ -29,6 +29,18 @@ Life Science is set in a legacy non-Unicode font, and Geography is scanned image
 
 ---
 
+## v5 — More languages, tribal languages, CBSE (2026-10-15). Read after v4.
+
+**Tribal languages first.** A probe (Gemini Flash-Lite, "what is a tissue", back-translated by a second call) showed what free models can and cannot write: Santali in Ol Chiki — yes (real Santali words); Kui and Saora — no (it writes plain Odia); Ho in Warang Citi — no (garbage). So:
+- **Santali** is a written language in Setu (tier B, draft): replies in Ol Chiki, and every science word carries the Odia and English school words in brackets — ᱠᱚᱥ (ଜୀବକୋଷ, cell) — so she can match it with her Odia-medium book and a wrong Santali word is caught.
+- **Kui, Kuvi, Ho, Saora, Munda** (tier C): taught in very easy Odia, with her home-language words from the **Government of Odisha's Odia–<language> Sabdakosh (2018) and Sarala Tribhasi primers** (archive.org, `in.gov.tribals.*`; CC BY 4.0 via Odisha Virtual Academy). Pages were OCR'd with word positions (`content/scripts/ocr_words.mjs`), parsed into 830–1,540 word pairs per language with example sentences (`content/scripts/tribal_words.ts` → `content/tribal/<id>.json`). Each turn the model is given ≤ 40 relevant pairs (words of her question and passages, then everyday words) and may only copy them; a critic removes any home-language word not on the list (`apps/server/src/tutor/home.ts`). The words used are shown under the reply.
+
+**More languages.** Bengali, Kannada, Telugu, Tamil, Marathi, Bhojpuri (+ Santali): tutor replies in the language (probe: natural, with the board terms), all 175 interface lines drafted by `content/scripts/translate_ui.ts` and checked (every key, {0} slots, helplines 1098 / 14416 / 112, own script). Marked "AI-written, not yet checked by a speaker" in the app. The phone downloads only her language (≈ 5 KB).
+
+**Boards.** CBSE (NCERT 2026-27, official chapter PDFs): Science *Exploration* (13 ch), Maths *Ganita Manjari* I (8) + II (6), Social Science *Understanding Society: India and Beyond* I (9) + II (6), English *Kaveri* (8); Hindi-medium *Anveshan* and *Ganita Manjari* (OCR: their text layer is broken). Printed page numbers are kept (`tools/books/ncert_book.py`), chapter names in English, Odia and Hindi. She picks her board at sign-up (default: BSE Odisha for Odia / Santali / tribal, CBSE otherwise); search, subjects and offline books are limited to her board. **CHSE Odisha is Classes 11–12** — no Class 9 books; next boards for Class 9 are state boards matching the new languages (Karnataka, West Bengal, …). Classes 8 and 10 come after.
+
+---
+
 ## 0. The pitch
 
 **Sunita has the family phone for one hour a day. Setu's work doesn't stop when she puts it down.**

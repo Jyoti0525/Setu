@@ -782,7 +782,7 @@ export function guardOutput(messages: OutMsg[], lang: string): { messages: OutMs
 
 // ---------- learner-facing strings (UI language) ----------
 
-const STRINGS: Record<string, Record<string, string>> = {
+export const ENGINE_LINES: Record<string, Record<string, string>> = {
   or: {
     correct: 'ଠିକ୍ କହିଲ! 👏',
     wrong: 'ଏଥର ଠିକ୍ ହେଲା ନାହିଁ। ଚାଲ, ଅନ୍ୟ ଉପାୟରେ ବୁଝିବା।',
@@ -900,11 +900,11 @@ const clip = (t: string, n: number) => ([...t].length > n ? [...t].slice(0, n).j
 
 /** Engine lines with no slots in a language — the ones worth pre-recording. */
 export function fixedStrings(lang: string): string[] {
-  return Object.values(STRINGS[lang] ?? {}).filter((x) => !/\{\d\}/.test(x));
+  return Object.values(ENGINE_LINES[lang] ?? {}).filter((x) => !/\{\d\}/.test(x));
 }
 
 export function T(lang: string, key: string, ...args: string[]): string {
-  const t = STRINGS[lang]?.[key] ?? STRINGS.en![key] ?? key;
+  const t = ENGINE_LINES[lang]?.[key] ?? ENGINE_LINES.en![key] ?? key;
   return args.reduce((acc, a, i) => acc.replace(`{${i}}`, a), t);
 }
 
