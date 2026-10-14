@@ -365,6 +365,9 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
   .account-identity { display: none; }
   .dashboard .theme-toggle { min-width: 42px; width: 42px; min-height: 42px; padding: 6px; }
   .dashboard .theme-toggle .theme-label { display: none; }
+  .dashboard .lang-menu-button { padding: 4px 8px; gap: 5px; }
+  .dashboard .lang-menu-button .lang-menu-en { display: none; }
+  .dashboard .lang-menu-name { max-width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sidebar { width: 100%; min-height: 0; padding: 8px 10px; gap: 6px; overflow: visible; border: 0; border-bottom: 1px solid var(--line); }
   .sidebar-toggle { align-self: flex-end; margin: 0 0 2px; }
   .sidebar-collapsed .sidebar { width: 100%; height: 0; min-height: 0; padding: 0; border: 0; }
@@ -405,6 +408,11 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
 }
 
 @media (max-width: 440px) {
+  .dashboard .topbar { gap: 5px; padding-inline: 8px; }
+  .dashboard .mobile-profile .profile-name { display: none; }
+  .dashboard .mobile-profile { padding: 2px; }
+  .dashboard .topbar .iconbtn { min-width: 38px; width: 38px; }
+  .dashboard .lang-menu-name { max-width: 52px; }
   .overview-heading { gap: 8px; }
   .overview-art { width: 72px; flex-basis: 72px; margin-right: -10px; }
 }
@@ -490,10 +498,14 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
 .lang-menu-search:focus-within { border-color: var(--pub-accent); }
 .lang-menu-pop ul { max-height: min(300px, 50dvh); margin: 6px 0 0; padding: 0; overflow-y: auto; list-style: none; }
 .lang-menu-pop li button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--pub-ink); font-size: .9rem; text-align: left; }
-.lang-menu-pop li button:hover, .lang-menu-pop li button:focus-visible { background: #f1e7d9; }
+.lang-menu-pop li button:hover, .lang-menu-pop li button:focus-visible { background: var(--menu-hover, #f1e7d9); }
 .lang-menu-pop li button.active { font-weight: 750; color: var(--pub-accent); }
 .lang-menu-pop li button svg { margin-left: auto; }
 .lang-menu-none { padding: 10px; color: var(--pub-muted); text-align: center; }
+.dashboard .lang-menu { --pub-line: var(--line); --pub-paper: var(--surface); --pub-ink: var(--ink); --pub-muted: var(--muted); --pub-accent: var(--primary-strong); --menu-hover: var(--surface-2); flex: none; margin: 0; }
+.dashboard .lang-menu-button { min-height: 42px; border-radius: 10px; }
+.dashboard .lang-menu-pop { left: auto; right: 0; }
+@media (max-width: 700px) { .dashboard .lang-menu-pop { position: fixed; top: 66px; left: 12px; right: 12px; width: auto; } }
 .auth-skip { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--pub-line); text-align: center; }
 .skip-button { width: 100%; min-height: 44px; border-radius: 12px; border: 1px solid var(--pub-line); background: transparent; color: var(--pub-ink); font-weight: 700; font-size: .9rem; }
 .skip-button:hover { background: var(--pub-paper); }

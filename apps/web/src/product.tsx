@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Auth, AuthCredential, ConfirmationResult, RecaptchaVerifier, User } from 'firebase/auth';
 import { getAuthOnce } from './firebase.ts';
 import { App as LearnerApp, LOCAL } from './app.tsx';
-import { Icon, Logo } from './icons.tsx';
+import { Logo } from './icons.tsx';
+import { LangMenu } from './langmenu.tsx';
 import { LANGUAGES } from '@setu/core';
 
 type Page = 'login' | 'register' | 'dashboard';
@@ -81,40 +82,6 @@ const MORE: Record<string, Record<string, string>> = {
 };
 const pageLang = (l: string) => (W[l] || MORE[l] ? l : LANGUAGES[l]?.school ?? 'en');
 
-/** the language for this page: a button that opens a list of all her languages, with a search */
-function LangMenu({ value, onPick }: { value: string; onPick: (id: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const box = useRef<HTMLDivElement>(null);
-  const find = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    // type straight away with a keyboard; on a touch phone the keyboard opens only when she taps the search
-    if (matchMedia('(pointer: fine)').matches) find.current?.focus();
-    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    addEventListener('pointerdown', away);
-    return () => removeEventListener('pointerdown', away);
-  }, [open]);
-  const t = q.trim().toLocaleLowerCase();
-  const shown = Object.values(LANGUAGES).filter((l) => !t || [l.name, l.english, l.id].some((v) => v.toLocaleLowerCase().includes(t)));
-  const cur = LANGUAGES[value];
-  return <div class="lang-menu" ref={box} onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.preventDefault(); setOpen(false); } }}>
-    <button type="button" class="lang-menu-button" aria-haspopup="listbox" aria-expanded={open} onClick={() => { setOpen(!open); setQ(''); }}>
-      <Icon name="globe" size={17} /><span>{cur?.name ?? value}</span>{cur && cur.english !== cur.name && <span class="lang-menu-en">{cur.english}</span>}<Icon name="down" size={16} />
-    </button>
-    {open && <div class="lang-menu-pop">
-      <label class="lang-menu-search"><Icon name="search" size={16} /><input ref={find} type="search" value={q} placeholder="Search · ଖୋଜ · खोजें" aria-label="Search language"
-        onInput={(e) => setQ((e.currentTarget as HTMLInputElement).value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && shown[0]) { e.preventDefault(); onPick(shown[0].id); setOpen(false); } }} /></label>
-      <ul role="listbox" aria-label="Language">
-        {shown.map((l) => <li><button type="button" role="option" aria-selected={l.id === value} class={l.id === value ? 'active' : ''} onClick={() => { onPick(l.id); setOpen(false); }}>
-          <span>{l.name}</span>{l.english !== l.name && <span class="lang-menu-en">{l.english}</span>}{l.id === value && <Icon name="check" size={16} />}
-        </button></li>)}
-        {!shown.length && <li class="lang-menu-none">—</li>}
-      </ul>
-    </div>}
-  </div>;
-}
 
 function AuthPage({ mode, auth, pending, setPending, onSkip }: { mode: 'login' | 'register'; auth: Auth; pending: AuthCredential | null; setPending: (c: AuthCredential | null) => void; onSkip: () => void }) {
   const isRegister = mode === 'register';
