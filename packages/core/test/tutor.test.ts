@@ -56,6 +56,12 @@ describe('tutor policy (P8.4–P8.8)', () => {
     const m: TutorMemory = { ...emptyMemory(), check: { question: 'Why do plant cells need a wall?', keyIdeas: ['strength'], topic: 'bio#1', passageIds: [], askedAt: now, ignored: 0, tries: 0 } };
     expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check)).toBe(true);
     expect(looksLikeAnswer('ରକ୍ତ କଣିକା କେତେ ପ୍ରକାର?', m.check)).toBe(false);
+    expect(looksLikeAnswer('rakto konika kete prokar', m.check)).toBe(false);
+    // no question word, but her words are clearly another chapter's → a new question, not her answer
+    const other = { passage: { id: 'x.p1.1', page: 1, ch: 9, text: '' }, bookId: 'geo', score: 50, coverage: 1 };
+    expect(looksLikeAnswer('mausumi bayu', m.check, [other])).toBe(false);
+    expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check, [{ ...other, coverage: 0.33 }])).toBe(true);
+    expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check, [other, { ...other, bookId: 'bio', passage: { ...other.passage, ch: 1 } }])).toBe(true);
     expect(planTurn(m, { safety: 'ok', text: 'ଏହା ଦୃଢ଼ତା ଦିଏ', hits: [], online: true, now }).action).toBe('grade');
   });
   it('still stuck → a different way of explaining (strategy ladder), not the same words louder', () => {
@@ -110,6 +116,8 @@ describe('readable book text (P8.16)', () => {
   it('fixes the OCR misreadings that repeat across the books, keeps real words', () => {
     expect(fixOdiaOcr('ଏଥୁରେ ମଧ୍ଯ ଶ୍ଵେତ ପୂଥୁବୀ ( Plasma )')).toBe('ଏଥିରେ ମଧ୍ୟ ଶ୍ୱେତ ପୃଥିବୀ (Plasma)');
     expect(fixOdiaOcr('ପଥୁରିଆ ମାଟି')).toBe('ପଥୁରିଆ ମାଟି');
+    expect(fixOdiaOcr('ଅଧକ ଅଧୁକାଂଶ ମାନବାଧକାର')).toBe('ଅଧିକ ଅଧିକାଂଶ ମାନବାଧିକାର');
+    expect(fixOdiaOcr('ଆଧୁନିକ ଅଧୁନା ସାଧକ ବାଧକ ପ୍ରତିରୋଧକାରୀ')).toBe('ଆଧୁନିକ ଅଧୁନା ସାଧକ ବାଧକ ପ୍ରତିରୋଧକାରୀ');
   });
   it('drops figure labels read as capitals, keeps abbreviations', () => {
     expect(cleanOcr('ରକ୍ତରେ AYR ZUR RBC ଓ DNA ଥାଏ ।')).toBe('ରକ୍ତରେ RBC ଓ DNA ଥାଏ ।');

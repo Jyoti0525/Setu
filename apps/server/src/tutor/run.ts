@@ -76,14 +76,15 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     const ts = Date.now();
     const picked = req.bookIds?.length ? req.bookIds : undefined;
     const pickedFirst = (hs: BookHit[]) => (picked ? [...hs.filter((h) => picked.includes(h.bookId)), ...hs.filter((h) => !picked.includes(h.bookId))] : hs);
-    const answering = !req.review && looksLikeAnswer(text, m.check);
+    const q = req.review ? reviewQuery(d.shelf, req.review) : text;
+    const found = pickedFirst(d.shelf.search(q, { limit: 6 }));
+    const answering = !req.review && looksLikeAnswer(text, m.check, found);
     if (answering) {
       // her answer is graded against the pages the question came from, not whatever her words happen to match
       hits = m.check!.passageIds.map((id) => d.shelf.passage(id)).filter((x) => !!x).map((x) => ({ passage: x!.passage, bookId: x!.bookId, score: 1, coverage: 1 }));
       tools.push({ tool: 'books.open', args: { passages: m.check!.passageIds }, status: 'ok', latency_ms: Date.now() - ts, note: 'the pages of the open check' });
     } else {
-      const q = req.review ? reviewQuery(d.shelf, req.review) : text;
-      hits = pickedFirst(d.shelf.search(q, { limit: 6 }));
+      hits = found;
       tools.push({ tool: 'books.search', args: { q: q.slice(0, 60), books: picked ?? 'all' }, status: 'ok', latency_ms: Date.now() - ts, note: hits[0] ? `best ${hits[0].passage.id} coverage ${hits[0].coverage}` : 'nothing' });
     }
     // 2b. her words are not the book's words (English/romanized for an Odia book): the model rewrites, search again
@@ -248,13 +249,22 @@ function passageReply(shelf: Shelf, plan: TutorPlan, lang: string, key: string, 
 
 function sourcesOf(shelf: Shelf, hits: BookHit[], used: string[], question: string, lang: string): TutorSource[] {
   const ids = used.length ? used : hits.slice(0, 1).map((h) => h.passage.id);
-  return ids.slice(0, 2).map((id) => {
+  // one card per page: two parts of the same page are one source, read together
+  const pages = new Map<string, { id: string; text: string }>();
+  for (const id of ids) {
+    const p = shelf.passage(id);
+    if (!p) continue;
+    const k = `${p.bookId}#${p.passage.page}`;
+    const seen = pages.get(k);
+    pages.set(k, seen ? { ...seen, text: `${seen.text} ${p.passage.text}` } : { id, text: p.passage.text });
+  }
+  return [...pages.values()].slice(0, 2).map(({ id, text }) => {
     const p = shelf.passage(id)!;
     const b = shelf.books.get(p.bookId)!;
     const ch = shelf.chapterOf(p.bookId, p.passage.ch);
-    const quote = focusQuote(p.passage.text, question);
+    const quote = focusQuote(text, question);
     const name = (x: { or: string; en: string; hi?: string } | undefined) => (x ? (lang === 'en' ? x.en : lang === 'hi' ? x.hi ?? x.en : x.or) : '');
-    return { bookId: p.bookId, subject: name(b.meta.subject), chapter: name(ch?.title), page: p.passage.page, passageId: id, quote, ...(quote !== p.passage.text ? { full: p.passage.text } : {}) };
+    return { bookId: p.bookId, subject: name(b.meta.subject), chapter: name(ch?.title), page: p.passage.page, passageId: id, quote, ...(quote !== text ? { full: text } : {}) };
   });
 }
 

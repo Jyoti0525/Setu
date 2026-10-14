@@ -57,15 +57,19 @@ export const topicKey = (bookId: string, ch: number) => `${bookId}#${ch}`;
 export const newTopic = (now: number): TutorTopic => ({ pKnown: 0.2, checks: 0, right: 0, wrongInARow: 0, doubts: 0, lastAt: now, tried: [] });
 export const emptyMemory = (): TutorMemory => ({ topics: {}, turns: 0 });
 
-const QUESTION_WORDS = /[?？]|\b(what|why|how|when|where|which|who|explain|tell me|kana|kan|kemiti|kahinki|kouthi|kie|kya|kyun|kaise|kab|kahan)\b|କଣ|କ'ଣ|କ’ଣ|କିପରି|କେମିତି|କାହିଁକି|କେଉଁ|କିଏ|କେବେ|କୁଆଡ଼େ|ବୁଝାଅ|ବୁଝାଇ|क्या|क्यों|कैसे|कब|कहाँ|कौन|समझाओ/i;
+const QUESTION_WORDS = /[?？]|\b(what|why|how|when|where|which|who|explain|tell me|kana|kan|kemiti|kahinki|kouthi|kie|kete|keteta|keun|keunthi|kau|kauta|kipari|kya|kyun|kaise|kab|kahan)\b|କଣ|କ'ଣ|କ’ଣ|କିପରି|କେମିତି|କାହିଁକି|କେଉଁ|କିଏ|କେବେ|କେତେ|କାହାର|କୁଆଡ଼େ|ବୁଝାଅ|ବୁଝାଇ|क्या|क्यों|कैसे|कब|कहाँ|कौन|समझाओ/i;
 
 /** Is this message her answer to the open check (not a new question)? Online the model can still say otherwise. */
-export function looksLikeAnswer(text: string, check?: TutorCheck): boolean {
+export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit[]): boolean {
   if (!check) return false;
   const t = text.trim();
   if (!t) return false;
   // a question word in a message of two words or more is a new question ("କୋଷ ପ୍ରାଚୀର କ'ଣ"), even a short one
   if (QUESTION_WORDS.test(t) && t.split(/\s+/).length >= 2) return false;
+  // her words clearly belong to another chapter and nothing near the top is the check's: a new question asked
+  // without a question word ("rakto konika" while a monsoon check is open)
+  const top = hits?.slice(0, 3) ?? [];
+  if (top[0] && top[0].coverage >= 0.67 && !top.some((h) => topicKey(h.bookId, h.passage.ch) === check.topic)) return false;
   return t.split(/\s+/).length <= 60;
 }
 
@@ -82,7 +86,7 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
     return { ...base, action: x.online ? 'review' : 'show_passage', topic: x.review, strategy: nextStrategy(t), grounding: x.hits, askCheck: x.online, reason: `follow-up the agent offered: ${x.review} (mastery ${pct(t?.pKnown)}) → one short check on it` };
   }
 
-  if (looksLikeAnswer(x.text, m.check)) {
+  if (looksLikeAnswer(x.text, m.check, x.hits)) {
     const topic = m.check!.topic;
     return { ...base, action: x.online ? 'grade' : 'show_passage', topic, grounding: x.hits, reason: x.online ? `she is answering the open check on ${topic} → grade it against the book, then decide` : `answer to the check kept; graded when online (offline: the passage, no grading)`, candidates: [{ action: 'grade', score: 0.8 }, { action: 'explain', score: 0.2 }] };
   }

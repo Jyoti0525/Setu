@@ -85,7 +85,8 @@ code { word-break: break-all; font-size: 0.875rem; }
 .status-ok { color: var(--ok); } .status-bad { color: var(--bad); }
 .who-screen { justify-content: center; text-align: center; }
 .who-screen .head { justify-content: center; flex-direction: column; }
-.who-screen .grid.avatars .big { aspect-ratio: auto; min-height: 112px; }
+.who-screen .grid.avatars { display: flex; flex-wrap: wrap; justify-content: center; }
+.who-screen .grid.avatars .big { aspect-ratio: auto; min-height: 112px; flex: 0 1 112px; }
 
 /* ---------- the app shell: header / scrolling feed / composer (the feed scrolls, the bars never move) ---------- */
 .app { max-width: 680px; margin: 0 auto; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); position: relative; overflow: hidden; }

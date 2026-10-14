@@ -64,6 +64,7 @@ _Generated from the app data by `content/scripts/native_check.ts` on 2026-10-14.
 ## 3. Suggested first questions (tap-to-ask cards)
 
 - ☐ ରକ୍ତ କଣିକା କେତେ ପ୍ରକାର?
+- ☐ ଚତୁର୍ଭୁଜ କେତେ ପ୍ରକାର?
 
 ## 4. English → Odia school words (offline search uses these)
 
@@ -150,8 +151,8 @@ An English question with no signal is searched with these Odia words. Each Odia 
 | fire | ନିଆଁ, ଅଗ୍ନି | ☐ |
 | gas | ଗ୍ୟାସ | ☐ |
 | safety | ସୁରକ୍ଷା | ☐ |
-| speed | ଦ୍ରୁତି | ☐ |
-| velocity | ବେଗ | ☐ |
+| speed | ବେଗ | ☐ |
+| velocity | ପରିବେଗ | ☐ |
 | acceleration | ତ୍ୱରଣ | ☐ |
 | motion | ଗତି | ☐ |
 | distance | ଦୂରତା | ☐ |
@@ -160,7 +161,7 @@ An English question with no signal is searched with these Odia words. Each Odia 
 
 ## 5. Chapter titles I typed from the contents pages
 
-Physical Science and History & Political Science titles were typed by me from the printed contents page; check against the book.
+Physical Science, History & Political Science and the two Maths books: titles typed by me from the printed contents page; check against the book.
 
 **ଭୌତିକ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)**
 
@@ -201,11 +202,34 @@ Physical Science and History & Political Science titles were typed by me from th
 - ☐ 23. ଗଣତାନ୍ତ୍ରିକ ମୂଲ୍ୟବୋଧ — _Democratic values_ (pp. 217–223)
 - ☐ 24. ସଂଯୁକ୍ତ ରାଷ୍ଟ୍ରସଂଘ : ଗଠନ ଓ କାର୍ଯ୍ୟାବଳୀ, ଭାରତ ଓ ସଂଯୁକ୍ତ ରାଷ୍ଟ୍ରସଂଘ — _The United Nations: structure, functions and India_ (pp. 224–234)
 
+**ବୀଜଗଣିତ (ନବମ ଶ୍ରେଣୀ)**
+
+- ☐ 1. ସେଟ୍ ପ୍ରକ୍ରିୟା ଏବଂ ସେଟ୍‌ର ପ୍ରୟୋଗ — _Set operations and their applications_ (pp. 1–19)
+- ☐ 2. ବାସ୍ତବ ସଂଖ୍ୟା — _Real numbers_ (pp. 20–55)
+- ☐ 3. ବୀଜଗାଣିତିକ ପରିପ୍ରକାଶ ଓ ଅଭେଦ — _Algebraic expressions and identities_ (pp. 56–88)
+- ☐ 4. ବୀଜଗାଣିତିକ ସମୀକରଣ — _Algebraic equations_ (pp. 89–99)
+- ☐ 5. ସ୍ଥାନାଙ୍କ ଜ୍ୟାମିତି — _Coordinate geometry_ (pp. 100–111)
+- ☐ 6. ଅନୁପାତ ଓ ସମାନୁପାତ — _Ratio and proportion_ (pp. 112–124)
+- ☐ 7. ପରିସଂଖ୍ୟାନ — _Statistics_ (pp. 125–147)
+- ☐ 8. ସମ୍ଭାବ୍ୟତା — _Probability_ (pp. 148–156)
+
+**ଜ୍ୟାମିତି (ନବମ ଶ୍ରେଣୀ)**
+
+- ☐ 1. ରେଖା ଓ କୋଣ — _Lines and angles_ (pp. 1–36)
+- ☐ 2. ତ୍ରିଭୁଜମାନଙ୍କ ସର୍ବସମତା — _Congruence of triangles_ (pp. 37–51)
+- ☐ 3. ଚତୁର୍ଭୁଜ — _Quadrilaterals_ (pp. 52–74)
+- ☐ 4. କ୍ଷେତ୍ରଫଳ — _Area_ (pp. 75–85)
+- ☐ 5. ପରିମିତି — _Mensuration_ (pp. 86–120)
+- ☐ 6. ଅଙ୍କନ — _Constructions_ (pp. 121–144)
+- ☐ 7. ତ୍ରିକୋଣମିତି — _Trigonometry_ (pp. 145–158)
+
 ## 6. Scanned textbook text (the 📖 card)
 
 The books are scanned and read by OCR. These rules fix the mistakes that repeat across all books — confirm each is always right:
 
 - ☐ ଥୁ → ଥି (ଥୁବା → ଥିବା, ଏଥୁରେ → ଏଥିରେ, ପୃଥୁବୀ → ପୃଥିବୀ) — except ପଥୁରିଆ, which is kept
+- ☐ ଥବା → ଥିବା (but ଅଥବା "or" is kept)
+- ☐ ଅଧକ / ଅଧୁକ → ଅଧିକ, ମାନବାଧକାର → ମାନବାଧିକାର, ଆଧୁପତ୍ୟ → ଆଧିପତ୍ୟ (ଆଧୁନିକ, ଅଧୁନା, ସାଧକ, ବାଧକ are kept)
 - ☐ ୍ଯ → ୍ୟ (ମଧ୍ଯ → ମଧ୍ୟ, ଇତ୍ଯାଦି → ଇତ୍ୟାଦି)
 - ☐ ୍ଵ → ୍ୱ (ଶ୍ଵେତ → ଶ୍ୱେତ)
 
@@ -243,7 +267,19 @@ Then read these passages (the pages the demo uses most). Write any wrong word an
 
 **ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା (୨୦୨୨-୨୩ରେ ଯୋଡ଼ାଯାଇଥିବା ଅଧ୍ୟାୟ) — page 3** (`disaster-management-9.p3.1`)
 
-> ହାର ଅଧ୍ବକ । ଅବଶ୍ୟ ଯାନ୍ତ୍ରିକ ତ୍ରୁଟି ତଥା ରାସ୍ତାର ଦୁରବସ୍ଥା ଦୁର୍ଘଟଣା ପାଇଁ କେତେକ ପରିମାଣରେ ଦାୟୀ । ଆସ ସଡ଼କ ଦୁର୍ଘଟଣାର କେତେକ ମୁଖ୍ୟ କାରଣ ସମ୍ବନ୍ଧରେ ଜାଣିବା । ୫ ଦ୍ରୁତ ଓ ବେପରୁଆ ଗାଡ଼ି ଚାଳନା : ଅଧକାଂଶ ସଡ଼କ ଦୁର୍ଘଟଣା ଚାଳକଙ୍କ ପ୍ରତି ଯୋଗୀତାମୂଳକ ତଥା ନିୟନ୍ତ୍ରଣହୀନ ଦ୍ରୁତ ଗାଡ଼ିଚାଳନା ଯୋଗୁଁ ହୋଇଥାଏ । ମୁଖ୍ୟତଃ ଅଳ୍ପ ବୟସର ଯୁବକ ଯୁବତୀମାନଙ୍କ କ୍ଷେତ୍ରରେ ଏ ପ୍ରକାର ମନୋଭାବ ବିଶେଷ ପରିଲକ୍ଷିତ ହୋଇଥାଏ । ଚାଳକମାନଙ୍କର ଦକ୍ଷତାର ଅଧ୍ରକାଂଶ ଗାଡ଼ିଚାଳକ ତାଲିମପ୍ରାପ୍ତ ହୋଇନଥାନ୍ତି । ବହୁ ସଡ଼କ ଦୁର୍ଘଟଣା ଗାଡ଼ି ଚାଳନା ଅନୁମତି ପତ୍ର (Driving license) ନଥିବା ତଥା ରାସ୍ତାରେ ଦିଆଯାଇଥିବା ସାଂକେତିକ ଚିହ୍ନ ସମ୍ବନ୍ଧରେ ଜାଣି ନଥିବା ଚାଳକଙ୍କ ଦ୍ୱାରା ହୋଇଥାଏ ।
+> ହାର ଅଧ୍ବକ । ଅବଶ୍ୟ ଯାନ୍ତ୍ରିକ ତ୍ରୁଟି ତଥା ରାସ୍ତାର ଦୁରବସ୍ଥା ଦୁର୍ଘଟଣା ପାଇଁ କେତେକ ପରିମାଣରେ ଦାୟୀ । ଆସ ସଡ଼କ ଦୁର୍ଘଟଣାର କେତେକ ମୁଖ୍ୟ କାରଣ ସମ୍ବନ୍ଧରେ ଜାଣିବା । ୫ ଦ୍ରୁତ ଓ ବେପରୁଆ ଗାଡ଼ି ଚାଳନା : ଅଧିକାଂଶ ସଡ଼କ ଦୁର୍ଘଟଣା ଚାଳକଙ୍କ ପ୍ରତି ଯୋଗୀତାମୂଳକ ତଥା ନିୟନ୍ତ୍ରଣହୀନ ଦ୍ରୁତ ଗାଡ଼ିଚାଳନା ଯୋଗୁଁ ହୋଇଥାଏ । ମୁଖ୍ୟତଃ ଅଳ୍ପ ବୟସର ଯୁବକ ଯୁବତୀମାନଙ୍କ କ୍ଷେତ୍ରରେ ଏ ପ୍ରକାର ମନୋଭାବ ବିଶେଷ ପରିଲକ୍ଷିତ ହୋଇଥାଏ । ଚାଳକମାନଙ୍କର ଦକ୍ଷତାର ଅଧ୍ରକାଂଶ ଗାଡ଼ିଚାଳକ ତାଲିମପ୍ରାପ୍ତ ହୋଇନଥାନ୍ତି । ବହୁ ସଡ଼କ ଦୁର୍ଘଟଣା ଗାଡ଼ି ଚାଳନା ଅନୁମତି ପତ୍ର (Driving license) ନଥିବା ତଥା ରାସ୍ତାରେ ଦିଆଯାଇଥିବା ସାଂକେତିକ ଚିହ୍ନ ସମ୍ବନ୍ଧରେ ଜାଣି ନଥିବା ଚାଳକଙ୍କ ଦ୍ୱାରା ହୋଇଥାଏ ।
+
+- ☐ reads right  · wrong words: ____________
+
+**ଭୌତିକ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ) — page 58** (`physical-science-9.p64.1`)
+
+> 5.1 ଗତି (Motion) ଏକ ନିର୍ଦ୍ଦିଷ୍ଟ ବିନ୍ଦୁକୁ ସ୍ଥିର ମନେକରି ତାହା ଅନୁସାରେ ଅନ୍ୟ ବସ୍ତୁର ଅବସ୍ଥିତି Fda eI । । ଆସ ଗୋଟିଏ ଉଦାହରଣ ଦ୍ୱାରା ଏହାକୁ ବୁଝିବା । ମନେକର ତୁମ ସାଙ୍ଗର ବିଦ୍ୟାଳୟ ତୁମ ସହରରେ ଥିବା ରେଳଷ୍ଟେସନର ଉତ୍ତରଦିଗକୁ ଦୁଇ କିମି ଦୂରରେ ଅଛି । ଏଠାରେ ଆମେ ବିଦ୍ୟାଳୟର ଅବସ୍ଥିତିକୁ ସୂଚାଇବାକୁ ରେଳଷ୍ଟେସନକୁ ଏକ ନିର୍ଦ୍ଦେଶକ ବିନ୍ଦୁ (reference point) ରୂପେ ନେଇଛେ । ଆମ ସୁବିଧା ମୁତାବକ ଅନ୍ୟ ବସ୍ତୁକୁ ମଧ୍ୟ ଆମେ ନିର୍ଦ୍ଦେଶକ ବିନ୍ଦୁ ଭାବେ ନେଇ ପାରିବା । ତେଣୁ ଗୋଟିଏ ବସ୍ତୁର ଅବସ୍ଥିତି ଜାଣିବାକୁ ଆଉ ଗୋଟିଏ ବସୁ ବା ବିନ୍ଦୁ ଉପରେ ନିର୍ଭର କରାଯାଏ । ତାହାକୁ ନିର୍ଦ୍ଦେଶକ ବିନ୍ଦୁ ବା ଅନେକ କ୍ଷେତ୍ରରେ ମୂଳବିନ୍ଦୁ (origin) କହନ୍ତି ।
+
+- ☐ reads right  · wrong words: ____________
+
+**ଇତିହାସ ଓ ରାଜନୀତି ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ) — page 17** (`history-polsci-9.p23.1`)
+
+> ପ୍ରଥମ ବଶ୍ବଯୁଦ୍ଧ-କ (First World War — Cat ୧୯୧୪ ମସିହାରେ ଆରମ୍ଭ ହୋଇ ଦୀର୍ଘ ଚାରି ବର୍ଷରୁ ଉର୍ଦ୍ୱ୍‌କାଳ ବ୍ୟାପି ରହିଥିବା ପ୍ରଥମ ବିଶ୍ୱଯୁଦ୍ଧ ମନୁଷ୍ୟ ଜାତିର ଇତିହାସରେ ଏ ପର୍ୟ୍ୟନ୍ତ ସଂଘଟିତ ସମସ୍ତ ଯୁଦ୍ଧଠାରୁ ଅଧିକ ମାରାତ୍ମକ, ଶକ୍ତିଶାଳୀ, ସଂଗଠିତ ଓ ଭୟାବହ ଥିଲା । ଏଥିରେ ପୃଥିବୀର ଅଧିକାଂଶ ଉନ୍ନତ ଦେଶ ଭାଗ ନେଇଥିଲେ ଏବଂ ଅନେକ ଆଧୁନିକ ଧ୍ବଂସାମ୍ବକ ଯୁଦ୍ଧାସ୍ତ୍ର ବ୍ୟବହୃତ ହୋଇଥିଲା । ଏହି ଯୁଦ୍ଧରେ ସୈନ୍ୟମାନଙ୍କ ବ୍ୟତୀତ ଯୁଦ୍ଧରତ ଦେଶମାନଙ୍କର ଜନସାଧାରଣଙ୍କୁ ମଧ୍ୟ ପ୍ରକାରାନ୍ତରେ ଭାଗ ନେବାକୁ ପଡ଼ିଥିଲା । ତେଣୁ ଏହାକୁ ବିଶ୍ୱଯୁଦ୍ଧ ଆଖ୍ୟା ଦିଆଯାଇଛି । ଏହା ସମାପ୍ତ ହେବାର ମାତ୍ର ଇଭରୋପ ୧୯୧୪ 1 Main War Fronts । କାଲାଇସି t ସେଣ୍ଟ ଓମର . 35 ada କୁ ଲେନମ୍‌ Shay : ରୟ ଲିକୋଟି 5060 ଗାଇଜ୍‌ ! ସା ଧ ।
 
 - ☐ reads right  · wrong words: ____________
 

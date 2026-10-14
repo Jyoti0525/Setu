@@ -493,6 +493,189 @@
    "q": "song gao",
    "want": [],
    "chat": true
+  },
+  {
+   "q": "ପ୍ରଥମ ବିଶ୍ୱଯୁଦ୍ଧର କାରଣ କ'ଣ?",
+   "want": [
+    "history-polsci-9#2"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "prathama biswa juddha karana",
+   "want": [
+    "history-polsci-9#2"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "causes of the first world war",
+   "want": [
+    "history-polsci-9#2"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ରୁଷ ବିପ୍ଳବ",
+   "want": [
+    "history-polsci-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "russian revolution",
+   "want": [
+    "history-polsci-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "hitler nazi",
+   "want": [
+    "history-polsci-9#5"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ଶୀତଳ ଯୁଦ୍ଧ କ'ଣ?",
+   "want": [
+    "history-polsci-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "cold war",
+   "want": [
+    "history-polsci-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ମୌଳିକ ଅଧିକାର କ'ଣ?",
+   "want": [
+    "history-polsci-9#16"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "maulika adhikara",
+   "want": [
+    "history-polsci-9#16"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "fundamental duties",
+   "want": [
+    "history-polsci-9#17"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ସୂଚନା ଅଧିକାର ଆଇନ",
+   "want": [
+    "history-polsci-9#20"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "right to information act",
+   "want": [
+    "history-polsci-9#20"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ସଂଯୁକ୍ତ ରାଷ୍ଟ୍ରସଂଘ",
+   "want": [
+    "history-polsci-9#24"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "united nations security council",
+   "want": [
+    "history-polsci-9#24"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "konark temple",
+   "want": [
+    "history-polsci-9#14",
+    "history-polsci-9#15"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ଗୋଷ୍ଠୀ ନିରପେକ୍ଷ ଆନ୍ଦୋଳନ",
+   "want": [
+    "history-polsci-9#10"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ସମ୍ଭାବ୍ୟତା କ'ଣ?",
+   "want": [
+    "algebra-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "what is probability",
+   "want": [
+    "algebra-9#8"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ବାସ୍ତବ ସଂଖ୍ୟା",
+   "want": [
+    "algebra-9#2"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ସେଟ୍ ପ୍ରକ୍ରିୟା",
+   "want": [
+    "algebra-9#1"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "cumulative frequency",
+   "want": [
+    "algebra-9#7"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ଚତୁର୍ଭୁଜ କେତେ ପ୍ରକାର?",
+   "want": [
+    "geometry-9#3"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "congruence of triangles",
+   "want": [
+    "geometry-9#2"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "trikonamiti",
+   "want": [
+    "geometry-9#7"
+   ],
+   "heldOut": true
+  },
+  {
+   "q": "ତ୍ରିଭୁଜର କ୍ଷେତ୍ରଫଳ",
+   "want": [
+    "geometry-9#4"
+   ],
+   "heldOut": true
   }
  ]
 }

@@ -41,6 +41,14 @@ describe('offline textbook search (eval/book_search.json)', () => {
     const chat = cases.filter((c) => !c.want.length);
     expect(chat.filter((c) => !shown(c.q)).length).toBeGreaterThanOrEqual(9);
   });
+  it('every tap-to-ask card on the chat screen shows a page from its own book', () => {
+    const chat = readFileSync(resolve(here, '../../apps/web/src/chat.tsx'), 'utf8');
+    const block = /const IDEAS[^=]*= \{([\s\S]*?)\n\};/.exec(chat)![1]!;
+    const cards = [...block.matchAll(/'([\w-]+)': \{ or: \[(.*?)\], en: \[(.*?)\] \}/g)]
+      .flatMap((m) => [...`${m[2]},${m[3]}`.matchAll(/'((?:\\'|[^'])*)'/g)].map((q) => [m[1]!, q[1]!.replace(/\\'/g, "'")] as const));
+    expect(cards.length).toBeGreaterThanOrEqual(14);
+    for (const [book, q] of cards) expect(shown(q)?.split('#')[0], q).toBe(book);
+  });
   it('every Odia word in the English→Odia list is in the books', () => {
     const all = normalizeForMatch(books.flatMap((b) => b.passages.map((p) => p.text)).join(' '));
     for (const [en, ors] of Object.entries(LEXICON)) for (const o of ors) expect(all.includes(normalizeForMatch(o)), `${en} → ${o}`).toBe(true);

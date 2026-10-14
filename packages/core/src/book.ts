@@ -40,6 +40,8 @@ export function fixOdiaOcr(text: string): string {
     .replace(/ପୂଥିବୀ/g, 'ପୃଥିବୀ')
     // …and sometimes loses the ି altogether (ଥବା → ଥିବା; ଅଥବା "or" is a real word)
     .replace(/(?<!ଅ)ଥବା/g, 'ଥିବା')
+    // ଧି the same way (ଅଧକ / ଅଧୁକ → ଅଧିକ, ମାନବାଧକାର → ମାନବାଧିକାର); ଆଧୁନିକ, ଅଧୁନା, ସାଧକ, ବାଧକ are real words
+    .replace(/ଅଧ(?:ୁ|୍ଧ)?କ/g, 'ଅଧିକ').replace(/ାଧୁ?କାର/g, 'ାଧିକାର').replace(/ଆଧୁପତ୍ୟ/g, 'ଆଧିପତ୍ୟ')
     // the ya-phala is ୍ୟ (ମଧ୍ୟ), the subscript wa is ୍ୱ (ଶ୍ୱେତ)
     .replace(/୍ଯ/g, '୍ୟ').replace(/୍ଵ/g, '୍ୱ')
     .replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
@@ -139,6 +141,8 @@ const CHAT = new Set([
 
 /** how much the other matching passages of the same chapter add to a passage's score */
 const CHAPTER_SHARE = 0.35;
+/** below this search score a one-word question's match is too weak to stand on (real one-word questions score 30+) */
+const SINGLE_WORD_MIN = 20;
 
 export interface BookHit { passage: BookPassage; bookId: string; score: number; /** share of her content words found in it, 0..1 */ coverage: number }
 
@@ -182,7 +186,8 @@ export class Shelf {
   }
 
   search(query: string, opts: { bookId?: string; limit?: number } = {}): BookHit[] {
-    const q0 = normalizeDigits(query);
+    // କ'ଣ is one word (କଣ, "what"), not କ and ଣ
+    const q0 = normalizeDigits(query).replace(/([\p{L}\p{M}])['’](?=\p{L})/gu, '$1');
     // an English word also searches as the Odia word the book uses ("earthquake" → ଭୂମିକମ୍ପ); found by either, it counts once
     const words = q0.split(/[^\p{L}\p{M}\p{N}]+/u).filter((w) => !CHAT.has(normalizeForMatch(w)) && tokenize(w).length);
     const groups = words.map((w) => [...new Set([...tokenize(w), ...lexiconFor(w).flatMap(tokenize)])]);
@@ -204,7 +209,10 @@ export class Shelf {
       // a word counts as found by its spelling or its loose sound; by its consonant skeleton alone less than half (one such word is not enough)
       // ("cricket" and "bored" share skeletons with unrelated Odia words)
       const found = groups.reduce((n, forms) => n + (forms.some((f) => !f.startsWith('~') && terms.has(f)) ? 1 : forms.some((f) => terms.has(f)) ? 0.4 : 0), 0);
-      return { passage: hit.passage, bookId: hit.bookId, score: r.score + CHAPTER_SHARE * others.reduce((a, b) => a + b, 0), coverage: Math.round((found / groups.length) * 100) / 100 };
+      // one word that only weakly matches (a common sound, a long page) is not enough to show a page: "sathi", "joke"
+      const score = r.score + CHAPTER_SHARE * others.reduce((a, b) => a + b, 0);
+      const weak = groups.length === 1 && score < SINGLE_WORD_MIN ? 0.4 : 1;
+      return { passage: hit.passage, bookId: hit.bookId, score, coverage: Math.round((found / groups.length) * weak * 100) / 100 };
     });
     return ranked.sort((a, b) => b.score - a.score).slice(0, opts.limit ?? 5);
   }

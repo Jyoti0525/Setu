@@ -40,15 +40,15 @@ L.push('| English | Odia | OK? |', '|---|---|---|');
 for (const [en, ors] of Object.entries(LEXICON)) L.push(`| ${en} | ${ors.join(', ')} | ☐ |`);
 L.push('');
 L.push('## 5. Chapter titles I typed from the contents pages', '');
-L.push('Physical Science and History & Political Science titles were typed by me from the printed contents page; check against the book.', '');
-for (const b of books.filter((x) => ['physical-science-9', 'history-polsci-9'].includes(x.id))) {
+L.push('Physical Science, History & Political Science and the two Maths books: titles typed by me from the printed contents page; check against the book.', '');
+for (const b of books.filter((x) => ['physical-science-9', 'history-polsci-9', 'algebra-9', 'geometry-9'].includes(x.id))) {
   L.push(`**${b.title.or}**`, '');
   for (const c of b.chapters) L.push(`- ☐ ${c.n}. ${c.title.or} — _${c.title.en}_ (pp. ${c.startPage - b.pageOffset}–${c.endPage - b.pageOffset})`);
   L.push('');
 }
 L.push('## 6. Scanned textbook text (the 📖 card)', '');
 L.push('The books are scanned and read by OCR. These rules fix the mistakes that repeat across all books — confirm each is always right:', '');
-L.push('- ☐ ଥୁ → ଥି (ଥୁବା → ଥିବା, ଏଥୁରେ → ଏଥିରେ, ପୃଥୁବୀ → ପୃଥିବୀ) — except ପଥୁରିଆ, which is kept', '- ☐ ୍ଯ → ୍ୟ (ମଧ୍ଯ → ମଧ୍ୟ, ଇତ୍ଯାଦି → ଇତ୍ୟାଦି)', '- ☐ ୍ଵ → ୍ୱ (ଶ୍ଵେତ → ଶ୍ୱେତ)', '');
+L.push('- ☐ ଥୁ → ଥି (ଥୁବା → ଥିବା, ଏଥୁରେ → ଏଥିରେ, ପୃଥୁବୀ → ପୃଥିବୀ) — except ପଥୁରିଆ, which is kept', '- ☐ ଥବା → ଥିବା (but ଅଥବା "or" is kept)', '- ☐ ଅଧକ / ଅଧୁକ → ଅଧିକ, ମାନବାଧକାର → ମାନବାଧିକାର, ଆଧୁପତ୍ୟ → ଆଧିପତ୍ୟ (ଆଧୁନିକ, ଅଧୁନା, ସାଧକ, ବାଧକ are kept)', '- ☐ ୍ଯ → ୍ୟ (ମଧ୍ଯ → ମଧ୍ୟ, ଇତ୍ଯାଦି → ଇତ୍ୟାଦି)', '- ☐ ୍ଵ → ୍ୱ (ଶ୍ଵେତ → ଶ୍ୱେତ)', '');
 L.push('Then read these passages (the pages the demo uses most). Write any wrong word and its fix; one-off errors become new rules or a corrections list:', '');
 const sample: [string, number][] = [['life-science-9', 42], ['life-science-9', 30], ['life-science-9', 85], ['geography-economics-9', 45], ['geography-economics-9', 102], ['disaster-management-9', 3], ['physical-science-9', 58], ['history-polsci-9', 17]];
 for (const [id, page] of sample) {
