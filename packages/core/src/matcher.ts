@@ -47,6 +47,8 @@ export function detectScript(text: string): MatchResult['script'] {
 export function normalizeForMatch(text: string): string {
   let t = normalizeDigits(text).toLowerCase().normalize('NFC');
   t = t.replace(/[‌‍]/g, '').replace(/଼/g, '').replace(/ଁ/g, '').replace(/ୟ/g, 'ଯ').replace(/ଵ/g, 'ୱ');
+  // Hindi and Sanskrit the same way: nukta and chandrabindu are spelling variation
+  t = t.replace(/[़ँ]/g, '');
   t = t.replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ');
   t = t
     .replace(/[vw]/g, 'b')
@@ -75,8 +77,21 @@ const ODIA_C: Record<string, string> = {
   କ: 'k', ଖ: 'k', ଗ: 'g', ଘ: 'g', ଙ: 'n', ଚ: 'c', ଛ: 'c', ଜ: 'j', ଝ: 'j', ଞ: 'n', ଟ: 't', ଠ: 't', ଡ: 'd', ଢ: 'd', ଣ: 'n',
   ତ: 't', ଥ: 't', ଦ: 'd', ଧ: 'd', ନ: 'n', ପ: 'p', ଫ: 'p', ବ: 'b', ଭ: 'b', ମ: 'm', ର: 'r', ଲ: 'l', ଳ: 'l', ଶ: 's', ଷ: 's', ସ: 's', ୱ: 'b', 'ଂ': 'n',
 };
+/**
+ * Devanagari (Hindi, Sanskrit) written in the matching Odia letters: the two scripts' Unicode blocks are laid out
+ * alike (क U+0915 ↔ କ U+0B15), so कबीर → କବୀର and the Odia sound keys serve both. य is the "ya" ୟ, not the "ja" ଯ.
+ */
+export function devaToOdia(word: string): string {
+  return [...word.normalize('NFC')].map((ch) => {
+    const cp = ch.codePointAt(0)!;
+    if (ch === 'य') return 'ୟ';
+    return cp >= 0x0900 && cp <= 0x097f ? String.fromCodePoint(cp + 0x200) : ch;
+  }).join('');
+}
+
 export function soundKey(word: string): string | undefined {
   let k: string;
+  if (/[ऀ-ॿ]/.test(word)) return soundKey(devaToOdia(word));
   if (/[଀-୿]/.test(word)) k = [...word.normalize('NFC')].map((ch) => ODIA_C[ch] ?? '').join('');
   else if (/^[a-z]+$/i.test(word)) {
     k = word.toLowerCase()
@@ -100,7 +115,9 @@ const OR_LATIN: Record<string, string> = {
 };
 const OR_VOWEL: Record<string, string> = { ଅ: 'a', ଆ: 'a', ଇ: 'i', ଈ: 'i', ଉ: 'u', ଊ: 'u', ଋ: 'ru', ଏ: 'e', ଐ: 'ai', ଓ: 'o', ଔ: 'au' };
 const OR_MATRA: Record<string, string> = { 'ା': 'a', 'ି': 'i', 'ୀ': 'i', 'ୁ': 'u', 'ୂ': 'u', 'ୃ': 'ru', 'େ': 'e', 'ୈ': 'ai', 'ୋ': 'o', 'ୌ': 'au' };
-export function odiaToLatin(word: string): string {
+/** `hindi`: drop the "a" Hindi does not say (कबीर "kabir", not "kabira"; ममता "mamta") — word-final, and between a
+ *  vowel and a consonant that carries a vowel sign. Odia says every "a" (ରକ୍ତ "rakta"), so Odia keeps them. */
+export function odiaToLatin(word: string, hindi = false): string {
   const cs = [...word.normalize('NFC').replace(/ଡ଼/g, 'ଡ଼').replace(/ଢ଼/g, 'ଢ଼').replace(/ଯ଼/g, 'ୟ')];
   let out = '';
   for (let i = 0; i < cs.length; i++) {
@@ -108,7 +125,9 @@ export function odiaToLatin(word: string): string {
     if (OR_LATIN[ch]) {
       out += OR_LATIN[ch];
       // the consonant's own "a", unless a vowel sign or a halant follows it
-      if (next !== '୍' && !(next && OR_MATRA[next])) out += 'a';
+      // (not after a cluster, मित्र "mitra"; not between two of the same letter, जननी "janani")
+      const silent = hindi && i > 0 && cs[i - 1] !== '୍' && (next === undefined || (/[aeiou]$/.test(out.slice(0, -OR_LATIN[ch].length)) && !!OR_LATIN[next] && OR_LATIN[next] !== OR_LATIN[ch] && !!OR_MATRA[cs[i + 2] ?? '']));
+      if (next !== '୍' && !(next && OR_MATRA[next]) && !silent) out += 'a';
     } else if (OR_MATRA[ch]) out += OR_MATRA[ch];
     else if (OR_VOWEL[ch]) out += OR_VOWEL[ch];
     else if (ch === 'ଂ' || ch === 'ଁ') out += 'n'; // ନିଆଁ is written "nian"
@@ -116,8 +135,9 @@ export function odiaToLatin(word: string): string {
   }
   return out;
 }
-export function looseKey(word: string): string | undefined {
-  let w = /[଀-୿]/.test(word) ? odiaToLatin(word) : /^[a-z]+$/i.test(word) ? word.toLowerCase() : '';
+export function looseKey(word: string, hindi = false): string | undefined {
+  if (/[ऀ-ॿ]/.test(word)) return looseKey(devaToOdia(word), hindi);
+  let w = /[଀-୿]/.test(word) ? odiaToLatin(word, hindi) : /^[a-z]+$/i.test(word) ? word.toLowerCase() : '';
   if (!w) return undefined;
   w = w.replace(/([kgcjtdpb])h/g, '$1').replace(/sh/g, 's').replace(/ch/g, 'c').replace(/[vw]/g, 'b').replace(/z/g, 'j').replace(/q/g, 'k').replace(/x/g, 'ks').replace(/f/g, 'p').replace(/ck/g, 'k')
     // vowels are where romanizations differ most: au/ou→o, ai/ei→e, then a~o (Odia's own "a" is said "o") and e~i
@@ -131,7 +151,9 @@ export const wordForms = (t: string, loose = false): string[][] =>
   normalizeDigits(t).split(/[^\p{L}\p{M}\p{N}]+/u).map((raw) => {
     const w = normalizeForMatch(raw);
     if (!w || STOP.has(w)) return [];
-    return [...new Set([w, soundKey(raw), loose ? looseKey(raw) : undefined].filter((x): x is string => !!x))];
+    // a Hindi word is also typed the way Hindi says it ("kabir", "mamta"): a second loose sound
+    const hindi = loose && /[ऀ-ॿ]/.test(raw) ? looseKey(raw, true) : undefined;
+    return [...new Set([w, soundKey(raw), loose ? looseKey(raw) : undefined, hindi].filter((x): x is string => !!x))];
   }).filter((f) => f.length);
 
 /** Search terms of a text: each content word by spelling and by sound skeleton (the chapter-pack matcher). */

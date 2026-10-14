@@ -77,7 +77,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     const picked = req.bookIds?.length ? req.bookIds : undefined;
     const pickedFirst = (hs: BookHit[]) => (picked ? [...hs.filter((h) => picked.includes(h.bookId)), ...hs.filter((h) => !picked.includes(h.bookId))] : hs);
     const q = req.review ? reviewQuery(d.shelf, req.review) : text;
-    const found = pickedFirst(d.shelf.search(q, { limit: 6 }));
+    const found = pickedFirst(d.shelf.search(q, { limit: 6, picked }));
     const answering = !req.review && looksLikeAnswer(text, m.check, found);
     if (answering) {
       // her answer is graded against the pages the question came from, not whatever her words happen to match
@@ -93,7 +93,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       llm.push({ job: 'rewrite_query', provider: d.models.lastUsed.decide, latency_ms: r.ms, outcome: r.q ? 'ok' : 'failed' });
       if (!r.q) tools.push({ tool: 'books.rewrite_query', args: {}, status: 'failed', latency_ms: r.ms, note: 'model unavailable → first search kept' });
       if (r.q) {
-        const again = d.shelf.search(r.q, { limit: 6 }).map((h) => ({ ...h, coverage: Math.max(h.coverage, 0) }));
+        const again = d.shelf.search(r.q, { limit: 6, picked }).map((h) => ({ ...h, coverage: Math.max(h.coverage, 0) }));
         const better = (again[0]?.coverage ?? 0) > (hits[0]?.coverage ?? 0) || ((again[0]?.coverage ?? 0) === (hits[0]?.coverage ?? 0) && (again[0]?.score ?? 0) > (hits[0]?.score ?? 0));
         tools.push({ tool: 'books.rewrite_query', args: { q: r.q.slice(0, 60) }, status: 'ok', latency_ms: r.ms, note: better ? `better: ${again[0]!.passage.id} coverage ${again[0]!.coverage}` : 'kept the first search' });
         if (better) hits = pickedFirst(again);

@@ -16,5 +16,6 @@ export * from './safety.ts';
 export * from './pedagogy.ts';
 export * from './languages.ts';
 export * from './book.ts';
+export * from './latex.ts';
 export * from './tutor.ts';
 export * from './lexicon.ts';

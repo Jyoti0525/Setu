@@ -676,6 +676,177 @@
     "geometry-9#4"
    ],
    "heldOut": true
+  },
+  {
+   "q": "kabir ke dohe",
+   "want": [
+    "hindi-9#1"
+   ]
+  },
+  {
+   "q": "ममता कहानी किसने लिखी",
+   "want": [
+    "hindi-9#12"
+   ]
+  },
+  {
+   "q": "mamta kahani",
+   "want": [
+    "hindi-9#12"
+   ]
+  },
+  {
+   "q": "shram ki pratishtha",
+   "want": [
+    "hindi-9#11"
+   ]
+  },
+  {
+   "q": "राहुल जननी कविता",
+   "want": [
+    "hindi-9#7"
+   ]
+  },
+  {
+   "q": "nehru jail mein mere mitra",
+   "want": [
+    "hindi-9#13"
+   ]
+  },
+  {
+   "q": "C V Raman",
+   "picked": [
+    "hindi-9"
+   ],
+   "want": [
+    "hindi-9#14"
+   ]
+  },
+  {
+   "q": "budha sankhari",
+   "want": [
+    "odia-literature-9#15"
+   ]
+  },
+  {
+   "q": "ବୁଢ଼ା ଶଙ୍ଖାରି ଗଳ୍ପଟି କାହା ବିଷୟରେ?",
+   "want": [
+    "odia-literature-9#15"
+   ]
+  },
+  {
+   "q": "ଦୂର ପାହାଡ଼ ଏକାଙ୍କିକା",
+   "want": [
+    "odia-literature-9#19"
+   ]
+  },
+  {
+   "q": "bhasha o jatiyata",
+   "want": [
+    "odia-literature-9#9"
+   ]
+  },
+  {
+   "q": "ପାଇକବଧୂର ଉଦ୍‌ବୋଧନ",
+   "want": [
+    "odia-literature-9#6"
+   ]
+  },
+  {
+   "q": "ମାଟିର ମଣିଷ",
+   "want": [
+    "odia-literature-9#7"
+   ]
+  },
+  {
+   "q": "ସନ୍ଧି କେତେ ପ୍ରକାର",
+   "want": [
+    "odia-grammar-9#2"
+   ]
+  },
+  {
+   "q": "karaka o bibhakti",
+   "want": [
+    "odia-grammar-9#7"
+   ]
+  },
+  {
+   "q": "ସରକାରୀ ପତ୍ର ଓ ଦରଖାସ୍ତ",
+   "want": [
+    "odia-grammar-9#10"
+   ]
+  },
+  {
+   "q": "ସମାସ",
+   "want": [
+    "odia-grammar-9#3"
+   ]
+  },
+  {
+   "q": "What happens in The Lost Child?",
+   "want": [
+    "english-9#13"
+   ]
+  },
+  {
+   "q": "Alexander Selkirk poem",
+   "want": [
+    "english-9#10"
+   ]
+  },
+  {
+   "q": "why was the child crying at the fair",
+   "picked": [
+    "english-9"
+   ],
+   "want": [
+    "english-9#13"
+   ]
+  },
+  {
+   "q": "road safety week",
+   "picked": [
+    "english-9"
+   ],
+   "want": [
+    "english-9#3"
+   ]
+  },
+  {
+   "q": "Missile Man of India",
+   "want": [
+    "english-9#4"
+   ]
+  },
+  {
+   "q": "सिंहशशककथा",
+   "want": [
+    "sanskrit-9#2"
+   ]
+  },
+  {
+   "q": "utkala gauravam",
+   "want": [
+    "sanskrit-9#5"
+   ]
+  },
+  {
+   "q": "प्रहेलिकाः",
+   "picked": [
+    "sanskrit-9"
+   ],
+   "want": [
+    "sanskrit-9#12"
+   ]
+  },
+  {
+   "q": "satyam",
+   "picked": [
+    "sanskrit-9"
+   ],
+   "want": [
+    "sanskrit-9#3"
+   ]
   }
  ]
 }

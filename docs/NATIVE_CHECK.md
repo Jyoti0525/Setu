@@ -65,6 +65,10 @@ _Generated from the app data by `content/scripts/native_check.ts` on 2026-10-14.
 
 - ☐ ରକ୍ତ କଣିକା କେତେ ପ୍ରକାର?
 - ☐ ଚତୁର୍ଭୁଜ କେତେ ପ୍ରକାର?
+- ☐ ବୁଢ଼ା ଶଙ୍ଖାରି ଗଳ୍ପଟି କାହା ବିଷୟରେ?
+- ☐ ହେ ମୋର କଲମ କବିତାର କବି କିଏ?
+- ☐ ସମାସ କେତେ ପ୍ରକାର?
+- ☐ Missile Man of India କିଏ?
 
 ## 4. English → Odia school words (offline search uses these)
 
@@ -161,7 +165,7 @@ An English question with no signal is searched with these Odia words. Each Odia 
 
 ## 5. Chapter titles I typed from the contents pages
 
-Physical Science, History & Political Science and the two Maths books: titles typed by me from the printed contents page; check against the book.
+Physical Science, History & Political Science, the two Maths books and the two Odia language books (Literature, Grammar): titles typed by me from the printed contents page; check against the book.
 
 **ଭୌତିକ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)**
 
@@ -222,6 +226,41 @@ Physical Science, History & Political Science and the two Maths books: titles ty
 - ☐ 5. ପରିମିତି — _Mensuration_ (pp. 86–120)
 - ☐ 6. ଅଙ୍କନ — _Constructions_ (pp. 121–144)
 - ☐ 7. ତ୍ରିକୋଣମିତି — _Trigonometry_ (pp. 145–158)
+
+**ଓଡ଼ିଆ ସାହିତ୍ୟ (ନବମ ଶ୍ରେଣୀ)**
+
+- ☐ 1. କାହା ମୁଖ ଅନାଇ ବଞ୍ଚିବି — ଭକ୍ତ ଚରଣ ଦାସ — _Kaha Mukha Anai Banchibi (poem) — Bhakta Charan Das_ (pp. 1–7)
+- ☐ 2. ପଦ୍ମ — ମଧୁସୂଦନ ରାଓ — _Padma, the lotus (poem) — Madhusudan Rao_ (pp. 8–13)
+- ☐ 3. ହେ ମୋର କଲମ — ଗୋଦାବରୀଶ ମହାପାତ୍ର — _He Mora Kalama, O my pen (poem) — Godabarish Mohapatra_ (pp. 14–19)
+- ☐ 4. ମଣିଷ ଭାଇ — କୁନ୍ତଳା କୁମାରୀ ସାବତ — _Manisha Bhai, brother man (poem) — Kuntala Kumari Sabat_ (pp. 20–25)
+- ☐ 5. ଗୋପ ପ୍ରୟାଣ — ମାୟାଧର ମାନସିଂହ — _Gopa Prayana (poem) — Mayadhar Mansingh_ (pp. 26–32)
+- ☐ 6. ପାଇକବଧୂର ଉଦ୍‌ବୋଧନ — କୃଷ୍ଣଚନ୍ଦ୍ର ତ୍ରିପାଠୀ — _Paikabadhura Udbodhana, the Paika wife's call (poem) — Krushnachandra Tripathy_ (pp. 33–39)
+- ☐ 7. ମାଟିର ମଣିଷ — ରାଧାମୋହନ ଗଡ଼ନାୟକ — _Matira Manisha, man of the soil (poem) — Radhamohan Gadanayak_ (pp. 40–46)
+- ☐ 8. ଜାତୀୟ ଜୀବନ — ମଧୁସୂଦନ ଦାସ — _Jatiya Jibana, national life (essay) — Madhusudan Das_ (pp. 47–52)
+- ☐ 9. ଭାଷା ଓ ଜାତୀୟତା — ଗୋପବନ୍ଧୁ ଦାସ — _Bhasha O Jatiyata, language and nationhood (essay) — Gopabandhu Das_ (pp. 53–56)
+- ☐ 10. ବାମନର ହାତ ଓ ଆକାଶର ଚନ୍ଦ୍ର — ଗୋଦାବରୀଶ ମିଶ୍ର — _Bamanara Hata O Akashara Chandra (essay) — Godabarish Mishra_ (pp. 57–64)
+- ☐ 11. ପ୍ରକୃତ ବନ୍ଧୁ — ଗୋପାଳଚନ୍ଦ୍ର ପ୍ରହରାଜ — _Prakruta Bandhu, the true friend (essay) — Gopalchandra Praharaj_ (pp. 65–70)
+- ☐ 12. ସମୂହ ଦୃଷ୍ଟି — ସଦାଶିବ ମିଶ୍ର — _Samuha Drushti (essay) — Sadashiv Mishra_ (pp. 71–79)
+- ☐ 13. ଶକ୍ତି ଓ ଜ୍ଞାନ — ଭୁବନେଶ୍ୱର ବେହେରା — _Shakti O Jnana, strength and knowledge (essay) — Bhubaneswar Behera_ (pp. 80–88)
+- ☐ 14. ଓଡ଼ିଆ ସାହିତ୍ୟ କଥା — ଓଡ଼ିଆ ସିଲାବସ କମିଟି — _Odia Sahitya Katha, the story of Odia literature — Odia syllabus committee_ (pp. 89–98)
+- ☐ 15. ବୁଢ଼ା ଶଙ୍ଖାରି — ଲକ୍ଷ୍ମୀକାନ୍ତ ମହାପାତ୍ର — _Budha Sankhari, the old bangle-seller (story) — Laxmikanta Mohapatra_ (pp. 99–104)
+- ☐ 16. ପତାକା ଉତ୍ତୋଳନ — ସୁରେନ୍ଦ୍ର ମହାନ୍ତି — _Pataka Uttolana, hoisting the flag (story) — Surendra Mohanty_ (pp. 105–110)
+- ☐ 17. ଲକ୍ଷ୍ମୀର ଅଭିସାର — ମନୋଜ ଦାସ — _Laxmira Abhisara (story) — Manoj Das_ (pp. 111–114)
+- ☐ 18. ଦଳବେହେରା — କାଳୀଚରଣ ପଟ୍ଟନାୟକ — _Dalabehera (one-act play) — Kalicharan Pattnaik_ (pp. 115–130)
+- ☐ 19. ଦୂର ପାହାଡ଼ — ପ୍ରାଣବନ୍ଧୁ କର — _Dura Pahada, the distant hill (one-act play) — Pranabandhu Kar_ (pp. 131–154)
+
+**ଓଡ଼ିଆ ବ୍ୟାକରଣ (ନବମ ଶ୍ରେଣୀ)**
+
+- ☐ 1. ଶବ୍ଦଗଠନ — _Word formation (shabda gathana)_ (pp. 1–10)
+- ☐ 2. ସନ୍ଧି — _Sandhi_ (pp. 11–25)
+- ☐ 3. ସମାସ — _Samasa, compounds_ (pp. 26–39)
+- ☐ 4. ଉପସର୍ଗ — _Upasarga, prefixes_ (pp. 40–51)
+- ☐ 5. କୃଦନ୍ତ — _Krudanta, verb suffixes_ (pp. 52–59)
+- ☐ 6. ତଦ୍ଧିତ — _Taddhita, noun suffixes_ (pp. 60–74)
+- ☐ 7. କାରକ ଓ ବିଭକ୍ତି — _Karaka and bibhakti, cases_ (pp. 75–92)
+- ☐ 8. ଅନୁଚ୍ଛେଦ ଲିଖନ — _Paragraph writing_ (pp. 93–99)
+- ☐ 9. ବିଜ୍ଞାପନ ଲିଖନ — _Writing an advertisement_ (pp. 100–104)
+- ☐ 10. ସରକାରୀ ପତ୍ର ଓ ଦରଖାସ୍ତ — _Official letters and applications_ (pp. 105–114)
 
 ## 6. Scanned textbook text (the 📖 card)
 

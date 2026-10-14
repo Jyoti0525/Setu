@@ -6,6 +6,7 @@ import MiniSearch from 'minisearch';
 import { normalizeForMatch, tokenizeLoose as tokenize } from './matcher.ts';
 import { lexiconFor } from './lexicon.ts';
 import { normalizeDigits } from './numerals.ts';
+import { latexToText } from './latex.ts';
 
 export interface BookChapter { n: number; title: { or: string; en: string }; startPage: number; endPage: number }
 export interface BookMeta {
@@ -22,11 +23,17 @@ export interface BookMeta {
   chapters: BookChapter[];
   /** pages the OCR could not read well enough to teach from (e.g. full-page figures) */
   skipPages?: number[];
+  /** a language book (Odia, English, Hindi, Sanskrit): its stories and poems share everyday words with every
+   *  question, so it is searched only when she picks it or names one of its lessons */
+  kind?: 'language';
 }
 export interface BookPassage { id: string; ch: number; page: number; text: string }
 export interface BookIndex { meta: BookMeta; passages: BookPassage[]; glossary: { or: string; en: string }[]; version: string }
+/** One page of a book's text: OCR by default; `by` marks text read some other way (P8.17). */
+export interface BookPage { page: number; text: string; conf?: number; by?: 'gemini' | 'text' }
 
-const ODIA = /[଀-୿]/;
+/** Odia or Devanagari (Hindi, Sanskrit) letters (not the danda । ॥, which Odia shares) */
+const INDIC = /[଀-୿ऀ-ॣ०-ॿ]/;
 const JUNK_CHARS = /[\/¦#‰⁄¥„‡¬@®¶£€©%\\_<>~^*{}\[\]|]/;
 
 /** Real abbreviations the books use; any other all-capitals token is a figure label the OCR read ("AYR", "ZUR"). */
@@ -64,11 +71,24 @@ export function cleanOcr(text: string): string {
       return letters > 0 || /^[\d୦-୯.,:;()।?!\-–—'"]+$/.test(tok);
     });
     const kept = tokens.join(' ').replace(/\(\s*\)/g, '').trim();
-    const words = kept.split(/\s+/).filter((w) => ODIA.test(w) || /[A-Za-z]{3,}/.test(w));
+    const words = kept.split(/\s+/).filter((w) => INDIC.test(w) || /[A-Za-z]{3,}/.test(w));
     if (words.length < 2 && !/^\d+(\.\d+)*\s/.test(kept)) continue;
     lines.push(kept);
   }
   return lines.join('\n');
+}
+
+/**
+ * Text read some other way than Tesseract (Gemini vision for the maths, a PDF's own text layer): no OCR junk to strip,
+ * only what that reader adds — markdown, LaTeX maths (latex.ts), the figure marker, the printed page number.
+ */
+export function cleanReadText(text: string): string {
+  return fixOdiaOcr(latexToText(text.replace(/\r/g, '')))
+    .replace(/\*\*/g, '')
+    .replace(/[‘’`]/g, "'").replace(/[“”]/g, '"')
+    .split('\n').map((l) => l.replace(/[ \t]+/g, ' ').trim())
+    .filter((l) => l && l !== '[ଚିତ୍ର]' && !/^[[\-(]?\s*[\d୦-୯]+\s*[\]\-)]?$/.test(l))
+    .join('\n');
 }
 
 const GLUE = new Set(['ଓ', 'ବା', 'ଅଥବା', 'ଏବଂ', 'ମଧ୍ଯ', 'ମଧ୍ୟ', 'ପାଇଁ', 'ଯଥା', 'ଏହି', 'ସେହି', 'କେତେକ', 'ସମସ୍ତେ', 'ଯେପରି', 'ଯେପରିକି', 'ଏହାକୁ', 'ତାହାକୁ', 'କୁହାଯାଏ', 'ନାମକ', 'ଯାହାକୁ']);
@@ -91,17 +111,17 @@ export function extractGlossary(text: string): { or: string; en: string }[] {
   return out;
 }
 
-const SENT_END = /(?<=[।?!])\s+|(?<=[a-z଀-୿]\.)\s+(?=[଀-୿A-Z])/u;
+const SENT_END = /(?<=[।॥?!])\s+|(?<=[a-z଀-୿ऀ-ॣ०-ॿ]\.)\s+(?=[଀-୿ऀ-ॣ०-ॿA-Z])/u;
 
 /** Split OCR'd pages into passages of about `target` characters, never across a page (so every citation is exact). */
-export function buildBook(meta: BookMeta, pages: { page: number; text: string }[], target = 650): BookIndex {
+export function buildBook(meta: BookMeta, pages: BookPage[], target = 650): BookIndex {
   const chapterOf = (page: number) => meta.chapters.find((c) => page >= c.startPage && page <= c.endPage)?.n ?? 0;
   const passages: BookPassage[] = [];
   const glossary = new Map<string, { or: string; en: string }>();
   for (const pg of pages) {
     const ch = chapterOf(pg.page);
     if (!ch || meta.skipPages?.includes(pg.page)) continue;
-    const clean = cleanOcr(pg.text);
+    const clean = pg.by ? cleanReadText(pg.text) : cleanOcr(pg.text);
     for (const g of extractGlossary(clean)) glossary.set(g.en.toLowerCase(), g);
     // lines wrap mid-sentence: join them, then cut at sentence ends
     const flowing = clean.replace(/\n(?=\S)/g, ' ').replace(/\s+/g, ' ').trim();
@@ -135,8 +155,10 @@ export function buildBook(meta: BookMeta, pages: { page: number; text: string }[
 const CHAT = new Set([
   'hello', 'hi', 'hey', 'ok', 'okay', 'thanks', 'thank', 'you', 'your', 'i', 'am', 'my', 'are', 'who', 'can', 'will', 'it', 'this', 'that', 'some', 'any', 'tell', 'give',
   'tume', 'tumhe', 'tumara', 'tuma', 'mu', 'mun', 'mo', 'mora', 'mote', 'mote', 'kie', 'kiye', 'kemiti', 'kemti', 'acha', 'achha', 'ach', 'achi', 'achu', 'bhala', 'bhal', 'kana', 'kan',
-  'kete', 'keteta', 'kouthi', 'kahinki', 'kariba', 'karibi', 'kara', 'kar', 'jani', 'janichi', 'dia', 'diya', 'de', 'hau', 'hai', 'na', 'nahi', 'ha', 'han', 'aji', 'ajira', 'kali',
+  'kete', 'keteta', 'sathi', 'sathe', 'kouthi', 'kahinki', 'kariba', 'karibi', 'kara', 'kar', 'jani', 'janichi', 'dia', 'diya', 'de', 'hau', 'hai', 'na', 'nahi', 'ha', 'han', 'aji', 'ajira', 'kali',
   'ତୁମେ', 'ତୁମ', 'ମୁଁ', 'ମୋ', 'ମୋର', 'କିଏ', 'ଭଲ', 'ଅଛ', 'ଅଛି', 'ଅଛନ୍ତି', 'କେମିତି', 'କଣ', 'କେତେ', 'କାହିଁକି', 'ହଁ', 'ନା', 'ଆଜି',
+  // Hindi's little words, in both scripts (the Hindi and Sanskrit books are asked about in Hindi)
+  'का', 'की', 'के', 'को', 'से', 'ने', 'क्या', 'है', 'हैं', 'किसने', 'कौन', 'क्यों', 'कैसे', 'मुझे', 'बताओ', 'ka', 'ki', 'ke', 'ko', 'se', 'ne', 'kya', 'kisne', 'kaun', 'kyon', 'kaise', 'batao',
 ].map(normalizeForMatch));
 
 /** how much the other matching passages of the same chapter add to a passage's score */
@@ -185,7 +207,8 @@ export class Shelf {
     }
   }
 
-  search(query: string, opts: { bookId?: string; limit?: number } = {}): BookHit[] {
+  /** `picked`: the books of the subject she chose (a language book is searched only then, or when she names a lesson) */
+  search(query: string, opts: { bookId?: string; limit?: number; picked?: string[] } = {}): BookHit[] {
     // କ'ଣ is one word (କଣ, "what"), not କ and ଣ
     const q0 = normalizeDigits(query).replace(/([\p{L}\p{M}])['’](?=\p{L})/gu, '$1');
     // an English word also searches as the Odia word the book uses ("earthquake" → ଭୂମିକମ୍ପ); found by either, it counts once
@@ -193,7 +216,17 @@ export class Shelf {
     const groups = words.map((w) => [...new Set([...tokenize(w), ...lexiconFor(w).flatMap(tokenize)])]);
     if (!groups.length) return [];
     const q = [...words, ...words.flatMap(lexiconFor)].join(' ');
-    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : {}).slice(0, 60);
+    // a language book's stories share everyday words with every question ("water", "mother", "village"): it joins
+    // when she picked it, or when her words name one of its lessons: half her words, or two of them, are words of
+    // a lesson title ("kabir ke dohe", "ବୁଢ଼ା ଶଙ୍ଖାରି ଗଳ୍ପଟି କାହା ବିଷୟରେ?")
+    const names = (r: { match: Record<string, string[]> }) => {
+      const inTitle = Object.entries(r.match).filter(([, f]) => f.includes('chapter')).map(([t]) => t);
+      // whole words only: "price" is not "The Priceless Gift"
+      return groups.filter((forms) => forms.some((f) => !f.startsWith('~') && inTitle.includes(f))).length;
+    };
+    const open = (r: { bookId: string; match: Record<string, string[]> }) =>
+      this.books.get(r.bookId)?.meta.kind !== 'language' || opts.bookId === r.bookId || !!opts.picked?.includes(r.bookId) || names(r) >= Math.min(2, Math.max(1, Math.ceil(groups.length / 2)));
+    const res = this.ms.search(q, opts.bookId ? { filter: (r) => r.bookId === opts.bookId } : {}).filter((r) => open(r as never)).slice(0, 60);
     // a chapter about the question has several passages that match, a stray mention has one: each passage gets a
     // share of the next best passages of its own chapter (so "janasankhya briddhi" lands in Population, not Wildlife)
     const byChapter = new Map<string, number[]>();

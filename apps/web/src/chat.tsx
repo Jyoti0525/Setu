@@ -150,7 +150,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
       await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, at: Date.now() }]);
       return;
     }
-    const hits = sh.search(msg, { limit: 4 });
+    const hits = sh.search(msg, { limit: 4, picked: subject });
     const plan = planTurn(emptyMemory(), { safety, text: msg, hits, bookIds: subject, online: false, now: Date.now() });
     if (plan.action === 'care' || plan.action === 'decline' || plan.action === 'redirect') {
       // the safety replies need no signal; a distress message is never kept or sent later
@@ -336,6 +336,10 @@ const LOOKS: Record<string, { emoji: string; color: string }> = {
   'Physical Science': { emoji: '⚡', color: '#6b46c1' },
   'History & Political Science': { emoji: '🏛️', color: '#b7791f' },
   Mathematics: { emoji: '➗', color: '#c05621' },
+  Odia: { emoji: 'ଅ', color: '#c53030' },
+  English: { emoji: '🔤', color: '#2c7a7b' },
+  Hindi: { emoji: 'अ', color: '#d69e2e' },
+  Sanskrit: { emoji: 'सं', color: '#975a16' },
 };
 const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
 
@@ -348,6 +352,12 @@ const IDEAS: Record<string, Record<string, string[]>> = {
   'history-polsci-9': { or: ['ପ୍ରଥମ ବିଶ୍ୱଯୁଦ୍ଧର କାରଣ କ\'ଣ?', 'ମୌଳିକ ଅଧିକାର କ\'ଣ?'], en: ['What caused the First World War?', 'What are fundamental rights?'] },
   'algebra-9': { or: ['ସମ୍ଭାବ୍ୟତା କ\'ଣ?'], en: ['What is probability?'] },
   'geometry-9': { or: ['ଚତୁର୍ଭୁଜ କେତେ ପ୍ରକାର?'], en: ['What are the types of quadrilaterals?'] },
+  // language books: each card names its lesson, so it finds the book with or without the subject picked
+  'odia-literature-9': { or: ['ବୁଢ଼ା ଶଙ୍ଖାରି ଗଳ୍ପଟି କାହା ବିଷୟରେ?', 'ହେ ମୋର କଲମ କବିତାର କବି କିଏ?'], en: ['What is the story Budha Sankhari about?', 'Who wrote the poem He Mora Kalama?'] },
+  'odia-grammar-9': { or: ['ସନ୍ଧି କ\'ଣ?', 'ସମାସ କେତେ ପ୍ରକାର?'], en: ['What is sandhi?', 'What are the kinds of samasa?'] },
+  'english-9': { or: ['The Lost Child ଗଳ୍ପରେ କ\'ଣ ହୁଏ?', 'Missile Man of India କିଏ?'], en: ['What happens in The Lost Child?', 'Who is the Missile Man of India?'] },
+  'hindi-9': { or: ['कबीर के दोहे का अर्थ क्या है?', 'ममता कहानी किसने लिखी?'], en: ['What do Kabir ke dohe mean?', 'Who wrote the story Mamta?'] },
+  'sanskrit-9': { or: ['सिंहशशककथा का सार क्या है?'], en: ['What is the Simha Shashaka Katha about?'] },
 };
 function suggestions(ids: string[], lang: string) {
   const rank = (id: string) => { const i = Object.keys(IDEAS).indexOf(id); return i < 0 ? 99 : i; };

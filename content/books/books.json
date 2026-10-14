@@ -718,5 +718,784 @@
     "endPage": 164
    }
   ]
+ },
+ {
+  "id": "odia-literature-9",
+  "subject": {
+   "or": "ଓଡ଼ିଆ",
+   "en": "Odia",
+   "hi": "ओड़िआ"
+  },
+  "kind": "language",
+  "title": {
+   "or": "ଓଡ଼ିଆ ସାହିତ୍ୟ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Odia Literature (MIL), Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "Board textbook PDF re-uploaded on Google Drive (https://drive.google.com/file/d/1m7ibjnSLEZn7K_-2b-vYqykO9bH2fAng), linked from utkaliit.in's BSE Odisha Class 9 list; Odia Literature is not on bseodisha.ac.in",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "କାହା ମୁଖ ଅନାଇ ବଞ୍ଚିବି — ଭକ୍ତ ଚରଣ ଦାସ",
+     "en": "Kaha Mukha Anai Banchibi (poem) — Bhakta Charan Das"
+    },
+    "startPage": 7,
+    "endPage": 13
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ପଦ୍ମ — ମଧୁସୂଦନ ରାଓ",
+     "en": "Padma, the lotus (poem) — Madhusudan Rao"
+    },
+    "startPage": 14,
+    "endPage": 19
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ହେ ମୋର କଲମ — ଗୋଦାବରୀଶ ମହାପାତ୍ର",
+     "en": "He Mora Kalama, O my pen (poem) — Godabarish Mohapatra"
+    },
+    "startPage": 20,
+    "endPage": 25
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ମଣିଷ ଭାଇ — କୁନ୍ତଳା କୁମାରୀ ସାବତ",
+     "en": "Manisha Bhai, brother man (poem) — Kuntala Kumari Sabat"
+    },
+    "startPage": 26,
+    "endPage": 31
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "ଗୋପ ପ୍ରୟାଣ — ମାୟାଧର ମାନସିଂହ",
+     "en": "Gopa Prayana (poem) — Mayadhar Mansingh"
+    },
+    "startPage": 32,
+    "endPage": 38
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ପାଇକବଧୂର ଉଦ୍‌ବୋଧନ — କୃଷ୍ଣଚନ୍ଦ୍ର ତ୍ରିପାଠୀ",
+     "en": "Paikabadhura Udbodhana, the Paika wife's call (poem) — Krushnachandra Tripathy"
+    },
+    "startPage": 39,
+    "endPage": 45
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "ମାଟିର ମଣିଷ — ରାଧାମୋହନ ଗଡ଼ନାୟକ",
+     "en": "Matira Manisha, man of the soil (poem) — Radhamohan Gadanayak"
+    },
+    "startPage": 46,
+    "endPage": 52
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ଜାତୀୟ ଜୀବନ — ମଧୁସୂଦନ ଦାସ",
+     "en": "Jatiya Jibana, national life (essay) — Madhusudan Das"
+    },
+    "startPage": 53,
+    "endPage": 58
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ଭାଷା ଓ ଜାତୀୟତା — ଗୋପବନ୍ଧୁ ଦାସ",
+     "en": "Bhasha O Jatiyata, language and nationhood (essay) — Gopabandhu Das"
+    },
+    "startPage": 59,
+    "endPage": 62
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ବାମନର ହାତ ଓ ଆକାଶର ଚନ୍ଦ୍ର — ଗୋଦାବରୀଶ ମିଶ୍ର",
+     "en": "Bamanara Hata O Akashara Chandra (essay) — Godabarish Mishra"
+    },
+    "startPage": 63,
+    "endPage": 70
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "ପ୍ରକୃତ ବନ୍ଧୁ — ଗୋପାଳଚନ୍ଦ୍ର ପ୍ରହରାଜ",
+     "en": "Prakruta Bandhu, the true friend (essay) — Gopalchandra Praharaj"
+    },
+    "startPage": 71,
+    "endPage": 76
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "ସମୂହ ଦୃଷ୍ଟି — ସଦାଶିବ ମିଶ୍ର",
+     "en": "Samuha Drushti (essay) — Sadashiv Mishra"
+    },
+    "startPage": 77,
+    "endPage": 85
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "ଶକ୍ତି ଓ ଜ୍ଞାନ — ଭୁବନେଶ୍ୱର ବେହେରା",
+     "en": "Shakti O Jnana, strength and knowledge (essay) — Bhubaneswar Behera"
+    },
+    "startPage": 86,
+    "endPage": 94
+   },
+   {
+    "n": 14,
+    "title": {
+     "or": "ଓଡ଼ିଆ ସାହିତ୍ୟ କଥା — ଓଡ଼ିଆ ସିଲାବସ କମିଟି",
+     "en": "Odia Sahitya Katha, the story of Odia literature — Odia syllabus committee"
+    },
+    "startPage": 95,
+    "endPage": 104
+   },
+   {
+    "n": 15,
+    "title": {
+     "or": "ବୁଢ଼ା ଶଙ୍ଖାରି — ଲକ୍ଷ୍ମୀକାନ୍ତ ମହାପାତ୍ର",
+     "en": "Budha Sankhari, the old bangle-seller (story) — Laxmikanta Mohapatra"
+    },
+    "startPage": 105,
+    "endPage": 110
+   },
+   {
+    "n": 16,
+    "title": {
+     "or": "ପତାକା ଉତ୍ତୋଳନ — ସୁରେନ୍ଦ୍ର ମହାନ୍ତି",
+     "en": "Pataka Uttolana, hoisting the flag (story) — Surendra Mohanty"
+    },
+    "startPage": 111,
+    "endPage": 116
+   },
+   {
+    "n": 17,
+    "title": {
+     "or": "ଲକ୍ଷ୍ମୀର ଅଭିସାର — ମନୋଜ ଦାସ",
+     "en": "Laxmira Abhisara (story) — Manoj Das"
+    },
+    "startPage": 117,
+    "endPage": 120
+   },
+   {
+    "n": 18,
+    "title": {
+     "or": "ଦଳବେହେରା — କାଳୀଚରଣ ପଟ୍ଟନାୟକ",
+     "en": "Dalabehera (one-act play) — Kalicharan Pattnaik"
+    },
+    "startPage": 121,
+    "endPage": 136
+   },
+   {
+    "n": 19,
+    "title": {
+     "or": "ଦୂର ପାହାଡ଼ — ପ୍ରାଣବନ୍ଧୁ କର",
+     "en": "Dura Pahada, the distant hill (one-act play) — Pranabandhu Kar"
+    },
+    "startPage": 137,
+    "endPage": 160
+   }
+  ]
+ },
+ {
+  "id": "odia-grammar-9",
+  "subject": {
+   "or": "ଓଡ଼ିଆ",
+   "en": "Odia",
+   "hi": "ओड़िआ"
+  },
+  "kind": "language",
+  "title": {
+   "or": "ଓଡ଼ିଆ ବ୍ୟାକରଣ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Odia Grammar, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "Board textbook PDF re-uploaded on Google Drive (https://drive.google.com/file/d/1oabvZuPOvyPwAnadWhhuZvJo4mrZdIZ0), linked from utkaliit.in's BSE Odisha Class 9 list; Odia Grammar is not on bseodisha.ac.in",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "ଶବ୍ଦଗଠନ",
+     "en": "Word formation (shabda gathana)"
+    },
+    "startPage": 7,
+    "endPage": 16
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "ସନ୍ଧି",
+     "en": "Sandhi"
+    },
+    "startPage": 17,
+    "endPage": 31
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "ସମାସ",
+     "en": "Samasa, compounds"
+    },
+    "startPage": 32,
+    "endPage": 45
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "ଉପସର୍ଗ",
+     "en": "Upasarga, prefixes"
+    },
+    "startPage": 46,
+    "endPage": 57
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "କୃଦନ୍ତ",
+     "en": "Krudanta, verb suffixes"
+    },
+    "startPage": 58,
+    "endPage": 65
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "ତଦ୍ଧିତ",
+     "en": "Taddhita, noun suffixes"
+    },
+    "startPage": 66,
+    "endPage": 80
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "କାରକ ଓ ବିଭକ୍ତି",
+     "en": "Karaka and bibhakti, cases"
+    },
+    "startPage": 81,
+    "endPage": 98
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "ଅନୁଚ୍ଛେଦ ଲିଖନ",
+     "en": "Paragraph writing"
+    },
+    "startPage": 99,
+    "endPage": 105
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "ବିଜ୍ଞାପନ ଲିଖନ",
+     "en": "Writing an advertisement"
+    },
+    "startPage": 106,
+    "endPage": 110
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "ସରକାରୀ ପତ୍ର ଓ ଦରଖାସ୍ତ",
+     "en": "Official letters and applications"
+    },
+    "startPage": 111,
+    "endPage": 120
+   }
+  ]
+ },
+ {
+  "id": "english-9",
+  "subject": {
+   "or": "ଇଂରାଜୀ",
+   "en": "English",
+   "hi": "अंग्रेज़ी"
+  },
+  "kind": "language",
+  "title": {
+   "or": "Skills of Communicative English (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Skills of Communicative English, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "Board textbook PDF re-uploaded on Google Drive (https://drive.google.com/file/d/1FkcCbGrU31G_jYBBTli0vpzHUQiIbHh4), linked from utkaliit.in's BSE Odisha Class 9 list; the English reader is not on bseodisha.ac.in (text taken from the PDF itself, not OCR)",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "The Priceless Gift",
+     "en": "The Priceless Gift"
+    },
+    "startPage": 7,
+    "endPage": 20
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "The Swimmer Who Does Not Need Her Legs!",
+     "en": "The Swimmer Who Does Not Need Her Legs!"
+    },
+    "startPage": 21,
+    "endPage": 30
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "Road Safety Week",
+     "en": "Road Safety Week"
+    },
+    "startPage": 31,
+    "endPage": 46
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "The Missile Man of India",
+     "en": "The Missile Man of India"
+    },
+    "startPage": 47,
+    "endPage": 62
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "A Hero",
+     "en": "A Hero"
+    },
+    "startPage": 63,
+    "endPage": 74
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "Home and Love (poem)",
+     "en": "Home and Love (poem)"
+    },
+    "startPage": 75,
+    "endPage": 78
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "Nine Gold Medals (poem)",
+     "en": "Nine Gold Medals (poem)"
+    },
+    "startPage": 79,
+    "endPage": 84
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "The Noble Nature (poem)",
+     "en": "The Noble Nature (poem)"
+    },
+    "startPage": 85,
+    "endPage": 88
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "No Men are Foreign (poem)",
+     "en": "No Men are Foreign (poem)"
+    },
+    "startPage": 89,
+    "endPage": 96
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "Alexander Selkirk (poem)",
+     "en": "Alexander Selkirk (poem)"
+    },
+    "startPage": 97,
+    "endPage": 102
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "Project",
+     "en": "Project"
+    },
+    "startPage": 103,
+    "endPage": 106
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "The Trunk of Ganesha (non-detailed)",
+     "en": "The Trunk of Ganesha (non-detailed)"
+    },
+    "startPage": 107,
+    "endPage": 114
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "The Lost Child (non-detailed)",
+     "en": "The Lost Child (non-detailed)"
+    },
+    "startPage": 115,
+    "endPage": 126
+   },
+   {
+    "n": 14,
+    "title": {
+     "or": "The First Step (non-detailed)",
+     "en": "The First Step (non-detailed)"
+    },
+    "startPage": 127,
+    "endPage": 136
+   },
+   {
+    "n": 15,
+    "title": {
+     "or": "The Magic Flute (non-detailed)",
+     "en": "The Magic Flute (non-detailed)"
+    },
+    "startPage": 137,
+    "endPage": 144
+   },
+   {
+    "n": 16,
+    "title": {
+     "or": "The Portrait of a Lady (non-detailed)",
+     "en": "The Portrait of a Lady (non-detailed)"
+    },
+    "startPage": 145,
+    "endPage": 152
+   }
+  ]
+ },
+ {
+  "id": "hindi-9",
+  "subject": {
+   "or": "ହିନ୍ଦୀ",
+   "en": "Hindi",
+   "hi": "हिन्दी"
+  },
+  "kind": "language",
+  "title": {
+   "or": "ହିନ୍ଦୀ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Hindi, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "Board textbook PDF re-uploaded on Google Drive (https://drive.google.com/file/d/1N5UFcNwCOkDje4MtSnl54-3KgMuXjDfP), linked from utkaliit.in's BSE Odisha Class 9 list; the Hindi reader is not on bseodisha.ac.in",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "अनमोल मोती: दोहे — कबीरदास",
+     "en": "Anmol Moti: Kabir ke dohe — Kabirdas"
+    },
+    "startPage": 7,
+    "endPage": 11
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "अनमोल मोती: पद — सूरदास",
+     "en": "Anmol Moti: Surdas ke pad — Surdas"
+    },
+    "startPage": 12,
+    "endPage": 15
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "अनमोल मोती: दोहे — तुलसीदास",
+     "en": "Anmol Moti: Tulsidas ke dohe — Tulsidas"
+    },
+    "startPage": 16,
+    "endPage": 18
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "अनमोल मोती: दोहे — रहीम",
+     "en": "Anmol Moti: Rahim ke dohe — Rahim"
+    },
+    "startPage": 19,
+    "endPage": 22
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "अनमोल मोती: कुंडलिया — गिरिधर कविराय",
+     "en": "Anmol Moti: kundaliya — Giridhar Kavirai"
+    },
+    "startPage": 23,
+    "endPage": 25
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "प्रियतम — सूर्यकान्त त्रिपाठी ‘निराला’",
+     "en": "Priyatam (poem) — Suryakant Tripathi Nirala"
+    },
+    "startPage": 26,
+    "endPage": 32
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "राहुल जननी — मैथिली शरण गुप्त",
+     "en": "Rahul Janani (poem) — Maithili Sharan Gupt"
+    },
+    "startPage": 33,
+    "endPage": 38
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "फिर महान बन — नरेन्द्र शर्मा",
+     "en": "Phir Mahan Ban (poem) — Narendra Sharma"
+    },
+    "startPage": 39,
+    "endPage": 43
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "मेरा नया बचपन — सुभद्रा कुमारी चौहान",
+     "en": "Mera Naya Bachpan (poem) — Subhadra Kumari Chauhan"
+    },
+    "startPage": 44,
+    "endPage": 51
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "साथी! दुःख से घबराता है? — गोपाल दास ‘नीरज’",
+     "en": "Saathi! Dukh se ghabrata hai? (poem) — Gopal Das Neeraj"
+    },
+    "startPage": 52,
+    "endPage": 56
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "श्रम की प्रतिष्ठा (निबंध) — विनोबा भावे",
+     "en": "Shram ki Pratishtha, the dignity of labour (essay) — Vinoba Bhave"
+    },
+    "startPage": 57,
+    "endPage": 66
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "ममता (कहानी) — जयशंकर प्रसाद",
+     "en": "Mamta (story) — Jaishankar Prasad"
+    },
+    "startPage": 67,
+    "endPage": 79
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "जेल में मेरे मित्र (अनुभव) — पं. जवाहरलाल नेहरू",
+     "en": "Jail mein mere mitra, my friends in jail — Jawaharlal Nehru"
+    },
+    "startPage": 80,
+    "endPage": 92
+   },
+   {
+    "n": 14,
+    "title": {
+     "or": "वैज्ञानिक चेतना के वाहक चंद्रशेखर वेंकट रामन — धीरंजन मालवे",
+     "en": "C. V. Raman, bearer of the scientific spirit — Dhiranjan Malve"
+    },
+    "startPage": 93,
+    "endPage": 103
+   },
+   {
+    "n": 15,
+    "title": {
+     "or": "अध्यापक के नाम पत्र (पत्र) — अब्राहम लिंकन",
+     "en": "Letter to a teacher — Abraham Lincoln"
+    },
+    "startPage": 104,
+    "endPage": 112
+   }
+  ]
+ },
+ {
+  "id": "sanskrit-9",
+  "subject": {
+   "or": "ସଂସ୍କୃତ",
+   "en": "Sanskrit",
+   "hi": "संस्कृत"
+  },
+  "kind": "language",
+  "title": {
+   "or": "ସଂସ୍କୃତ (ନବମ ଶ୍ରେଣୀ)",
+   "en": "Sanskrit, Class IX"
+  },
+  "classLevel": 9,
+  "board": "BSE Odisha",
+  "source": "Board textbook PDF re-uploaded on Google Drive (https://drive.google.com/file/d/1gS1JO4mcJUEhxdQ-fQEgAKdFzoMd3f-k), linked from utkaliit.in's BSE Odisha Class 9 list; the Sanskrit reader is not on bseodisha.ac.in",
+  "pageOffset": 6,
+  "chapters": [
+   {
+    "n": 1,
+    "title": {
+     "or": "भारतवन्दनगीतिका",
+     "en": "Bharatavandana Gitika, song in praise of India"
+    },
+    "startPage": 7,
+    "endPage": 7
+   },
+   {
+    "n": 2,
+    "title": {
+     "or": "सिंहशशककथा",
+     "en": "Simha Shashaka Katha, the lion and the hare"
+    },
+    "startPage": 8,
+    "endPage": 12
+   },
+   {
+    "n": 3,
+    "title": {
+     "or": "सत्यम्",
+     "en": "Satyam, truth"
+    },
+    "startPage": 13,
+    "endPage": 18
+   },
+   {
+    "n": 4,
+    "title": {
+     "or": "आत्मगुणविकासनम्",
+     "en": "Atmaguna Vikasanam"
+    },
+    "startPage": 19,
+    "endPage": 20
+   },
+   {
+    "n": 5,
+    "title": {
+     "or": "उत्कलगौरवम्",
+     "en": "Utkala Gauravam, the glory of Odisha"
+    },
+    "startPage": 21,
+    "endPage": 29
+   },
+   {
+    "n": 6,
+    "title": {
+     "or": "समयानुवर्तिता",
+     "en": "Samayanuvartita, punctuality"
+    },
+    "startPage": 30,
+    "endPage": 34
+   },
+   {
+    "n": 7,
+    "title": {
+     "or": "मूढः सहायकः",
+     "en": "Mudhah Sahayakah, the foolish helper"
+    },
+    "startPage": 35,
+    "endPage": 40
+   },
+   {
+    "n": 8,
+    "title": {
+     "or": "सम्भाषणम् (प्रथमम्, द्वितीयम्)",
+     "en": "Sambhashanam, conversation 1 and 2"
+    },
+    "startPage": 41,
+    "endPage": 42
+   },
+   {
+    "n": 9,
+    "title": {
+     "or": "समयः",
+     "en": "Samayah, time"
+    },
+    "startPage": 43,
+    "endPage": 51
+   },
+   {
+    "n": 10,
+    "title": {
+     "or": "सम्भाषणम् (तृतीयम्)",
+     "en": "Sambhashanam, conversation 3"
+    },
+    "startPage": 52,
+    "endPage": 52
+   },
+   {
+    "n": 11,
+    "title": {
+     "or": "नीतिवाणी",
+     "en": "Nitivani, wise sayings"
+    },
+    "startPage": 53,
+    "endPage": 57
+   },
+   {
+    "n": 12,
+    "title": {
+     "or": "प्रहेलिकाः",
+     "en": "Prahelikah, riddles"
+    },
+    "startPage": 58,
+    "endPage": 61
+   },
+   {
+    "n": 13,
+    "title": {
+     "or": "समयगीतिका",
+     "en": "Samaya Gitika, song of time"
+    },
+    "startPage": 62,
+    "endPage": 64
+   },
+   {
+    "n": 14,
+    "title": {
+     "or": "वसुमती",
+     "en": "Vasumati, the earth"
+    },
+    "startPage": 65,
+    "endPage": 66
+   },
+   {
+    "n": 15,
+    "title": {
+     "or": "अनुच्छेदाः",
+     "en": "Anuchchhedah, paragraphs"
+    },
+    "startPage": 67,
+    "endPage": 76
+   },
+   {
+    "n": 16,
+    "title": {
+     "or": "चित्रविभागः",
+     "en": "Chitra Vibhagah, picture section"
+    },
+    "startPage": 77,
+    "endPage": 80
+   }
+  ]
  }
 ]

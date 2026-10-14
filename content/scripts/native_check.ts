@@ -40,8 +40,8 @@ L.push('| English | Odia | OK? |', '|---|---|---|');
 for (const [en, ors] of Object.entries(LEXICON)) L.push(`| ${en} | ${ors.join(', ')} | ☐ |`);
 L.push('');
 L.push('## 5. Chapter titles I typed from the contents pages', '');
-L.push('Physical Science, History & Political Science and the two Maths books: titles typed by me from the printed contents page; check against the book.', '');
-for (const b of books.filter((x) => ['physical-science-9', 'history-polsci-9', 'algebra-9', 'geometry-9'].includes(x.id))) {
+L.push('Physical Science, History & Political Science, the two Maths books and the two Odia language books (Literature, Grammar): titles typed by me from the printed contents page; check against the book.', '');
+for (const b of books.filter((x) => ['physical-science-9', 'history-polsci-9', 'algebra-9', 'geometry-9', 'odia-literature-9', 'odia-grammar-9'].includes(x.id))) {
   L.push(`**${b.title.or}**`, '');
   for (const c of b.chapters) L.push(`- ☐ ${c.n}. ${c.title.or} — _${c.title.en}_ (pp. ${c.startPage - b.pageOffset}–${c.endPage - b.pageOffset})`);
   L.push('');

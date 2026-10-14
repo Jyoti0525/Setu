@@ -12,7 +12,7 @@ const { cases } = JSON.parse(readFileSync(resolve(here, '../eval/book_search.jso
 
 /** what the phone shows with no signal: the same search + policy as the chat's offline turn */
 const shown = (q: string, picked?: string[]) => {
-  const hits = shelf.search(q, { limit: 4 });
+  const hits = shelf.search(q, { limit: 4, picked });
   const first = planTurn(emptyMemory(), { safety: screen(q, true), text: q, hits, bookIds: picked, online: false, now: 0 }).grounding[0];
   return first && `${first.bookId}#${first.passage.ch}`;
 };

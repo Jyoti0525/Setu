@@ -4,7 +4,8 @@ Board PDFs are either scans or set in legacy (non-Unicode) Odia fonts, so their 
 pictures instead. Two-column pages confuse Tesseract (it reads across both columns), so a page with a clear white
 gutter near the middle is saved as two images, left column first.
 
-usage: python -P tools/books/render.py <book.pdf> <out_dir> [dpi]
+usage: python -P tools/books/render.py <book.pdf> <out_dir> [dpi] [--whole]
+  --whole: never split (for vision OCR, which reads columns itself and must see a formula whole)
 """
 import sys
 from pathlib import Path
@@ -12,11 +13,11 @@ from pathlib import Path
 import pymupdf
 
 
-def gutter(pix) -> int | None:
+def gutter(pix, top_frac: float = 0.12) -> int | None:
     """x of a vertical white strip in the middle 35-65% of the page that runs through most of the text, else None."""
     w, h, n = pix.width, pix.height, pix.n
     s = pix.samples
-    top, bottom = int(h * 0.12), int(h * 0.9)
+    top, bottom = int(h * top_frac), int(h * 0.9)
     step = 3
     best, best_x = 0.0, None
     for x in range(int(w * 0.35), int(w * 0.65), 2):
@@ -44,15 +45,29 @@ def gutter(pix) -> int | None:
     return best_x
 
 
+def gutter_top(pix, g: int) -> int:
+    """y where the gutter starts: a heading or an introduction above the columns runs across it (top 60% only)."""
+    w, h, n = pix.width, pix.height, pix.n
+    s = pix.samples
+    last = 0
+    for y in range(int(h * 0.05), int(h * 0.6)):
+        if any(s[(y * w + x) * n] < 140 for x in range(g - 3, g + 4)):
+            last = y
+    return last + 8 if last else 0
+
+
 def main():
-    pdf, out = Path(sys.argv[1]), Path(sys.argv[2])
-    dpi = int(sys.argv[3]) if len(sys.argv) > 3 else 200
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    whole = "--whole" in sys.argv
+    pdf, out = Path(args[0]), Path(args[1])
+    dpi = int(args[2]) if len(args) > 2 else 200
     out.mkdir(parents=True, exist_ok=True)
     doc = pymupdf.open(pdf)
     split = 0
     for i, page in enumerate(doc):
         pix = page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY)
-        g = gutter(pix)
+        # columns may start below an introduction printed across the page: look again in the lower part
+        g = None if whole else gutter(pix) or gutter(pix, 0.45)
         name = f"p{i + 1:03d}"
         if g is None:
             pix.save(out / f"{name}.png")
@@ -60,7 +75,13 @@ def main():
             split += 1
             r = page.rect
             xg = r.x0 + r.width * g / pix.width
-            for tag, clip in (("a", pymupdf.Rect(r.x0, r.y0, xg, r.y1)), ("b", pymupdf.Rect(xg, r.y0, r.x1, r.y1))):
+            # text above the columns that runs across the gutter is read first, whole: "a" (else it is cut in two)
+            yt = gutter_top(pix, g)
+            y0 = r.y0 + r.height * yt / pix.height if yt > pix.height * 0.08 else r.y0
+            parts = [("a", pymupdf.Rect(r.x0, r.y0, r.x1, y0))] if y0 > r.y0 else []
+            cols = ("b", "c") if parts else ("a", "b")
+            parts += [(cols[0], pymupdf.Rect(r.x0, y0, xg, r.y1)), (cols[1], pymupdf.Rect(xg, y0, r.x1, r.y1))]
+            for tag, clip in parts:
                 page.get_pixmap(dpi=dpi, colorspace=pymupdf.csGRAY, clip=clip).save(out / f"{name}{tag}.png")
     print(f"{doc.page_count} pages, {split} split into two columns -> {out}")
 

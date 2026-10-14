@@ -13,7 +13,7 @@ const { cases } = JSON.parse(readFileSync(resolve(here, '../eval/book_search.jso
 
 let shown = 0, top3 = 0;
 for (const c of cases) {
-  const hits = shelf.search(c.q, { limit: 4 });
+  const hits = shelf.search(c.q, { limit: 4, picked: c.picked });
   const plan = planTurn(emptyMemory(), { safety: screen(c.q, true), text: c.q, hits, bookIds: c.picked, online: false, now: Date.now() });
   const key = (h: { bookId: string; passage: { ch: number } }) => `${h.bookId}#${h.passage.ch}`;
   const first = plan.grounding[0];
