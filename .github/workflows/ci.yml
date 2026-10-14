@@ -1,0 +1,15 @@
+# Every push: typecheck + all tests (simulator, understanding set, red-team, golden replay, sync properties — PLAN §12).
+# No secrets: tests use scripted models; live evaluation (apps/server/eval/live.ts) is run by hand.
+name: ci
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test

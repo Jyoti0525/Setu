@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.sqlite
+*.sqlite-*
+spikes/**/out/
+spikes/tts/.venv/
+apps/server/data/
+apps/web/public/ocr/
+.playwright-mcp/
+__pycache__/
+*.pyc
+content/books/pdf/
+content/books/pages/

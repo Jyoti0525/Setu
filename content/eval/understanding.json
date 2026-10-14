@@ -1,0 +1,305 @@
+{
+ "note": "50 doubts written in the styles Class 9 learners in Odisha type or say (Odia script, romanized Odia, code-mixed, English, Hindi, and speech-to-text output where English words come out in Odia script). Written by the developer from the PS reference case, not collected from students yet (P6.9 field test will add real ones). concept = the chapter concept it is about (null = not this chapter); intent = conceptual | homework | off_topic.",
+ "items": [
+  {
+   "text": "ଦ୍ରୁତି ଓ ବେଗ ମଧ୍ୟରେ ପାର୍ଥକ୍ୟ କଣ?",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ବିସ୍ଥାପନ କାହାକୁ କହନ୍ତି",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ନିର୍ଦ୍ଦେଶ ବିନ୍ଦୁ କଣ ବୁଝାଅ",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ହାରାହାରି ଦ୍ରୁତି କେମିତି ବାହାର କରିବା",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "bisthapana kana bujhi parunahi",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "durata au bisthapana re farak",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "nirdesh bindu mane kana",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "twarana kemiti bujhibi",
+   "concept": "acceleration",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "speed aau velocity re farak kana?",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "displacement zero hei pariba ki?",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "average speed kemiti nikaliba",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "reference point kahinki darkar",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "acceleration negative hei paribo?",
+   "concept": "acceleration",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "What is the difference between speed and velocity?",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "why do we need a reference point",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "can distance be less than displacement",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "चाल और वेग में क्या अंतर है",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "hindi"
+  },
+  {
+   "text": "speed aur velocity mein kya antar hai",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "hindi"
+  },
+  {
+   "text": "ସ୍ପିଡ୍ ଆଉ ଭେଲୋସିଟି ରେ ଫରକ କଣ",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "ଡିସପ୍ଲେସମେଣ୍ଟ କଣ",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "ଡିଷ୍ଟାନ୍ସ ଆଉ ଡିସପ୍ଲେସମେଣ୍ଟ ରେ ଫରକ",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "ଆକ୍ସିଲେରେସନ୍ କାହାକୁ କହନ୍ତି",
+   "concept": "acceleration",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "ଆଭରେଜ ସ୍ପିଡ୍ କେମିତି ବାହାର କରିବା",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "a car goes 120 km in 2 hours find its speed",
+   "concept": "speed",
+   "intent": "homework",
+   "form": "english"
+  },
+  {
+   "text": "ଗୋଟିଏ ବସ୍ ୩ ଘଣ୍ଟାରେ ୧୫୦ କିମି ଯାଏ। ଏହାର ଦ୍ରୁତି କେତେ?",
+   "concept": "speed",
+   "intent": "homework",
+   "form": "odia"
+  },
+  {
+   "text": "bus 72 km/h re 2 ghanta chale, durata kete?",
+   "concept": "distance",
+   "intent": "homework",
+   "form": "romanized"
+  },
+  {
+   "text": "a car starts from rest and reaches 20 m/s in 5 s. find its acceleration",
+   "concept": "acceleration",
+   "intent": "homework",
+   "form": "english"
+  },
+  {
+   "text": "a train with speed 20 m/s moves for 30 s find the distance",
+   "concept": "distance",
+   "intent": "homework",
+   "form": "english"
+  },
+  {
+   "text": "100 m 2 min re chaliba, speed kete",
+   "concept": "speed",
+   "intent": "homework",
+   "form": "mixed"
+  },
+  {
+   "text": "who will win the ipl this year",
+   "concept": null,
+   "intent": "off_topic",
+   "form": "english"
+  },
+  {
+   "text": "ନୂଆ ସିନେମା କେମିତି ଅଛି",
+   "concept": null,
+   "intent": "off_topic",
+   "form": "odia"
+  },
+  {
+   "text": "free fire kemiti kheliba",
+   "concept": null,
+   "intent": "off_topic",
+   "form": "romanized"
+  },
+  {
+   "text": "photosynthesis kemiti hue",
+   "concept": null,
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "what is the capital of odisha",
+   "concept": null,
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "newton ra niyama kana",
+   "concept": null,
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "ପରମାଣୁ କଣ",
+   "concept": null,
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ମୁଁ ଘରୁ ସ୍କୁଲ ଯାଇ ଫେରିଆସିଲି, ମୋ ବିସ୍ଥାପନ କେତେ ହେବ?",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ଗାଡ଼ି କେଉଁ ଦିଗରେ ଯାଉଛି ତାହା କହିଲେ ତାକୁ କଣ କହନ୍ତି",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ଟ୍ରେନ ଭିତରେ ବସିଥିବା ଲୋକ ଗତି କରୁଛି ନା ସ୍ଥିର ଅଛି?",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "ଗାଡ଼ି ଧୀରେ ଧୀରେ ଜୋର ହେଉଛି, ଏହାକୁ କଣ କହନ୍ତି",
+   "concept": "acceleration",
+   "intent": "conceptual",
+   "form": "odia"
+  },
+  {
+   "text": "speed re direction thae ki?",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "km/h ku m/s re kemiti badalibi",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "mixed"
+  },
+  {
+   "text": "is velocity a vector or a scalar",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "if I walk around a circular track and come back, how far did I go",
+   "concept": "distance",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "how do we say whether something is moving or not",
+   "concept": "reference_point",
+   "intent": "conceptual",
+   "form": "english"
+  },
+  {
+   "text": "gadi jete jore jauchi taku kana kahanti",
+   "concept": "speed",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "mote bega au druti mishi jauchi",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "romanized"
+  },
+  {
+   "text": "मैं घर से स्कूल जाकर लौट आया तो मेरा विस्थापन कितना होगा",
+   "concept": "displacement",
+   "intent": "conceptual",
+   "form": "hindi"
+  },
+  {
+   "text": "ଡିସ୍ଟାନ୍ସ କେବେ ଜିରୋ ହୁଏ କି",
+   "concept": "distance",
+   "intent": "conceptual",
+   "form": "voice"
+  },
+  {
+   "text": "ଭେଲୋସିଟି ନେଗେଟିଭ ହେଇପାରିବ କି",
+   "concept": "velocity",
+   "intent": "conceptual",
+   "form": "voice"
+  }
+ ]
+}

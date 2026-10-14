@@ -1,0 +1,117 @@
+/* Low-end phone first: subset Odia/Devanagari fonts, rem sizes (200% text works), targets ≥ 48 dp, AA contrast in both themes. */
+:root {
+  --bg: #fffaf2; --card: #ffffff; --fg: #1f1a14; --mut: #6b6157; --line: #eadfce;
+  --brand: #c2410c; --brand-fg: #ffffff; --link: #c2410c; --ok: #166534; --ok-bg: #e8f6ec; --no: #9a3412; --no-bg: #fdecdf;
+  --cloud: #166534; --weak: #92400e; --device: #1e40af;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #14110d; --card: #1e1a15; --fg: #f3ede4; --mut: #b3a898; --line: #3a3229; --ok-bg: #12301c; --no-bg: #3a1d10; --ok: #86efac; --no: #fdba74; --cloud: #86efac; --weak: #fcd34d; --device: #93c5fd; --link: #fdba74; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+/* P3.29: our own subset fonts (OFL, public/fonts) so conjuncts render on phones with poor system fonts; each loads only
+   when its script is on screen (unicode-range), ~44 KB each, cached by the service worker */
+@font-face { font-family: "Setu Odia"; src: url(/fonts/noto-sans-odia-400.woff2) format("woff2"); font-display: swap; unicode-range: U+0B00-0B7F, U+0964-0965, U+200C-200D, U+25CC; }
+@font-face { font-family: "Setu Devanagari"; src: url(/fonts/noto-sans-devanagari-400.woff2) format("woff2"); font-display: swap; unicode-range: U+0900-097F, U+200C-200D, U+25CC, U+A8E0-A8FF; }
+body { font: 1.0625rem/1.55 "Setu Odia", "Setu Devanagari", "Noto Sans Oriya", "Noto Sans Odia", "Kalinga", system-ui, sans-serif; }
+button { font: inherit; min-height: 48px; min-width: 48px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; }
+button:disabled { opacity: .55; }
+button.primary { background: var(--brand); color: var(--brand-fg); border-color: var(--brand); }
+button.icon { border: none; background: none; padding: 4px; }
+button.link { border: none; background: none; color: var(--link); text-decoration: underline; min-height: 48px; padding: 0 4px; } /* P6.10: every tap target ≥ 48 dp, text links too */
+select { font: inherit; min-height: 48px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); max-width: 100%; }
+.text { font: inherit; width: 100%; min-height: 48px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+.center { display: grid; place-items: center; min-height: 100vh; padding: 16px; text-align: center; }
+.muted { color: var(--mut); } .small { font-size: 0.8125rem; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.onboard { max-width: 520px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 12px; }
+.onboard h1 { margin: 0 0 8px; color: var(--link); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.grid.avatars { grid-template-columns: repeat(3, 1fr); }
+.big { font-size: 1.375rem; min-height: 64px; }
+.sel { outline: 3px solid var(--brand); }
+.home { max-width: 640px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+.bar { position: sticky; top: 0; z-index: 2; display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 8px 16px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.tier { font-size: 0.8125rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.tier.cloud { color: var(--cloud); } .tier.weak { color: var(--weak); } .tier.device { color: var(--device); }
+.mastery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 12px; padding: 8px 16px; font-size: 0.8125rem; }
+.mbar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.mbar div { height: 100%; background: var(--weak); } .mbar div.done { background: var(--ok); }
+.feed { flex: 1; padding: 8px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; position: relative; }
+.card p { margin: 0 0 4px; white-space: pre-wrap; }
+.card.explain .term { font-weight: 700; color: var(--link); }
+.card.fb.ok { background: var(--ok-bg); border-color: var(--ok); } .card.fb.no { background: var(--no-bg); border-color: var(--no); }
+.card.info.promise { border-style: dashed; } .card.info.escalated { border-color: var(--weak); }
+.card.ready, .card.answered { border-color: var(--ok); } .card.ready .term, .card.answered .term { font-weight: 700; color: var(--ok); } .card.ready ol { margin: 6px 0 0; padding-left: 22px; }
+.opts { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.opt { text-align: left; } .opt.picked { outline: 3px solid var(--brand); }
+.tag { font-size: 0.75rem; color: var(--mut); border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; }
+.why { font-size: 0.875rem; color: var(--mut); margin-top: 4px; }
+.thinking { color: var(--mut); font-style: italic; }
+.note { color: var(--ok); font-size: 0.875rem; }
+.ask { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line); padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; }
+.ask form { display: flex; gap: 8px; }
+.tag.place { color: var(--link); border-color: var(--brand); }
+.note.err { color: var(--no); }
+/* teacher view */
+.teacher { max-width: 760px; margin: 0 auto; min-height: 100vh; }
+.tfeed { padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 12px; }
+.tsec h2 { font-size: 1.0625rem; margin: 12px 0 6px; }
+.tsec { display: flex; flex-direction: column; gap: 8px; }
+.tsec.wellbeing .card { border-color: var(--device); }
+.row.between { justify-content: space-between; }
+.card.done { opacity: .6; }
+.joincard { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.joincard .qr { width: 148px; height: 148px; background: #fff; border-radius: 8px; padding: 4px; flex: none; }
+.joincard .qr svg { width: 100%; height: 100%; display: block; }
+.code { font-size: 2.125rem; font-weight: 700; letter-spacing: 3px; color: var(--link); font-variant-numeric: tabular-nums; }
+.card.reteach textarea { font-size: 0.9375rem; margin: 6px 0; resize: vertical; }
+.card.reteach.approved { border-color: var(--ok); }
+.mastery.tight { padding: 6px 0 0; }
+.text.date { width: auto; }
+ul.plain { margin: 0; padding-left: 18px; }
+details summary { cursor: pointer; min-height: 48px; color: var(--link); }
+code { word-break: break-all; font-size: 0.875rem; }
+label.btn { font: inherit; min-height: 48px; min-width: 48px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+label.btn.disabled { opacity: .55; pointer-events: none; }
+.card.passage { border-left: 4px solid var(--device); } .card.passage .term { font-weight: 700; color: var(--device); }
+.card.hints { border-left: 4px solid var(--accent, #c77d00); } .card.hints ol { margin: 8px 0; padding-left: 22px; } .card.hints li { margin: 6px 0; line-height: 1.5; } .card.hints .fb { margin: 8px 0 0; }
+.row.nowrap { flex-wrap: nowrap; } .row.nowrap input.text { flex: 1; min-width: 0; }
+.scan { position: fixed; inset: 0; z-index: 20; background: #000d; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px; }
+.scan video { width: min(100%, 360px); aspect-ratio: 1; object-fit: cover; border-radius: 16px; outline: 3px solid #fff8; outline-offset: -40px; }
+.scan .card { color: var(--fg); }
+.review { max-width: 640px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.review h1 { font-size: 1.3rem; margin: 0; } .review progress { width: 100%; height: 8px; }
+.review select { font: inherit; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--fg); padding: 0 8px; max-width: 100%; }
+.review textarea { font: inherit; font-size: 1.15rem; line-height: 1.6; width: 100%; box-sizing: border-box; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
+.rv .en { margin: 4px 0; color: var(--mut); } .rv-ok { border-left: 4px solid #16a34a; } .rv-fixed { border-left: 4px solid #2563eb; } .rv-unsure { border-left: 4px solid #d97706; }
+.err { color: #b91c1c; }
+
+button.mic { font-weight: 600; }
+button.mic.on { background: #c62828; color: #fff; border-color: #c62828; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(198, 40, 40, .25); } }
+@media (prefers-reduced-motion: reduce) { button.mic.on { animation: none; } }
+.grid.avatars .big .small { display: block; font-size: 0.75rem; }
+.card.minutes .row button.sel { outline: 2px solid currentColor; } header .who.link { font-size: 1.1em; text-decoration: none; }
+.bridge { margin: 6px 0 0; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, currentColor 6%, transparent); }
+
+/* tutor chat (PLAN v4) */
+.subjects { display: flex; gap: 8px; overflow-x: auto; padding: 8px 16px; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+.subjects button { white-space: nowrap; border-radius: 999px; flex: none; }
+.bubble { max-width: 88%; padding: 10px 12px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); line-height: 1.5; overflow-wrap: anywhere; }
+.bubble p { margin: 0 0 6px; white-space: pre-line; }
+.bubble.me { align-self: flex-end; background: var(--brand); color: var(--brand-fg); border-color: var(--brand); border-bottom-right-radius: 4px; }
+.bubble.tutor { align-self: flex-start; border-bottom-left-radius: 4px; }
+.bubble.praise { border-color: var(--ok); background: var(--ok-bg); }
+.bubble.retry, .bubble.hint { border-color: var(--no); }
+.bubble.offline { border-style: dashed; }
+.bubble.care, .bubble.teacher { border-color: var(--weak); }
+.bubble .check { font-weight: 700; color: var(--link); }
+.bubble .src blockquote { margin: 4px 0; padding: 6px 10px; border-left: 3px solid var(--line); color: var(--mut); max-height: 40vh; overflow: auto; }
+.bubble .tools { margin-top: 2px; }
+.bubble .chip { border-radius: 999px; }
+.bubble pre.why { white-space: pre-wrap; font-family: inherit; margin: 4px 0 0; }
+.chat .feed { display: flex; flex-direction: column; gap: 10px; }
+.checkhint { margin: 0; color: var(--link); }
+.progress .m { margin-bottom: 6px; }

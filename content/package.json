@@ -1,0 +1,15 @@
+{
+  "name": "@setu/content",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p .",
+    "build-pack": "tsx src/build_pack.ts"
+  },
+  "dependencies": { "@setu/core": "workspace:*" },
+  "devDependencies": { "tsx": "^4.19.0" }
+}

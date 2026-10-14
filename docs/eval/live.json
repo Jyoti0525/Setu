@@ -1,0 +1,316 @@
+{
+ "understanding_online": {
+  "n": 50,
+  "answered": 44,
+  "retries": 13,
+  "concept": 91,
+  "intent": 89,
+  "misses": [
+   "who will win the ipl this year → distance (want null)",
+   "free fire kemiti kheliba → reference_point (want null)",
+   "newton ra niyama kana → acceleration (want null)",
+   "ଡିସ୍ଟାନ୍ସ କେବେ ଜିରୋ ହୁଏ କି → displacement (want distance)"
+  ]
+ },
+ "baseline_llm": {
+  "n": 10,
+  "chatbot": {
+   "answered": 10,
+   "answerLeak": 20,
+   "grounded": 70,
+   "rightScript": 100
+  },
+  "setu": {
+   "answered": 10,
+   "answerLeak": 0,
+   "grounded": 100,
+   "rightScript": 100
+  },
+  "rows": [
+   {
+    "doubt": "ଦ୍ରୁତି ଓ ବେଗ ମଧ୍ୟରେ ପାର୍ଥକ୍ୟ କଣ?",
+    "concept": "velocity",
+    "chatbot": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 1113,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 153,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "ବିସ୍ଥାପନ କାହାକୁ କହନ୍ତି",
+    "concept": "displacement",
+    "chatbot": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 802,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 189,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "ନିର୍ଦ୍ଦେଶ ବିନ୍ଦୁ କଣ ବୁଝାଅ",
+    "concept": "reference_point",
+    "chatbot": {
+     "leak": true,
+     "grounded": true,
+     "script": true,
+     "chars": 810,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level",
+      "answer leak"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 219,
+     "problems": [
+      "answer leak"
+     ],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "ହାରାହାରି ଦ୍ରୁତି କେମିତି ବାହାର କରିବା",
+    "concept": "speed",
+    "chatbot": {
+     "leak": false,
+     "grounded": false,
+     "script": true,
+     "chars": 739,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level",
+      "ungrounded numbers: 15, 15"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 80,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "bisthapana kana bujhi parunahi",
+    "concept": "displacement",
+    "chatbot": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 1091,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 143,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "durata au bisthapana re farak",
+    "concept": "displacement",
+    "chatbot": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 1159,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 143,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "nirdesh bindu mane kana",
+    "concept": "reference_point",
+    "chatbot": {
+     "leak": true,
+     "grounded": true,
+     "script": true,
+     "chars": 823,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level",
+      "answer leak"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 219,
+     "problems": [
+      "answer leak"
+     ],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "speed aau velocity re farak kana?",
+    "concept": "velocity",
+    "chatbot": {
+     "leak": false,
+     "grounded": false,
+     "script": true,
+     "chars": 954,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "ungrounded numbers: 50, 50, 50"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 153,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "displacement zero hei pariba ki?",
+    "concept": "displacement",
+    "chatbot": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 827,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 189,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   },
+   {
+    "doubt": "average speed kemiti nikaliba",
+    "concept": "speed",
+    "chatbot": {
+     "leak": false,
+     "grounded": false,
+     "script": true,
+     "chars": 920,
+     "problems": [
+      "too long for reading level",
+      "too many sentences for level 3",
+      "a sentence is too long for her level",
+      "ungrounded numbers: 15, 15"
+     ]
+    },
+    "setu": {
+     "leak": false,
+     "grounded": true,
+     "script": true,
+     "chars": 80,
+     "problems": [],
+     "source": "reviewed pack"
+    }
+   }
+  ]
+ },
+ "cost": {
+  "turns": 16,
+  "usage": {
+   "gemini-lite-gen": {
+    "calls": 17,
+    "in": 22766,
+    "out": 8030
+   },
+   "gemini-lite": {
+    "calls": 2,
+    "in": 3032,
+    "out": 285
+   },
+   "groq": {
+    "calls": 4,
+    "in": 4774,
+    "out": 1502
+   }
+  },
+  "usdPerLearnerDay": 0.00752,
+  "inrPerLearnerDay": 0.632,
+  "inrPerLearnerMonth": 13.9,
+  "kbPerSession": 73,
+  "prices": {
+   "gemini-flash": [
+    0.3,
+    2.5
+   ],
+   "gemini-lite": [
+    0.1,
+    0.4
+   ],
+   "gemini-lite-gen": [
+    0.1,
+    0.4
+   ],
+   "groq": [
+    0.15,
+    0.6
+   ],
+   "gemma": [
+    0,
+    0
+   ]
+  },
+  "note": "list prices (USD/1M tokens, in/out) as of 2026-10; 84 INR/USD; 22 school days a month"
+ }
+}

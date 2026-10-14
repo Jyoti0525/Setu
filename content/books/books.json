@@ -1,0 +1,218 @@
+[
+  {
+    "id": "life-science-9",
+    "subject": {
+      "or": "ଜୀବ ବିଜ୍ଞାନ",
+      "en": "Life Science",
+      "hi": "जीव विज्ञान"
+    },
+    "title": {
+      "or": "ଜୀବ ବିଜ୍ଞାନ (ନବମ ଶ୍ରେଣୀ)",
+      "en": "Life Science, Class IX"
+    },
+    "classLevel": 9,
+    "board": "BSE Odisha",
+    "source": "https://www.bseodisha.ac.in/images12/Jiba_Bigyana_Class-IX.pdf (revised edition 2019)",
+    "pageOffset": 6,
+    "chapters": [
+      {
+        "n": 1,
+        "title": {
+          "or": "ଜୈବ ବିବିଧତା",
+          "en": "Biodiversity"
+        },
+        "startPage": 7,
+        "endPage": 28
+      },
+      {
+        "n": 2,
+        "title": {
+          "or": "ଜୀବକୋଷ ଓ ଏହାର ସଂଗଠନ",
+          "en": "The cell and its organisation"
+        },
+        "startPage": 29,
+        "endPage": 39
+      },
+      {
+        "n": 3,
+        "title": {
+          "or": "ଟିସୁ ତନ୍ତ୍ର",
+          "en": "Tissue system"
+        },
+        "startPage": 40,
+        "endPage": 58
+      },
+      {
+        "n": 4,
+        "title": {
+          "or": "ଖାଦ୍ୟ ସଂପଦର ଉନ୍ନତୀକରଣ",
+          "en": "Improvement in food resources"
+        },
+        "startPage": 59,
+        "endPage": 77
+      },
+      {
+        "n": 5,
+        "title": {
+          "or": "ରୋଗ ଓ ତାହାର ନିରାକରଣ",
+          "en": "Disease and its prevention"
+        },
+        "startPage": 78,
+        "endPage": 96
+      },
+      {
+        "n": 6,
+        "title": {
+          "or": "ପ୍ରାକୃତିକ ସଂପଦ ଓ ତାହାର ପ୍ରଦୂଷଣ",
+          "en": "Natural resources and their pollution"
+        },
+        "startPage": 97,
+        "endPage": 112
+      }
+    ]
+  },
+  {
+    "id": "geography-economics-9",
+    "subject": {
+      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
+      "en": "Geography & Economics",
+      "hi": "भूगोल और अर्थशास्त्र"
+    },
+    "title": {
+      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି (ନବମ ଶ୍ରେଣୀ)",
+      "en": "Geography & Economics, Class IX"
+    },
+    "classLevel": 9,
+    "board": "BSE Odisha",
+    "source": "https://www.bseodisha.ac.in/images12/Bhugola_O_Arthaniti_Cl-IX.pdf",
+    "pageOffset": 6,
+    "chapters": [
+      {
+        "n": 1,
+        "title": {
+          "or": "ଆକାର ଓ ଅବସ୍ଥିତି",
+          "en": "India: size and location"
+        },
+        "startPage": 7,
+        "endPage": 14
+      },
+      {
+        "n": 2,
+        "title": {
+          "or": "ପ୍ରାକୃତିକ ବିଭାଗ",
+          "en": "Physical divisions of India"
+        },
+        "startPage": 15,
+        "endPage": 28
+      },
+      {
+        "n": 3,
+        "title": {
+          "or": "ବିପତ୍ତି ଓ ବିପର୍ଯ୍ୟୟ",
+          "en": "Hazards and disasters"
+        },
+        "startPage": 29,
+        "endPage": 34
+      },
+      {
+        "n": 4,
+        "title": {
+          "or": "ଭାରତର ନଦୀ",
+          "en": "Rivers of India"
+        },
+        "startPage": 35,
+        "endPage": 46
+      },
+      {
+        "n": 5,
+        "title": {
+          "or": "ଜଳବାୟୁ",
+          "en": "Climate"
+        },
+        "startPage": 47,
+        "endPage": 70
+      },
+      {
+        "n": 6,
+        "title": {
+          "or": "ପ୍ରାକୃତିକ ଉଦ୍ଭିଦ",
+          "en": "Natural vegetation"
+        },
+        "startPage": 71,
+        "endPage": 80
+      },
+      {
+        "n": 7,
+        "title": {
+          "or": "ବନ୍ୟପ୍ରାଣୀ",
+          "en": "Wildlife"
+        },
+        "startPage": 81,
+        "endPage": 89
+      },
+      {
+        "n": 8,
+        "title": {
+          "or": "ଜନସଂଖ୍ୟା",
+          "en": "Population"
+        },
+        "startPage": 90,
+        "endPage": 103
+      },
+      {
+        "n": 9,
+        "title": {
+          "or": "ଆର୍ଥନୀତିକ ବିକାଶ",
+          "en": "Economic development"
+        },
+        "startPage": 104,
+        "endPage": 113
+      },
+      {
+        "n": 10,
+        "title": {
+          "or": "ମୁଦ୍ରା, ବ୍ୟାଙ୍କିଙ୍ଗ ଏବଂ ବୀମା",
+          "en": "Money, banking and insurance"
+        },
+        "startPage": 114,
+        "endPage": 124
+      },
+      {
+        "n": 11,
+        "title": {
+          "or": "ଧାରଣୀୟ ବିକାଶ",
+          "en": "Sustainable development"
+        },
+        "startPage": 125,
+        "endPage": 128
+      }
+    ]
+  },
+  {
+    "id": "disaster-management-9",
+    "subject": {
+      "or": "ଭୂଗୋଳ ଓ ଅର୍ଥନୀତି",
+      "en": "Geography & Economics",
+      "hi": "भूगोल और अर्थशास्त्र"
+    },
+    "title": {
+      "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା (୨୦୨୨-୨୩ରେ ଯୋଡ଼ାଯାଇଥିବା ଅଧ୍ୟାୟ)",
+      "en": "Man-made disasters and their management (chapter added 2022-23)"
+    },
+    "classLevel": 9,
+    "board": "BSE Odisha",
+    "source": "https://www.bseodisha.ac.in/images12/9th class bipati o biparjaya new matter for mail final.pdf",
+    "pageOffset": 0,
+    "chapters": [
+      {
+        "n": 1,
+        "title": {
+          "or": "ମାନବୀୟ ବିପତ୍ତି ଓ ପରିଚାଳନା",
+          "en": "Man-made disasters and their management"
+        },
+        "startPage": 1,
+        "endPage": 9
+      }
+    ]
+  }
+]

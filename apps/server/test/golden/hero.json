@@ -1,0 +1,101 @@
+{
+ "recordedAt": "2026-10-13T20:24:17.296Z",
+ "note": "real model replies from eval/live.ts golden; replayed by test/golden.test.ts",
+ "replies": [
+  {
+   "job": "decide",
+   "text": "{\"action\":\"answer_faq\",\"concept_id\":\"velocity\",\"strategy\":null,\"misconception_id\":null,\"faq_id\":\"faq.speed_vs_velocity\",\"reason\":\"Learner asked about difference between speed and velocity, matching FAQ.\",\"override_reason\":null,\"understood\":{\"concept_id\":\"velocity\",\"intent\":\"conceptual\",\"language\":\"or\"},\"new_misconception\":null}"
+  },
+  {
+   "job": "generate",
+   "text": "{\n  \"text\": \"ନିର୍ଦ୍ଦିଷ୍ଟ ଦିଗରେ ବସ୍ତୁର ଦ୍ରୁତିକୁ ବେଗ (velocity) କୁହାଯାଏ। ଦ୍ରୁତି କେବଳ କେତେ ଜୋରରେ କହେ, କିନ୍ତୁ ବେଗ କେତେ ଜୋରରେ ଓ କେଉଁ ଦିଗରେ ଦୁଇଟି କହେ। ନଦୀର ସ୍ରୋତ କେତେ ଜୋରରେ ବହୁଛି ତାହା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ବହୁଛି ତାହା ବେଗ। ଉଦାହରଣ: ଘରୁ ସ୍କୁଲ ଯାଇ ଫେରିଲେ ଦ୍ରୁତି ୪ କି.ମି./ଘଣ୍ଟା ହେଲେ, ବିସ୍ଥାପନ ଶୂନ୍ୟ ହେବାରୁ ବେଗ ଶୂନ୍ୟ ହୁଏ।\",\n  \"speak\": \"ନିର୍ଦ୍ଦିଷ୍ଟ ଦିଗରେ ବସ୍ତୁର ଦ୍ରୁତିକୁ ବେଗ କୁହାଯାଏ। ଦ୍ରୁତି କେବଳ କେତେ ଜୋରରେ କହେ, କିନ୍ତୁ ବେଗ କେତେ ଜୋରରେ ଓ କେଉଁ ଦିଗରେ ଦୁଇଟି କହେ। ନଦୀର ସ୍ରୋତ କେତେ ଜୋରରେ ବହୁଛି ତାହା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ବହୁଛି ତାହା ବେଗ। ଉଦାହରଣ, ଘରୁ ସ୍କୁଲ ଯାଇ ଫେରିଲେ ଦ୍ରୁତି ଚାରି କିଲୋମିଟର ପ୍ରତି ଘଣ୍ଟା ହେଲେ, ବିସ୍ଥାପନ ଶୂନ୍ୟ ହେବାରୁ ବେଗ ଶୂନ୍ୟ ହୁଏ।\",\n  \"cites\": [\n    \"1\",\n    \"3\",\n    \"5\",\n    \"6\"\n  ]\n}"
+  },
+  {
+   "job": "decide",
+   "text": "{\"action\":\"remediate\",\"concept_id\":\"velocity\",\"strategy\":\"contrast\",\"misconception_id\":\"speed_equals_velocity\",\"faq_id\":null,\"reason\":\"Student thinks speed and velocity are the same; need to contrast the two concepts.\",\"override_reason\":null,\"understood\":{\"concept_id\":\"velocity\",\"intent\":\"conceptual\",\"language\":\"en\"},\"new_misconception\":null}"
+  },
+  {
+   "job": "generate",
+   "text": "{\n  \"text\": \"କେତେ ଜୋରରେ ଗତି କରୁଛ ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ଗତି କରୁଛ ସେଇଟା ବେଗ (velocity)। ଯଦି ତୁମେ ହାଟକୁ ଯିବା ପାଇଁ ସାଇକେଲ ଚଲାଉଛ, ତେବେ ସେଇଟା ଦ୍ରୁତି। କିନ୍ତୁ ସେଇଟା କେଉଁ ଦିଗକୁ ଯାଉଛି, ତାହା ଜାଣିଲେ ତାହା ବେଗ ହେବ। ଦ୍ରୁତି ଓ ବେଗ ଦୁଇଟି ଅଲଗା କଥା। \\n\\nଉଦାହରଣ:\\n୧. ସାଇକେଲ ୧୦ କିଲୋମିଟର ଗଲା। \\n୨. ସମୟ ୨ ଘଣ୍ଟା ଲାଗିଲା। \\n୩. ବେଗ ୫ କିଲୋମିଟର ପ୍ରତି ଘଣ୍ଟା ପୂର୍ବ ଦିଗରେ।\",\n  \"speak\": \"କେତେ ଜୋରରେ ଗତି କରୁଛ ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ଗତି କରୁଛ ସେଇଟା ବେଗ। ଯଦି ତୁମେ ହାଟକୁ ଯିବା ପାଇଁ ସାଇକେଲ ଚଲାଉଛ, ତେବେ ସେଇଟା ଦ୍ରୁତି। କିନ୍ତୁ ସେଇଟା କେଉଁ ଦିଗକୁ ଯାଉଛି, ତାହା ଜାଣିଲେ ତାହା ବେଗ ହେବ। ଦ୍ରୁତି ଓ ବେଗ ଦୁଇଟି ଅଲଗା କଥା। ଉଦାହରଣ: ଗୋଟିଏ ସାଇକେଲ ୧୦ କିଲୋମିଟର ଗଲା, ସମୟ ୨ ଘଣ୍ଟା ଲାଗିଲା, ତେବେ ବେଗ ହେଉଛି ୫ କିଲୋମିଟର ପ୍ରତି ଘଣ୍ଟା ପୂର୍ବ ଦିଗରେ।\",\n  \"cites\": [\n    1,\n    3,\n    7\n  ]\n}"
+  },
+  {
+   "job": "generate",
+   "text": "{\n  \"text\": \"କେତେ ଜୋରରେ ଗତି କରୁଛ ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ଗତି କରୁଛ ସେଇଟା ବେଗ (velocity)। ନଦୀର ପାଣି କେତେ ଜୋରରେ ବହୁଛି ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ ପାଣି କେଉଁ ଆଡ଼କୁ ବହୁଛି ସେଇଟା ବେଗ। ଦ୍ରୁତି କେବଳ ଜୋର କହେ, କିନ୍ତୁ ବେଗ ଜୋର ଓ ଦିଗ ଦୁଇଟି କହେ।\\n\\nଉଦାହରଣ:\\n୧. ବିସ୍ଥାପନ ୬ କିଲୋମିଟର ପୂର୍ବ ଦିଗରେ।\\n୨. ସମୟ ୨ ଘଣ୍ଟା।\\n୩. ବେଗ ୩ କିଲୋମିଟର ପ୍ରତି ଘଣ୍ଟା ପୂର୍ବ ଦିଗରେ।\",\n  \"speak\": \"କେତେ ଜୋରରେ ଗତି କରୁଛ ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ କେଉଁ ଦିଗରେ ଗତି କରୁଛ ସେଇଟା ବେଗ। ନଦୀର ପାଣି କେତେ ଜୋରରେ ବହୁଛି ସେଇଟା ଦ୍ରୁତି, କିନ୍ତୁ ପାଣି କେଉଁ ଆଡ଼କୁ ବହୁଛି ସେଇଟା ବେଗ। ଦ୍ରୁତି କେବଳ ଜୋର କହେ, କିନ୍ତୁ ବେଗ ଜୋର ଓ ଦିଗ ଦୁଇଟି କହେ। ଉଦାହରଣ: ୧. ବିସ୍ଥାପନ ୬ କିଲୋମିଟର ପୂର୍ବ ଦିଗରେ। ୨. ସମୟ ୨ ଘଣ୍ଟା। ୩. ବେଗ ୩ କିଲୋମିଟର ପ୍ରତି ଘଣ୍ଟା ପୂର୍ବ ଦିଗରେ।\",\n  \"cites\": [\n    3,\n    5\n  ]\n}"
+  }
+ ],
+ "steps": [
+  {
+   "input": {
+    "type": "doubt",
+    "doubtId": "g1",
+    "text": "speed aau velocity re farak kana?",
+    "mode": "text"
+   },
+   "chosen": "answer_faq:velocity",
+   "kinds": [
+    "explanation",
+    "check"
+   ],
+   "jobs": [
+    "decide",
+    "generate"
+   ],
+   "outcomes": [
+    "agreed",
+    "approved"
+   ]
+  },
+  {
+   "input": {
+    "type": "answer",
+    "checkId": "chk.vel.1@1",
+    "answer": "a"
+   },
+   "chosen": "remediate:velocity (contrast)",
+   "kinds": [
+    "feedback",
+    "explanation",
+    "check"
+   ],
+   "jobs": [
+    "decide",
+    "generate",
+    "revise"
+   ],
+   "outcomes": [
+    "agreed",
+    "critic reject: too many sentences for level 3; ungrounded numbers: 10, 5",
+    "critic reject again: too many sentences for level 3; ungrounded numbers: 6"
+   ]
+  },
+  {
+   "input": {
+    "type": "answer",
+    "checkId": "chk.vel.5@1",
+    "answer": "b"
+   },
+   "chosen": "continue_check:velocity",
+   "kinds": [
+    "feedback",
+    "check"
+   ],
+   "jobs": [],
+   "outcomes": []
+  },
+  {
+   "input": {
+    "type": "answer",
+    "checkId": "chk.vel.4@1",
+    "answer": "b"
+   },
+   "chosen": "review:displacement",
+   "kinds": [
+    "feedback",
+    "info",
+    "check"
+   ],
+   "jobs": [],
+   "outcomes": []
+  }
+ ]
+}

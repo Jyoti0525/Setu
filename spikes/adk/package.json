@@ -1,0 +1,15 @@
+{
+  "name": "spike-adk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "spike": "tsx spike.ts"
+  },
+  "dependencies": {
+    "@google/adk": "2.2.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
+}
