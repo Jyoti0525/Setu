@@ -10,6 +10,7 @@ import { getMeta, setMeta } from './db.ts';
 import { bookLink, fetchWithTimeout, goodLink } from './net.ts';
 import { install, installState, onInstall, type InstallState } from './install.ts';
 import { t, speak, LANGS } from './i18n.ts';
+import { playClip } from './audio.ts';
 import { readOnline, readOffline, ocrReady } from './snap.ts';
 import { canRecord, record, transcribe, hasWebSpeech, webSpeech, serverListens, type Recording } from './listen.ts';
 import type { Tier } from '@setu/core';
@@ -22,7 +23,7 @@ const figs = (sh: Shelf, bookId: string, page: number) => {
   const f = sh.figuresOn(bookId, page).slice(0, 3).map((p) => ({ src: `/figure/${p.fig}`, text: p.text }));
   return f.length ? { figures: f } : {};
 };
-interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[] }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
+interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[]; say?: string }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
 type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: { topic: string; part: number; parts: number; chapter: string } }
 /** A button in a tutor message: send text, quiz a chapter, pick a subject ([] = all) or chapter, learn a chapter, ask in it. */
@@ -366,7 +367,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
               <span><Icon name="offline" size={16} />{U(lang, 'wayOffline')}</span>
             </div>
             {LANGUAGES[lang]?.draft && <p class="small muted">{U(lang, 'draftLang')}</p>}
-            {profile.home && LANGUAGES[profile.home] && <p class="small muted">🏠 {LANGUAGES[profile.home]!.name} · {U(lang, 'homeNote').replace('{0}', LANGUAGES[profile.home]!.name)}</p>}
+            {profile.home && LANGUAGES[profile.home] && <p class="small muted">🏠 {LANGUAGES[profile.home]!.name} · {U(lang, 'homeNote').replaceAll('{0}', LANGUAGES[profile.home]!.name)}</p>}
             {(inst === 'prompt' || inst === 'ios') && <button class="install" onClick={() => (inst === 'prompt' ? void install() : setIosHelp(!iosHelp))}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
           </section>
         )}
@@ -442,9 +443,9 @@ const LOOKS: Record<string, { emoji: string; color: string }> = {
 const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
 
 const UI: Record<string, Record<string, string>> = {
-  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି', draftLang: 'ଏହି ଭାଷାର ଉତ୍ତର AI ଲେଖେ — ଏ ଭାଷା ଜାଣିଥିବା ଶିକ୍ଷକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।', homeWords: 'ତୁମ ଘର ଭାଷାର ଶବ୍ଦ', homeNote: 'ମୁଁ ସହଜ ଓଡ଼ିଆରେ ବୁଝାଇବି, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ {0} ଶବ୍ଦକୋଷରୁ ତୁମ ଘର ଭାଷାର ଶବ୍ଦ ଯୋଡ଼ିବି।' },
-  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया', draftLang: 'इस भाषा के जवाब AI लिखता है — इस भाषा के किसी शिक्षक ने अभी तक इन्हें जाँचा नहीं है।', homeWords: 'तुम्हारी घर की भाषा के शब्द', homeNote: 'मैं आसान ओड़िया में समझाऊँगा, और ओडिशा सरकार के {0} शब्दकोश से तुम्हारी घर की भाषा के शब्द जोड़ूँगा।' },
-  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided', draftLang: 'Replies in this language are written by AI and not yet checked by a teacher who speaks it.', homeWords: 'Words in your home language', homeNote: 'I explain in easy Odia and add words of your home language from the Government of Odisha {0} dictionary.' },
+  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି', draftLang: 'ଏହି ଭାଷାର ଉତ୍ତର AI ଲେଖେ — ଏ ଭାଷା ଜାଣିଥିବା ଶିକ୍ଷକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।', homeWords: 'ତୁମ ଘର ଭାଷାର ଶବ୍ଦ', homeNote: 'ମୁଁ ସହଜ ଓଡ଼ିଆରେ ବୁଝାଇବି, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ {0} ଶବ୍ଦକୋଷରୁ ତୁମ ଘର ଭାଷାର ଶବ୍ଦ ଯୋଡ଼ିବି।', homeSay: '{0}ରେ ମୂଳ କଥା', homeSayNote: 'AI ଶବ୍ଦକୋଷରୁ ଲେଖିଛି — {0} ଜାଣିଥିବା ଲୋକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।' },
+  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया', draftLang: 'इस भाषा के जवाब AI लिखता है — इस भाषा के किसी शिक्षक ने अभी तक इन्हें जाँचा नहीं है।', homeWords: 'तुम्हारी घर की भाषा के शब्द', homeNote: 'मैं आसान ओड़िया में समझाऊँगा, और ओडिशा सरकार के {0} शब्दकोश से तुम्हारी घर की भाषा के शब्द जोड़ूँगा।', homeSay: '{0} में मुख्य बात', homeSayNote: 'AI ने शब्दकोश से लिखा है — {0} जानने वाले किसी ने अभी जाँचा नहीं है।' },
+  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided', draftLang: 'Replies in this language are written by AI and not yet checked by a teacher who speaks it.', homeWords: 'Words in your home language', homeNote: 'I explain in easy Odia and add words of your home language from the Government of Odisha {0} dictionary.', homeSay: 'The main idea in {0}', homeSayNote: 'Written by AI from the dictionary — not yet checked by a {0} speaker.' },
 };
 const U = (lang: string, k: string) => UI[lang]?.[k] ?? localeOf(lang)?.chat[k] ?? UI.en![k] ?? k;
 
@@ -452,6 +453,21 @@ const TONE: Record<string, { icon: string; key: string }> = {
   praise: { icon: 'check', key: 'right' }, hint: { icon: 'spark', key: 'partly' }, retry: { icon: 'help', key: 'wrong' },
   offline: { icon: 'offline', key: 'offline' }, teacher: { icon: 'users', key: 'teacher' },
 };
+
+/** the main idea in her home language (Kui, Ho…), written by the AI from the dictionary's sentences — a draft until a speaker approves it */
+function HomeSay({ name, say, lang }: { name: string; say: string; lang: string }) {
+  const id = Object.keys(LANGUAGES).find((k) => LANGUAGES[k]!.name === name);
+  // Ho, Kuvi, Munda have their own voice; Kui and Saora are read by the Odia voice (same letters)
+  const play = () => void playClip(say, id ?? 'or').then((ok) => { if (!ok) speak(say, 'or'); });
+  return (
+    <div class="homesay" lang={id}>
+      <span class="small muted">🏠 {U(lang, 'homeSay').replaceAll('{0}', name)}</span>
+      <p>{say}</p>
+      <button class="mini" aria-label={t(lang, 'speak')} onClick={play}><Icon name="volume" size={16} />{t(lang, 'speak')}</button>
+      <span class="small muted">{U(lang, 'homeSayNote').replaceAll('{0}', name)}</span>
+    </div>
+  );
+}
 
 function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip }: { m: TMsg; lang: string; why?: string; showWhy: boolean; toggleWhy: () => void; openSrc: string | null; setOpenSrc: (id: string | null) => void; onChip: (c: NonNullable<TMsg['chips']>[number]) => void }) {
   const [full, setFull] = useState(false);
@@ -466,7 +482,8 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip }
         <p class="say">{care ? m.text.split(/(1098|14416|112)/).map((x, i) => (i % 2 ? <a class="tel" href={`tel:${x}`}>{x}</a> : x)) : m.text}</p>
         {m.terms?.length ? <div class="terms" aria-label={U(lang, 'keyWords')}>{m.terms.map((x) => <span class="term"><b>{x.or}</b><i>{x.en}</i></span>)}</div> : null}
         {/* her home language (Kui, Ho…): words from the Government of Odisha dictionary, never made up */}
-        {m.home?.words.length ? <div class="terms home" aria-label={`${U(lang, 'homeWords')} · ${m.home.name}`}><span class="small muted">🏠 {m.home.name}</span>{m.home.words.map((x) => <span class="term"><b>{x.or}</b><i>{x.home}</i></span>)}</div> : null}
+        {m.home?.say ? <HomeSay name={m.home.name} say={m.home.say} lang={lang} /> : null}
+        {m.home?.words?.length ? <div class="terms homewords" aria-label={`${U(lang, 'homeWords')} · ${m.home.name}`}><span class="small muted">🏠 {m.home.name}</span>{m.home.words.map((x) => <span class="term"><b>{x.or}</b><i>{x.home}</i></span>)}</div> : null}
         {m.check && <div class="qcheck"><span class="label"><Icon name="help" size={15} />{U(lang, 'quickCheck')}</span><p>{m.check}</p></div>}
         {m.sources?.map((s) => {
           const open = openSrc === s.passageId;

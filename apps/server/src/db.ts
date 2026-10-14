@@ -48,6 +48,8 @@ export class Store {
     this.db.exec('CREATE TABLE IF NOT EXISTS tutor_state (profile_id TEXT PRIMARY KEY, state TEXT NOT NULL, at INTEGER NOT NULL)');
     this.db.exec('CREATE TABLE IF NOT EXISTS tutor_log (id INTEGER PRIMARY KEY AUTOINCREMENT, profile_id TEXT NOT NULL, at INTEGER NOT NULL, role TEXT NOT NULL, text TEXT NOT NULL, meta TEXT)');
     this.db.exec('CREATE INDEX IF NOT EXISTS tutor_log_profile ON tutor_log(profile_id, id)');
+    // tier C home languages (Kui, Ho…): the sentences the model wrote, for a speaker to approve or fix at /#review=<lang>
+    this.db.exec('CREATE TABLE IF NOT EXISTS home_lines (lang TEXT NOT NULL, id TEXT NOT NULL, src TEXT NOT NULL, home TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (lang, id))');
     this.db.exec('CREATE TABLE IF NOT EXISTS grants (profile_id TEXT NOT NULL, device_id TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (profile_id, device_id))');
     // P4.4: which turn wrote an event (added after the first schema; old databases get the column here)
     if (!(this.db.prepare('PRAGMA table_info(events)').all() as { name: string }[]).some((c) => c.name === 'turn')) this.db.exec('ALTER TABLE events ADD COLUMN turn TEXT');
@@ -200,6 +202,16 @@ export class Store {
   reviews(lang: string): Record<string, { status: string; text?: string; note?: string; audio?: string; by?: string; at: number }> {
     const rows = this.db.prepare('SELECT * FROM reviews WHERE lang = ? ORDER BY id').all(lang) as any[];
     return Object.fromEntries(rows.map((r) => [r.id, Object.fromEntries(Object.entries({ status: r.status, text: r.text, note: r.note, audio: r.audio, by: r.by, at: r.at }).filter(([, v]) => v !== null))]));
+  }
+  homeLine(lang: string, id: string, src: string, home: string) {
+    this.db.prepare('INSERT OR IGNORE INTO home_lines (lang, id, src, home, at) VALUES (?, ?, ?, ?, ?)').run(lang, id, src, home, Date.now());
+  }
+  homeLines(lang: string, limit = 500): { id: string; src: string; home: string; at: number }[] {
+    return this.db.prepare('SELECT id, src, home, at FROM home_lines WHERE lang = ? ORDER BY at DESC LIMIT ?').all(lang, limit) as any[];
+  }
+  /** the lines a speaker approved (✓) or fixed (✎), as written by the speaker */
+  homeApproved(lang: string): { src: string; home: string }[] {
+    return (this.db.prepare("SELECT h.src, CASE WHEN r.status = 'fixed' THEN r.text ELSE h.home END AS home FROM home_lines h JOIN reviews r ON r.lang = h.lang AND r.id = h.id WHERE h.lang = ? AND r.status IN ('ok', 'fixed') AND (r.status = 'ok' OR r.text IS NOT NULL)").all(lang) as any[]);
   }
   /** teacher decisions on LLM-proposed misconceptions, across classes (input for the next pack revision) */
   candidateAcks(action: string): { classCode: string; ref: string; at: number }[] {

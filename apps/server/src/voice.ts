@@ -11,7 +11,10 @@ import { createInterface } from 'node:readline';
 import { audioKey } from '@setu/core';
 
 /** Languages with a server voice, and how to recognise their text (a reply is in one script). */
-const SCRIPTS: Record<string, RegExp> = { or: /[଀-୿]/, hi: /[ऀ-ॿ]/ };
+// Ho, Kuvi and Munda (tier C) are written in Odia script and have their own MMS voices (Meta, from Bible
+// recordings); their text is never told apart by script, so it is recorded only when the caller names the language.
+const SCRIPTS: Record<string, RegExp> = { or: /[଀-୿]/, hi: /[ऀ-ॿ]/, hoc: /[଀-୿]/, kxv: /[଀-୿]/, unr: /[଀-୿]/ };
+const NAMED_ONLY = new Set(['hoc', 'kxv', 'unr']);
 const MAX_CHARS = 1500;
 const MAX_QUEUE = 50;
 
@@ -41,16 +44,16 @@ export class LiveVoice {
 
   /** The language this text would be voiced in, if the server has a voice for it. */
   langOf(text: string): string | undefined {
-    return Object.entries(SCRIPTS).find(([, re]) => re.test(text))?.[0];
+    return Object.entries(SCRIPTS).find(([l, re]) => !NAMED_ONLY.has(l) && re.test(text))?.[0];
   }
 
   path(lang: string, key: string) { return join(this.o.dir, lang, `${key}.ogg`); }
 
   /** Queue a recording of text the server wrote. Returns its key, or undefined when there is nothing to record. */
-  say(text: string | undefined): string | undefined {
+  say(text: string | undefined, named?: string): string | undefined {
     const t = text?.trim();
     if (!t || !this.enabled) return undefined;
-    const lang = this.langOf(t);
+    const lang = named && SCRIPTS[named]?.test(t) ? named : this.langOf(t);
     if (!lang) return undefined;
     const key = audioKey(t);
     if (this.o.shipped?.[lang]?.has(key) || existsSync(this.path(lang, key)) || this.waiting.has(`${lang}/${key}`)) return key;
@@ -58,7 +61,10 @@ export class LiveVoice {
     let resolve!: (ok: boolean) => void;
     const done = new Promise<boolean>((r) => { resolve = r; });
     this.waiting.set(`${lang}/${key}`, { done, resolve });
-    this.queue.push({ key, text: t.slice(0, MAX_CHARS), out: this.path(lang, key), lang });
+    const job = { key, text: t.slice(0, MAX_CHARS), out: this.path(lang, key), lang };
+    // her home-language sentence is short and she taps it right away: it goes before the long Odia replies
+    if (named && NAMED_ONLY.has(lang)) this.queue.splice(this.busy ? 1 : 0, 0, job);
+    else this.queue.push(job);
     this.start();
     this.pump();
     return key;
@@ -107,7 +113,7 @@ export class LiveVoice {
   private onLine(line: string) {
     let m: { ready?: boolean; key?: string; ok?: boolean; error?: string };
     try { m = JSON.parse(line); } catch { return; }
-    if (m.ready) { this.ready = true; this.failures = 0; this.o.log?.('live voice ready (MMS Odia + Hindi)'); this.pump(); return; }
+    if (m.ready) { this.ready = true; this.failures = 0; this.o.log?.('live voice ready (MMS Odia + Hindi, Ho, Kuvi, Munda)'); this.pump(); return; }
     const head = this.queue.shift();
     this.busy = false;
     if (head) {

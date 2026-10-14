@@ -149,7 +149,7 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
       {showHome && <div class="row">{bridgeLanguages().map((h) => (
         <button class={home === h.id ? 'sel' : ''} aria-pressed={home === h.id} onClick={() => { setHome(h.id); setLang(h.school ?? 'or'); }}>{h.name}{h.name !== h.english ? ` · ${h.english}` : ''}</button>
       ))}</div>}
-      {home && <p class="hint" role="status">{t(L, 'bridgeNote').replace('{0}', LANGUAGES[home]?.english ?? home).replace('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
+      {home && <p class="hint" role="status">{t(L, 'bridgeNote').replaceAll('{0}', LANGUAGES[home]?.english ?? home).replaceAll('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
       {lang && <>
         <h2><span class="n">2</span>{t(lang, 'chooseAvatar')}</h2>
         <div class="grid avatars">

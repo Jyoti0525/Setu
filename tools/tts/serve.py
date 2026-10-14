@@ -8,7 +8,8 @@ sys.stdin.reconfigure(encoding='utf-8')
 from mms import Voice
 
 # one model per language, loaded on first use (Odia at start: it is the demo language)
-MODELS = {'or': 'facebook/mms-tts-ory', 'hi': 'facebook/mms-tts-hin'}
+# Ho, Kuvi, Munda: tribal languages of Odisha, Odia script (the tutor's sentences in her home language)
+MODELS = {'or': 'facebook/mms-tts-ory', 'hi': 'facebook/mms-tts-hin', 'hoc': 'facebook/mms-tts-hoc', 'kxv': 'facebook/mms-tts-kxv', 'unr': 'facebook/mms-tts-unr'}
 voices = {'or': Voice(MODELS['or'])}
 def voice_for(lang):
     if lang not in voices: voices[lang] = Voice(MODELS[lang])

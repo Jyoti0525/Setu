@@ -7,14 +7,14 @@
 
 import type { LlmRequest } from '@google/adk';
 import {
-  LANGUAGES, nameIn, focusQuote, applyTurn, topicKey, normalizeForMatch, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan, type TutorLesson,
+  LANGUAGES, audioKey, nameIn, focusQuote, applyTurn, topicKey, normalizeForMatch, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan, type TutorLesson,
 } from '@setu/core';
 import { canCall, type ModelSet } from '../llm.ts';
 import { parseJson, textOf } from '../agent/cycle.ts';
 import type { Store } from '../db.ts';
 import { translatable, type HybridRag, type NlpWorker } from '../rag.ts';
 import { tutorPrompt, validateOut, type HomeWords, type TutorModelOut } from './prompt.ts';
-import { checkHomeWords, homeWordsFor, type HomeList } from './home.ts';
+import { checkHomeWords, homeCheck, homeWordsFor, sayPrompt, type HomeList } from './home.ts';
 
 const RUDE = /\b(shit\w*|fuck\w*|damn\w*|bitch\w*|bastard\w*|ass(hole)?|crap\w*|bloody|idiot\w*|stupid)\b/i;
 
@@ -67,7 +67,7 @@ export interface TutorMsg {
   check?: string;
   terms?: { or: string; en: string }[];
   /** her home-language words in this reply (tier C), from the government dictionaries */
-  home?: { name: string; words: { or: string; home: string }[] };
+  home?: { name: string; words: { or: string; home: string }[]; say?: string };
   tone?: 'care' | 'praise' | 'retry' | 'hint' | 'info' | 'offline' | 'teacher';
   /** buttons: things she can tap instead of typing */
   chips?: TutorChip[];
@@ -207,6 +207,19 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       homeUsed = c.used.length ? c.used : home.words.filter((w) => out!.reply.includes(w.or)).slice(0, 4);
       tools.push({ tool: 'critic.home_words', args: { lang: req.home }, status: c.dropped ? 'fallback' : 'ok', note: `${c.used.length} ${home.name} words from the dictionary${c.dropped ? `, ${c.dropped} not in it → removed` : ''}` });
     }
+    // the main idea in her home language, learned from the dictionary's own sentences; kept only when its words are real
+    let homeSay: string | undefined;
+    if (out && home && hl && out.reply.length > 60 && plan.action !== 'not_in_book') {
+      const approved = d.store.homeApproved(req.home!).map((x) => ({ or: x.src, home: x.home, from: 'speaker' as const }));
+      const sp = sayPrompt(hl, out.reply, home, approved);
+      const s = await write(d.models, 'or', sp, 8_000);
+      const say = String((parseJson(s.text ?? '') as { say?: unknown } | null)?.say ?? '').replace(/\s+/g, ' ').trim().slice(0, 400);
+      const q = homeCheck(say, hl, out.reply, approved);
+      const ok = !!say && q.known >= 0.7 && q.notOdia >= 0.3;
+      if (ok) { homeSay = say; d.store.homeLine(req.home!, audioKey(say), out.reply.slice(0, 900), say); }
+      llm.push({ job: 'tutor.home_say', provider: d.models.lastUsed.generate, latency_ms: s.ms, outcome: s.text ? 'ok' : s.error ?? 'failed' });
+      tools.push({ tool: 'model.home_say', args: { lang: req.home, examples: 40, approved: approved.length }, status: ok ? 'ok' : 'fallback', latency_ms: s.ms, note: say ? `${hl.name}: ${Math.round(q.known * 100)}% of words in the dictionary, ${Math.round(q.notOdia * 100)}% not Odia${ok ? '' : ' → not shown'}` : 'no sentence → words only' });
+    }
     tools.push({ tool: 'model.write', args: { action: plan.action, strategy: plan.strategy, check: plan.askCheck }, status: out ? 'ok' : 'fallback', latency_ms: r.ms, note: out ? `${out.reply.length} chars${out.grade ? ', graded ' + out.grade.verdict : ''}${out.check ? ', new check' : ''}` : 'no usable reply → textbook passage' });
     if (!out) {
       status = 'fallback';
@@ -218,7 +231,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       const tone = out.grade ? ({ right: 'praise', partly: 'hint', wrong: 'retry' } as const)[out.grade.verdict] : undefined;
       // "not in your book" with no passage used: no page card (the nearest search hit is unrelated, figures and all)
       const offBook = plan.action === 'not_in_book' && !out.used.length;
-      messages.push({ text: out.reply, by: 'model', ...(offBook ? {} : { sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang) }), ...(out.terms.length ? { terms: out.terms } : {}), ...(homeUsed.length ? { home: { name: home!.name, words: homeUsed } } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
+      messages.push({ text: out.reply, by: 'model', ...(offBook ? {} : { sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang) }), ...(out.terms.length ? { terms: out.terms } : {}), ...(homeUsed.length || homeSay ? { home: { name: home!.name, words: homeUsed, ...(homeSay ? { say: homeSay } : {}) } } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
       if (plan.switchedBook) messages[0]!.text = TL(lang, 'switched', subjectName(d.shelf, plan.switchedBook, lang)) + '\n' + messages[0]!.text;
       if (plan.action === 'teach' && learn) messages[0]!.text = `📖 ${topicName(d.shelf, plan.topic, lang)} · ${TL(lang, 'part_of', String(learn.part + 1), String(learn.parts))}\n` + messages[0]!.text;
       // in a lesson a right answer opens the next part; partly / wrong keep her on this one (a hint, or a new check)

@@ -1,7 +1,7 @@
 // Tier C home-language words (Kui, Ho…) and board-scoped search: only dictionary words reach her, only her board's books answer her.
 import { describe, expect, it } from 'vitest';
 import { Shelf, nameIn, type BookIndex } from '@setu/core';
-import { checkHomeWords, homeWordsFor, loadHomeWords, type HomeList } from '../src/tutor/home.ts';
+import { checkHomeWords, homeCheck, homePairs, homeWordsFor, loadHomeWords, nearestPairs, sayPrompt, type HomeList } from '../src/tutor/home.ts';
 import { tutorPrompt } from '../src/tutor/prompt.ts';
 import { fileURLToPath } from 'node:url';
 
@@ -43,6 +43,36 @@ describe('home-language words (tier C)', () => {
 const book = (id: string, board: string, text: string): BookIndex => ({
   meta: { id, subject: { or: id, en: id }, title: { or: id, en: id }, classLevel: 9, board, source: 't', pageOffset: 0, chapters: [{ n: 1, title: { or: 'ଅ', en: 'Tissues', hi: 'ऊतक' }, startPage: 1, endPage: 9 }] },
   passages: [{ id: `${id}.p1`, ch: 1, page: 1, text }], glossary: [], version: '1',
+});
+
+describe('her home language in sentences (learned from the dictionary)', () => {
+  const ho: HomeList = { id: 'hoc', name: 'Ho', sources: ['test'], entries: [
+    { or: 'ପାଣି', home: 'ଦାଆଃ', ex: { or: 'ଗଛ ପାଣି ପିଏ।', home: 'ଦାରୁ ଦାଆଃ ନୁଁଆ।' } },
+    { or: 'ବର୍ଷା', home: 'ଗାମା', ex: { or: 'ବର୍ଷା ହେଉଛି।', home: 'ଗାମା ହିଜୁଃ ତାନା।' } },
+    { or: 'ଘର', home: 'ଅଆଃ', ex: { or: 'ମୋ ଘର ଦୂର।', home: 'ଆଇଁଙ୍‌ଆଃ ଅଆଃ ସାଙ୍ଗିଲ୍‌।' } },
+    { or: 'ଏଠାକୁ ଆସ', home: 'ନେନ୍‌ ତାଆଃତେ ହୁଜୁଃମ୍‌' },
+  ] };
+  it('learns from the dictionary sentences and primer phrases, lines a speaker approved first', () => {
+    const pairs = homePairs(ho, [{ or: 'ପାଣି ବର୍ଷାରୁ ଆସେ।', home: 'ଦାଆଃ ଗାମାଏତେ ହିଜୁଃଆ।', from: 'speaker' }]);
+    expect(pairs.map((p) => p.from)).toEqual(['speaker', 'dictionary', 'dictionary', 'dictionary', 'primer']);
+    expect(nearestPairs(pairs, 'ବର୍ଷା ପାଣି', 2)[0]!.from).toBe('speaker');
+    expect(nearestPairs(pairs, 'ବର୍ଷା ହେଉଛି', 2).map((p) => p.or)).toContain('ବର୍ଷା ହେଉଛି।');
+  });
+  it('keeps a sentence made of dictionary words (with endings), and science words kept in Odia', () => {
+    const q = homeCheck('ଗାମା ହିଜୁଃ ତାନା। ଦାଆଃରେ ବାଷ୍ପୀଭବନ।', ho, 'ବର୍ଷା ବାଷ୍ପୀଭବନ ପରେ ହୁଏ।');
+    expect(q.known).toBe(1);
+    expect(q.notOdia).toBeGreaterThan(0.7);
+  });
+  it('rejects made-up words and a sentence that is only Odia', () => {
+    expect(homeCheck('ଲୁମାଟୋ କିରାପି ଜୋଗୁ', ho, 'x').known).toBe(0);
+    expect(homeCheck('ବର୍ଷା ପରେ ହୁଏ', ho, 'ବର୍ଷା ବାଷ୍ପୀଭବନ ପରେ ହୁଏ।').notOdia).toBe(0);
+  });
+  it('the prompt carries the nearest real sentence pairs and the word list', () => {
+    const p = sayPrompt(ho, 'ବର୍ଷା ହେଉଛି, ପାଣି ପଡ଼େ।', { name: 'Ho', words: [{ or: 'ପାଣି', home: 'ଦାଆଃ' }] });
+    expect(p.user).toContain('Odia: ବର୍ଷା ହେଉଛି।\nHo: ଗାମା ହିଜୁଃ ତାନା।');
+    expect(p.user).toContain('ପାଣି = ଦାଆଃ');
+    expect(p.system).toMatch(/Never guess a word/);
+  });
 });
 
 describe('board-scoped books', () => {

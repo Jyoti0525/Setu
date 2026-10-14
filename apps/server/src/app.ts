@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Push } from './push.ts';
-import { PackMatcher, packDiff, bridgeLanguages, isUnsafe, textIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
+import { LANGUAGES, PackMatcher, packDiff, bridgeLanguages, isUnsafe, textIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
 import { runTutor, openTutor, type TutorDeps, type TutorRequest } from './tutor/run.ts';
 import { Store } from './db.ts';
 import { tokenMeter, buildModels, canCall, type ModelSet } from './llm.ts';
@@ -184,6 +184,8 @@ export function createApp(o: AppOptions) {
     const res = await running;
     // AI-written replies get a recorded voice too (Odia phones have none)
     for (const m of res.messages) if (m.by === 'model') o.voice?.say(m.text + (m.check ? ' ' + m.check : ''));
+    // her home language (Ho, Kuvi, Munda have MMS voices): the sentence in the 🏠 card
+    for (const m of res.messages) if (m.home?.say) o.voice?.say(m.home.say, body.home);
     c.header('x-server-ms', String(Date.now() - now));
     return c.json(res);
   });
@@ -346,9 +348,9 @@ export function createApp(o: AppOptions) {
   // ---- live voice (TODO P3.9): only replies the server recorded; the phone falls back to its own voice on 404 ----
   // a line on her screen with no recording yet (fixed Hindi lines, older replies): record it now, then GET it
   app.post('/voice/say', async (c) => {
-    const b = (await c.req.json().catch(() => ({}))) as { text?: string };
+    const b = (await c.req.json().catch(() => ({}))) as { text?: string; lang?: string };
     if (typeof b.text !== 'string' || b.text.length > 1500) return c.json({ error: 'bad text' }, 400);
-    const key = o.voice?.say(b.text);
+    const key = o.voice?.say(b.text, typeof b.lang === 'string' ? b.lang : undefined);
     return key ? c.json({ key }) : c.json({ error: 'no voice' }, 404);
   });
   // a textbook figure for the answer card: public book pictures, so no device token (an <img> sends none)
@@ -411,6 +413,15 @@ export function createApp(o: AppOptions) {
   app.get('/api/review/:lang', (c) => {
     if (!reviewer(c.req.header('x-review-key'))) return c.json({ error: 'reviewer key needed' }, 403);
     return c.json(store.reviews(c.req.param('lang')));
+  });
+  // tier C (Kui, Ho…): the sentences the model wrote in her home language, next to the Odia they explain. A line a
+  // speaker approves (✓) or fixes (✎) becomes an example the model learns from (tutor/home.ts).
+  app.get('/review/:file', (c, next) => {
+    const lang = /^([a-z]{2,3})\.json$/.exec(c.req.param('file'))?.[1];
+    if (!lang || LANGUAGES[lang]?.tier !== 'C') return next();
+    const voiced = ['hoc', 'kxv', 'unr'].includes(lang);
+    const rows = store.homeLines(lang).map((l) => ({ id: l.id, group: `${LANGUAGES[lang]!.name} · AI`, text: l.home, en: l.src, ...(voiced ? { audio: `/voice/${lang}/${l.id}.ogg` } : {}) }));
+    return c.json({ rows }, 200, { 'cache-control': 'no-store' });
   });
   app.post('/api/review/:lang', async (c) => {
     if (!reviewer(c.req.header('x-review-key'))) return c.json({ error: 'reviewer key needed' }, 403);
