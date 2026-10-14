@@ -37,6 +37,12 @@ pnpm --filter @setu/web dev
 
 Vite prints the local address (normally `http://localhost:5173`). Open `/` for the public page, `/login` to sign in, or `/register` to create an account. Authenticated sessions continue to `/dashboard`.
 
+## 4. Verify sign-in on the backend
+
+The web app sends the signed-in user's short-lived Firebase ID token with API requests. The server verifies it with Firebase Admin before accepting it. Set `FIREBASE_PROJECT_ID` in `apps/server/.env`. For local development, also set `GOOGLE_APPLICATION_CREDENTIALS` to the path of a service-account JSON file, or provide the JSON through `FIREBASE_SERVICE_ACCOUNT_JSON`. Keep service-account credentials server-side; never add them to `apps/web/.env.local` or commit them. In managed Google environments, Application Default Credentials can provide the server credentials.
+
+`GET /api/auth/session` confirms whether token verification is working. Existing device tokens remain in use for offline sync and device-level access.
+
 ## Account and learner profile
 
 Firebase Authentication manages identity. After the first sign-in on a device, Setu asks for the existing learner profile details (name, language, class, and optional class code) and stores the learning profile and learning history locally, as the current application does. The app does not currently have a server-side user-profile API or cloud database that maps Firebase identities to learner history, so signing in on a different device will require setting up a local learner profile there. No Firestore database was added as a second source of truth.

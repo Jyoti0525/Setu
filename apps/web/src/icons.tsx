@@ -1,5 +1,6 @@
 // Inline stroke icons (24×24, currentColor): no icon font or library to download on a 2 GB phone.
 const P: Record<string, string> = {
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3',
   send: 'M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z',
   mic: 'M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v3',
   stop: 'M7 7h10v10H7z',
@@ -17,10 +18,12 @@ const P: Record<string, string> = {
   spark: 'M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01',
   chevron: 'm9 18 6-6-6-6',
+  'chevron-left': 'm15 18-6-6 6-6',
   down: 'm6 9 6 6 6-6',
   play: 'M6 4l14 8-14 8z',
   users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8',
   plus: 'M12 5v14M5 12h14',
+  history: 'M3 12a9 9 0 1 0 2.64-6.36L3 8m0-5v5h5m4-1v5l3 2',
   qr: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h3v3h-3zM20 14v.01M14 20h.01M17 17h4v4h-4',
 };
 
@@ -33,14 +36,7 @@ export function Icon({ name, size = 22, label }: { name: keyof typeof P | string
   );
 }
 
-/** The Setu mark: a bridge arch over water, in the brand colours. */
+/** Shared Setu brand artwork, used consistently from the navbar to the loading screen. */
 export function Logo({ size = 36 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" class="logo">
-      <rect width="48" height="48" rx="14" fill="var(--primary)" />
-      <path d="M8 31c5-11 27-11 32 0" stroke="var(--accent)" stroke-width="3.5" fill="none" stroke-linecap="round" />
-      <path d="M8 31h32M16 31v-6M24 31v-8M32 31v-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round" />
-      <path d="M10 37c3-2 5-2 8 0s5 2 8 0 5-2 8 0" stroke="#fff" stroke-opacity=".55" stroke-width="2" fill="none" stroke-linecap="round" />
-    </svg>
-  );
+  return <img src="/setu-learning-bridge.png" width={size} height={size} alt="" aria-hidden="true" class="logo" />;
 }

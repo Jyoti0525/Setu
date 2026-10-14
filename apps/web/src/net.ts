@@ -1,6 +1,7 @@
 // Real connectivity detection (PLAN §8.1): active probe + timeouts + rolling RTT, not navigator.onLine.
 
 import type { Tier } from '@setu/core';
+import { auth } from './firebase.ts';
 
 const rtts: number[] = [];
 let failures = 0;
@@ -21,7 +22,13 @@ function setTier(t: Tier) {
 export async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 8000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ctrl.signal }); } finally { clearTimeout(timer); }
+  try {
+    const headers = new Headers(init.headers);
+    if (url.startsWith('/api/') && auth?.currentUser) {
+      headers.set('authorization', `Bearer ${await auth.currentUser.getIdToken()}`);
+    }
+    return await fetch(url, { ...init, headers, signal: ctrl.signal });
+  } finally { clearTimeout(timer); }
 }
 
 export async function probe(): Promise<Tier> {

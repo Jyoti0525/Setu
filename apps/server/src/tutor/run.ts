@@ -30,6 +30,8 @@ export interface TutorRequest {
   lang: string;
   /** subject she picked: its book ids (one subject can be several books), or none = all her books */
   bookIds?: string[];
+  /** selected subject context for follow-up checks; topic mastery stays profile-wide */
+  memoryScope?: string;
   mode?: 'text' | 'voice' | 'photo';
   /** she accepted the agent's offer to review this topic */
   review?: string;
@@ -54,7 +56,23 @@ export interface TutorResponse { messages: TutorMsg[]; trace: TutorTrace; memory
 
 const BUDGET_MS = 14_000;
 
-export function memoryOf(store: Store, profileId: string): TutorMemory { return store.tutorState<TutorMemory>(profileId) ?? emptyMemory(); }
+const scopedMemoryId = (profileId: string, scope?: string) => scope ? `${profileId}::subject::${scope}` : profileId;
+export function memoryOf(store: Store, profileId: string, scope?: string): TutorMemory {
+  const profileMemory = store.tutorState<TutorMemory>(profileId) ?? emptyMemory();
+  if (!scope) return profileMemory;
+  const subjectMemory = store.tutorState<TutorMemory>(scopedMemoryId(profileId, scope))
+    ?? (scope.startsWith('subject:') ? store.tutorState<TutorMemory>(scopedMemoryId(profileId, `pilot:${scope.slice('subject:'.length)}`)) : undefined);
+  return { ...profileMemory, check: subjectMemory?.check };
+}
+function saveMemory(store: Store, profileId: string, scope: string | undefined, memory: TutorMemory, at: number) {
+  if (!scope) { store.setTutorState(profileId, memory, at); return; }
+  const previous = store.tutorState<TutorMemory>(profileId) ?? emptyMemory();
+  store.setTutorState(profileId, { ...memory, check: previous.check }, at);
+  const scopedId = scopedMemoryId(profileId, scope);
+  const prior = store.tutorState<TutorMemory>(scopedId)
+    ?? (scope.startsWith('subject:') ? store.tutorState<TutorMemory>(scopedMemoryId(profileId, `pilot:${scope.slice('subject:'.length)}`)) : undefined);
+  store.setTutorState(scopedId, prior ? { ...memory, check: memory.check ?? prior.check } : memory, at);
+}
 
 /** One message from her → the agent's reply. */
 export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorResponse> {
@@ -64,7 +82,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
   const llm: TutorTrace['llm_calls'] = [];
   const lang = req.lang || 'or';
   const text = scrubPii(req.text ?? '').slice(0, 1200);
-  let m = memoryOf(d.store, req.profileId);
+  let m = memoryOf(d.store, req.profileId, req.memoryScope);
 
   // 1. safety: on the raw words, before anything is stored or sent to a model
   const safety = screen(text, true);
@@ -167,7 +185,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
   });
   // a grade with escalation stamps the topic too
   if (escalated && checkTopic && m.topics[checkTopic]) m.topics[checkTopic]!.escalatedAt = now;
-  d.store.setTutorState(req.profileId, m, now);
+  saveMemory(d.store, req.profileId, req.memoryScope, m, now);
   const after = checkTopic ? m.topics[checkTopic]?.pKnown : undefined;
   tools.push({ tool: 'memory.update', args: { topic: checkTopic }, status: 'ok', note: before !== after && after !== undefined ? `mastery ${Math.round((before ?? 0.2) * 100)}% → ${Math.round(after * 100)}%` : m.check ? 'check open' : 'noted' });
 
@@ -191,10 +209,10 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
 }
 
 /** Session start: the agent speaks first — a follow-up it decided on, or a welcome with her subjects. */
-export function openTutor(d: TutorDeps, req: { profileId: string; lang: string; bookIds?: string[] }): { messages: TutorMsg[]; memory: TutorResponse['memory'] } {
+export function openTutor(d: TutorDeps, req: { profileId: string; lang: string; bookIds?: string[]; memoryScope?: string }): { messages: TutorMsg[]; memory: TutorResponse['memory'] } {
   const now = d.now?.() ?? Date.now();
   const lang = req.lang || 'or';
-  const m = memoryOf(d.store, req.profileId);
+  const m = memoryOf(d.store, req.profileId, req.memoryScope);
   const o = openerFor(m, now);
   const messages: TutorMsg[] = [];
   if (o.kind === 'recheck') messages.push({ text: TL(lang, 'recheck'), check: o.check.question, by: 'policy', tone: 'info' });

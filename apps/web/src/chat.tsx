@@ -20,7 +20,8 @@ interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or:
 type Line = ({ role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string }) & { bookIds?: string[] };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
-interface Queued { id: string; text: string; bookIds?: string[]; at: number }
+interface Queued { id: string; text: string; bookIds?: string[]; memoryScope?: string; conversationId?: string; at: number }
+interface ChatConversation { id: string; subjectIds: string[]; subjectKey: string; createdAt: number; updatedAt: number; lines: Line[] }
 
 const keep = (lines: Line[]) => lines.slice(-60);
 
@@ -35,13 +36,31 @@ function subjectsOf(books: BookInfo[]) {
   return [...m.values()];
 }
 
-export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, onLogout }: {
+const subjectKey = (ids: string[]) => [...ids].sort().join('|');
+const memoryKey = (profileId: string, scope?: string) => scope ? `memory:${profileId}:${scope}` : `memory:${profileId}`;
+const subjectMemory = async (profileId: string, scope: string) => {
+  const current = await getMeta<Memory | undefined>(memoryKey(profileId, scope), undefined);
+  if (current) return current;
+  // Preserve checks saved by the earlier Mathematics/Geography pilot scope.
+  const legacyPilotScope = scope.startsWith('subject:') ? `pilot:${scope.slice('subject:'.length)}` : undefined;
+  return legacyPilotScope ? getMeta<Memory>(memoryKey(profileId, legacyPilotScope), { topics: [] }) : { topics: [] };
+};
+const conversationTitle = (lines: Line[]) => lines.find((line): line is Extract<Line, { role: 'student' }> => line.role === 'student')?.text.trim().slice(0, 56) || 'New chat';
+const conversationMatches = (line: Line, ids: string[]) => !!line.bookIds?.some((id) => ids.includes(id));
+
+export function Chat({ agent, lang, tier, profile, identityName, identityEmail, onGuided, onSwitch, onLang, onLogout }: {
   agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string };
+  identityName?: string | null; identityEmail?: string | null;
   onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>; onLogout: () => void;
 }) {
   const pid = profile.id;
   const online = tier !== 'device' && !!agent.device;
   const [lines, setLines] = useState<Line[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [memoryScope, setMemoryScope] = useState<string | undefined>(undefined);
+  const [showChatHistory, setShowChatHistory] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('setu-sidebar-collapsed') === 'true');
   const [books, setBooks] = useState<BookInfo[]>([]);
   const [subject, setSubject] = useState<string[] | undefined>(undefined);
   const [view, setView] = useState<'overview' | 'chat'>('overview');
@@ -52,19 +71,52 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
   const [showWhy, setShowWhy] = useState<number | null>(null);
   const [sheet, setSheet] = useState<'progress' | 'lang' | null>(null);
   const [mic, setMic] = useState<'idle' | 'rec' | 'live' | 'hearing'>('idle');
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('setu-theme');
+    return saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const rec = useRef<Recording | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const shelf = useRef<Shelf | null>(null);
+  const activeConversationRef = useRef<string | null>(null);
+  const memoryScopeRef = useRef<string | undefined>(memoryScope);
+  const legacyLinesRef = useRef<Line[]>([]);
+  const conversationsRef = useRef(conversations);
+  activeConversationRef.current = activeConversationId;
+  memoryScopeRef.current = memoryScope;
+  conversationsRef.current = conversations;
   const headers = () => ({ 'content-type': 'application/json', 'x-device-token': agent.device!.token });
-  const add = (l: Line[], bookIds = subject) => setLines((p) => {
-    const scoped = bookIds?.length ? l.map((line) => ({ ...line, bookIds })) : l;
-    const n = keep([...p, ...scoped]); void setMeta(`chat:${pid}`, n); return n;
-  });
+  const replaceConversations = (next: ChatConversation[]) => { conversationsRef.current = next; setConversations(next); };
+  const appendChatLines = (incoming: Line[], bookIds = subject, conversationId = activeConversationId, avoidRepeatedOpener = false) => {
+    const scoped = bookIds?.length ? incoming.map((line) => ({ ...line, bookIds })) : incoming;
+    if (conversationId) {
+      const previous = conversationsRef.current;
+      const chat = previous.find((item) => item.id === conversationId);
+      if (!chat) return;
+      const last = [...chat.lines].reverse().find((line) => line.role === 'tutor');
+      const additions = avoidRepeatedOpener ? scoped.filter((line) => !(line.role === 'tutor' && last?.msg.text === line.msg.text)) : scoped;
+      const nextLines = [...chat.lines, ...additions];
+      const updated = previous.map((item) => item.id === conversationId ? { ...item, lines: nextLines, updatedAt: Date.now() } : item);
+      replaceConversations(updated); void setMeta(`chatSessions:${pid}`, updated);
+      if (activeConversationRef.current === conversationId) setLines(nextLines);
+    } else {
+      const previous = legacyLinesRef.current;
+      const last = [...previous].reverse().find((line) => line.role === 'tutor');
+      const additions = avoidRepeatedOpener ? scoped.filter((line) => !(line.role === 'tutor' && last?.msg.text === line.msg.text)) : scoped;
+      const next = keep([...previous, ...additions]);
+      legacyLinesRef.current = next; void setMeta(`chat:${pid}`, next);
+      if (activeConversationRef.current === null) setLines(next);
+    }
+  };
+  const add = (l: Line[], bookIds = subject, conversationId = activeConversationId) => appendChatLines(l, bookIds, conversationId);
 
   // start: her conversation so far (kept on the phone), her subjects, then the agent speaks first
   useEffect(() => {
     void (async () => {
-      setLines(await getMeta<Line[]>(`chat:${pid}`, []));
+      const previousLines = await getMeta<Line[]>(`chat:${pid}`, []);
+      legacyLinesRef.current = previousLines;
+      setLines(previousLines);
+      replaceConversations(await getMeta<ChatConversation[]>(`chatSessions:${pid}`, []));
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
       setBooks(await getMeta<BookInfo[]>('books', []));
@@ -79,6 +131,10 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
       } else add([{ role: 'tutor', msg: { text: TL(lang, 'welcome_back'), by: 'policy' }, at: Date.now() }]);
     })();
   }, []);
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+    localStorage.setItem('setu-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth' }); }, [lines.length, busy]);
   // signal back → kept questions are answered now
   useEffect(() => { if (online) void sendQueued(); }, [tier]);
@@ -105,20 +161,16 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
     return shelf.current;
   }
 
-  async function openSession() {
+  async function openSession(bookIds = subject, conversationId = activeConversationId, scope = memoryScope) {
+    if (!online) return;
     try {
-      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject }) }, 8000);
+      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds, memoryScope: scope }) }, 8000);
       if (!r.ok) return;
       const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
-      // reopening the app must not stack the same greeting again under the last one
-      setLines((p) => {
-        const last = [...p].reverse().find((l) => l.role === 'tutor');
-        const msgs = j.messages.filter((msg) => !(last?.role === 'tutor' && last.msg.text === msg.text));
-        const n = keep([...p, ...msgs.map((msg) => ({ role: 'tutor' as const, msg, at: Date.now(), ...(subject?.length ? { bookIds: subject } : {}) }))]);
-        void setMeta(`chat:${pid}`, n);
-        return n;
-      });
-      setMemory(j.memory); void setMeta(`memory:${pid}`, j.memory);
+      const incoming = j.messages.map((msg) => ({ role: 'tutor' as const, msg, at: Date.now() }));
+      appendChatLines(incoming, bookIds, conversationId, true);
+      void setMeta(memoryKey(pid, scope), j.memory);
+      if (memoryScopeRef.current === scope) setMemory(j.memory);
     } catch { /* stays quiet: she can still ask */ }
   }
 
@@ -132,12 +184,13 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
     if (online) {
       setBusy(t(lang, 'thinking'));
       try {
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, turnId }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, memoryScope, mode: opts.mode ?? 'text', review: opts.review, turnId }) }, 30000);
         if (r.ok) {
           const j = (await r.json()) as { messages: TMsg[]; memory: Memory; trace: { chosen: string; reason: string; tools: { tool: string; note?: string }[] } };
           const why = `${j.trace.chosen} — ${j.trace.reason}\n${j.trace.tools.map((x) => x.tool + (x.note ? ` (${x.note})` : '')).join(' → ')}`;
           add(j.messages.map((m, i) => ({ role: 'tutor' as const, msg: m, at: Date.now(), ...(i === j.messages.length - 1 ? { why } : {}) })));
-          setMemory(j.memory); void setMeta(`memory:${pid}`, j.memory);
+          void setMeta(memoryKey(pid, memoryScope), j.memory);
+          if (memoryScopeRef.current === memoryScope) setMemory(j.memory);
           return;
         }
       } catch { /* signal dropped mid-turn → the phone answers below */ } finally { setBusy(null); }
@@ -152,7 +205,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
       // no book on this phone yet (never online long enough): say so, keep the question
       add([{ role: 'tutor', msg: { text: U(lang, 'noBooksYet'), tone: 'offline', by: 'policy' }, at: Date.now(), why: 'no textbook saved on this phone yet → question kept for when online' }]);
       const q = await getMeta<Queued[]>(`tutorQueue:${pid}`, []);
-      await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, at: Date.now() }]);
+      await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, memoryScope, conversationId: activeConversationId ?? undefined, at: Date.now() }]);
       return;
     }
     const hits = sh.search(msg, { limit: 4, picked: subject });
@@ -168,7 +221,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
     const src: Source[] | undefined = h ? [{ bookId: h.bookId, subject: name(sh.books.get(h.bookId)?.meta.subject), chapter: name(sh.chapterOf(h.bookId, h.passage.ch)?.title), page: h.passage.page, passageId: h.passage.id, quote, ...(quote !== h.passage.text ? { full: h.passage.text } : {}) }] : undefined;
     add([{ role: 'tutor', msg: { text: TL(lang, h ? 'offline_passage' : 'offline_none'), tone: 'offline', sources: src, by: 'policy' }, at: Date.now(), why: `${plan.action} — ${plan.reason}` }]);
     const q = await getMeta<Queued[]>(`tutorQueue:${pid}`, []);
-    await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, at: Date.now() }]);
+      await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, memoryScope, conversationId: activeConversationId ?? undefined, at: Date.now() }]);
   }
 
   async function sendQueued() {
@@ -177,11 +230,13 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
     const left: Queued[] = [];
     for (const x of q) {
       try {
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, queuedAt: x.at, turnId: x.id }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, memoryScope: x.memoryScope, queuedAt: x.at, turnId: x.id }) }, 30000);
         if (!r.ok) { left.push(x); continue; }
         const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
-        add([{ role: 'tutor', msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))], x.bookIds ?? []);
-        setMemory(j.memory);
+        const incoming: Line[] = [{ role: 'tutor' as const, msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' as const }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))].map((line) => ({ ...line, ...(x.bookIds?.length ? { bookIds: x.bookIds } : {}) }));
+        appendChatLines(incoming, x.bookIds ?? [], x.conversationId ?? null);
+        void setMeta(memoryKey(pid, x.memoryScope), j.memory);
+        if (activeConversationRef.current === (x.conversationId ?? null) && memoryScopeRef.current === x.memoryScope) setMemory(j.memory);
       } catch { left.push(x); }
     }
     await setMeta(`tutorQueue:${pid}`, left);
@@ -226,37 +281,106 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
     void ask(read.slice(0, 600), { mode: 'photo', show: `📷 ${read.slice(0, 80)}…` });
   }
 
-  const pick = async (ids: string[] | undefined) => { setSubject(ids); setView('chat'); await setMeta(`subject:${pid}`, ids); };
-  const showOverview = async () => { setSubject(undefined); setView('overview'); await setMeta(`subject:${pid}`, undefined); };
-  const continueConversation = () => { setSubject(undefined); setView('chat'); void setMeta(`subject:${pid}`, undefined); };
   const subjects = subjectsOf(books);
+  const pick = async (ids: string[] | undefined) => {
+    activeConversationRef.current = null;
+    memoryScopeRef.current = undefined; setMemoryScope(undefined);
+    setText(''); setShowWhy(null); setOpenSrc(null);
+    const group = ids?.length ? subjects.find((entry) => entry.ids.some((id) => ids.includes(id))) : undefined;
+    const selectedIds = group?.ids ?? ids;
+    setSubject(selectedIds); setView('chat'); setShowChatHistory(false); setActiveConversationId(null);
+    await setMeta(`subject:${pid}`, selectedIds);
+    if (!selectedIds?.length) {
+      setMemoryScope(undefined);
+      const saved = await getMeta<Line[]>(`chat:${pid}`, []);
+      legacyLinesRef.current = saved;
+      setLines(saved);
+      setMemory(await getMeta<Memory>(memoryKey(pid), { topics: [] }));
+      return;
+    }
+
+    const scope = `subject:${subjectKey(selectedIds)}`;
+    memoryScopeRef.current = scope;
+    setMemoryScope(scope);
+    const stored = await getMeta<ChatConversation[]>(`chatSessions:${pid}`, []);
+    const legacy = legacyLinesRef.current;
+    const migrated = legacy.filter((line) => conversationMatches(line, selectedIds));
+    let nextSessions = stored;
+    if (migrated.some((line) => line.role === 'student')) {
+      const stamp = migrated[0]?.at ?? Date.now();
+      nextSessions = [...nextSessions, { id: `legacy-${crypto.randomUUID()}`, subjectIds: selectedIds, subjectKey: subjectKey(selectedIds), createdAt: stamp, updatedAt: migrated[migrated.length - 1]?.at ?? stamp, lines: migrated }];
+      const remaining = legacy.filter((line) => !conversationMatches(line, selectedIds));
+      legacyLinesRef.current = remaining;
+      await setMeta(`chat:${pid}`, remaining);
+    }
+    const now = Date.now();
+    const fresh: ChatConversation = { id: crypto.randomUUID(), subjectIds: selectedIds, subjectKey: subjectKey(selectedIds), createdAt: now, updatedAt: now, lines: [] };
+    nextSessions = [...nextSessions, fresh];
+    activeConversationRef.current = fresh.id;
+    replaceConversations(nextSessions); setActiveConversationId(fresh.id); setLines([]);
+    setMemory(await subjectMemory(pid, scope));
+    await setMeta(`chatSessions:${pid}`, nextSessions);
+    void openSession(selectedIds, fresh.id, scope);
+  };
+  const showOverview = async () => { activeConversationRef.current = null; memoryScopeRef.current = undefined; setSubject(undefined); setView('overview'); setActiveConversationId(null); setMemoryScope(undefined); setShowChatHistory(false); await setMeta(`subject:${pid}`, undefined); };
+  const continueConversation = async () => {
+    const savedChats = await getMeta<ChatConversation[]>(`chatSessions:${pid}`, []);
+    const recent = savedChats.filter((chat) => chat.lines.some((line) => line.role === 'student')).sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    if (recent) { replaceConversations(savedChats); await openConversation(recent); return; }
+    const saved = await getMeta<Line[]>(`chat:${pid}`, []);
+    legacyLinesRef.current = saved;
+    activeConversationRef.current = null; memoryScopeRef.current = undefined; setLines(saved); setActiveConversationId(null); setMemoryScope(undefined); setSubject(undefined); setView('chat');
+    await setMeta(`subject:${pid}`, undefined);
+  };
+  const openConversation = async (conversation: ChatConversation) => {
+    const group = subjects.find((entry) => entry.ids.some((id) => conversation.subjectIds.includes(id)));
+    const scope = group ? `subject:${subjectKey(group.ids)}` : undefined;
+    setText(''); setShowWhy(null); setOpenSrc(null);
+    activeConversationRef.current = conversation.id; memoryScopeRef.current = scope; setSubject(conversation.subjectIds); setView('chat'); setLines(conversation.lines); setActiveConversationId(conversation.id); setMemoryScope(scope); setShowChatHistory(false);
+    setMemory(scope ? await subjectMemory(pid, scope) : await getMeta<Memory>(memoryKey(pid), { topics: [] }));
+    await setMeta(`subject:${pid}`, conversation.subjectIds);
+  };
   const physics = books.find((b) => b.id === 'physical-science-9');
   const visibleLines = subject ? lines.filter((l) => l.bookIds?.some((id) => subject.includes(id))) : lines;
   const openCheck = [...visibleLines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
   const answering = !!(memory.check && openCheck);
   const placeholder = answering ? U(lang, 'answerShort') : U(lang, 'askShort');
   const current = subject ? subjects.find((s) => s.ids.every((id) => subject.includes(id))) : undefined;
+  const subjectHistoryEnabled = !!current;
+  const subjectChats = subjectHistoryEnabled && current ? conversations.filter((chat) => chat.subjectKey === subjectKey(current.ids)).sort((a, b) => b.updatedAt - a.updatedAt) : [];
   const ideas = suggestions(current?.ids ?? subjects.flatMap((s) => s.ids), lang);
   const fresh = !visibleLines.some((l) => l.role === 'student');
   const send = () => { if (!text.trim() || busy) return; const x = text; setText(''); void ask(x); };
   const listening = mic === 'rec' || mic === 'live';
+  const accountName = identityName?.trim() || profile.name?.trim() || identityEmail?.split('@')[0]?.trim() || 'User';
+  const toggleSidebar = () => setSidebarCollapsed((collapsed) => {
+    const next = !collapsed;
+    localStorage.setItem('setu-sidebar-collapsed', String(next));
+    return next;
+  });
 
   return (
     <div class="app chat dashboard">
       <header class="topbar">
         <div class="brand">
-          <Logo size={30} />
+          <Logo size={38} />
           <div class="brand-text">
             <b>{t(lang, 'app')}</b>
           </div>
         </div>
-        <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><span class="profile-initial">{profile.name?.trim().slice(0, 1) || 'S'}</span><span>{profile.name ?? t(lang, 'switchLearner')}</span></button>
+        <div class="account-identity" aria-label="Signed-in account">
+          <span class="account-kicker">Learning at</span>
+          <strong class="account-name">{accountName}</strong>
+          {identityEmail && <span class="account-email">{identityEmail}</span>}
+        </div>
+        <button class="theme-toggle" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={darkMode} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} onClick={() => setDarkMode((value) => !value)}><span aria-hidden="true">{darkMode ? '☀' : '☾'}</span><span class="theme-label">{darkMode ? 'Light' : 'Dark'}</span></button>
+        <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><span class="profile-initial">{profile.name?.trim().slice(0, 1) || accountName.slice(0, 1)}</span><span class="profile-name">{profile.name ?? accountName}</span></button>
       </header>
 
-      <div class="dashboard-body">
+      <div class={'dashboard-body' + (sidebarCollapsed ? ' sidebar-collapsed' : '')}>
         <aside class="sidebar" aria-label={D(lang, 'navigation')}>
+          <button class="sidebar-toggle" aria-expanded={!sidebarCollapsed} aria-label={D(lang, sidebarCollapsed ? 'expandNavigation' : 'collapseNavigation')} title={D(lang, sidebarCollapsed ? 'expandNavigation' : 'collapseNavigation')} onClick={toggleSidebar}><Icon name={sidebarCollapsed ? 'chevron' : 'chevron-left'} size={18} /></button>
           <div class="side-group side-subjects">
-            <span class="side-label">{D(lang, 'subjects')}</span>
             <button class={'side-link' + (view === 'overview' ? ' selected' : '')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => void showOverview()}>{TL(lang, 'all_subjects')}</button>
             {subjects.map((s) => {
               const on = view === 'chat' && !!subject && s.ids.every((id) => subject.includes(id));
@@ -270,15 +394,21 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
               <button class="side-link account-signout" onClick={onLogout}>{lang === 'hi' ? 'लॉग आउट' : lang === 'or' ? 'ଲଗ୍‌ଆଉଟ୍‌' : 'Sign out'}</button>
             </div>
             <button class="side-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}>
-              <span class="profile-initial">{profile.name?.trim().slice(0, 1) || 'S'}</span>
-              <span class="profile-name">{profile.name ?? t(lang, 'switchLearner')}</span>
+              <span class="profile-initial">{profile.name?.trim().slice(0, 1) || accountName.slice(0, 1)}</span>
+              <span class="profile-details"><span class="profile-caption">{lang === 'hi' ? 'अभी सीख रहे हैं' : lang === 'or' ? 'ଏବେ ପଢ଼ୁଛନ୍ତି' : 'LEARNING AS'}</span><span class="profile-name">{profile.name?.trim() || accountName}</span></span>
             </button>
           </div>
         </aside>
 
-        {view === 'overview' ? <SubjectOverview books={books} subjects={subjects} lang={lang} hasHistory={lines.some((l) => l.role === 'student')} onContinue={continueConversation} onOpen={(ids) => void pick(ids)} /> : <div class="workarea">
+        {view === 'overview' ? <SubjectOverview books={books} subjects={subjects} lang={lang} hasHistory={lines.some((l) => l.role === 'student') || conversations.some((chat) => chat.lines.some((line) => line.role === 'student'))} onContinue={continueConversation} onOpen={(ids) => void pick(ids)} /> : <div class="workarea">
         <main class="feed" aria-live="polite">
-        {subject && current && <div class="chat-page-title"><span>{D(lang, 'learning')}</span><h1>{current.name[lang] ?? current.name.en}</h1></div>}
+        {subject && current && <div class="chat-page-title">
+          <div class="chat-title-copy"><span>{D(lang, 'learning')}</span><h1>{current.name[lang] ?? current.name.en}</h1></div>
+          {subjectHistoryEnabled && <div class="chat-title-actions">
+            <button class="chat-history-button" onClick={() => setShowChatHistory(true)}><Icon name="history" size={17} />{D(lang, 'chatHistory')}<span class="chat-history-count">{subjectChats.filter((chat) => chat.id !== activeConversationId && chat.lines.some((line) => line.role === 'student')).length}</span></button>
+            <button class="chat-new-button" onClick={() => void pick(current.ids)}><Icon name="plus" size={17} />{D(lang, 'newChat')}</button>
+          </div>}
+        </div>}
         {fresh && (
           <section class="hero">
             <div class="hero-mark"><Logo size={36} /><span>{U(lang, 'hello')}{profile.name ? `, ${profile.name}` : ''}</span></div>
@@ -319,6 +449,19 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
           : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
         </form>
       </footer>
+      {showChatHistory && subjectHistoryEnabled && current && <div class="chat-history-overlay">
+        <button class="chat-history-scrim" aria-label={D(lang, 'closeHistory')} onClick={() => setShowChatHistory(false)} />
+        <aside class="chat-history-panel" role="dialog" aria-modal="true" aria-label={D(lang, 'chatHistory')}>
+          <header class="chat-history-header"><div><span>{D(lang, 'historyFor')}</span><h2>{D(lang, 'chatHistory')}</h2></div><button class="iconbtn" aria-label={D(lang, 'closeHistory')} onClick={() => setShowChatHistory(false)}><Icon name="close" /></button></header>
+          <button class="chat-history-start" onClick={() => void pick(current.ids)}><Icon name="plus" size={18} />{D(lang, 'newChat')}</button>
+          <div class="chat-history-list">
+            {subjectChats.filter((chat) => chat.id !== activeConversationId && chat.lines.some((line) => line.role === 'student')).map((chat) => <button class="chat-history-item" onClick={() => void openConversation(chat)}>
+              <strong>{conversationTitle(chat.lines)}</strong><span>{new Date(chat.updatedAt).toLocaleString(lang === 'or' ? 'or-IN' : lang === 'hi' ? 'hi-IN' : 'en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            </button>)}
+            {!subjectChats.some((chat) => chat.id !== activeConversationId && chat.lines.some((line) => line.role === 'student')) && <p class="chat-history-empty">{D(lang, 'noChatHistory')}</p>}
+          </div>
+        </aside>
+      </div>}
         </div>}
       </div>
 
@@ -353,40 +496,55 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, o
 }
 
 const DASHBOARD_LABELS: Record<string, Record<string, string>> = {
-  en: { navigation: 'Dashboard navigation', subjects: 'Subjects', changeLanguage: 'Change language', overview: 'Your subjects', overviewNote: 'Choose a subject to open its tutor chat.', recentChat: 'Continue recent chat', books: 'Textbooks', classBoard: 'Class and board', action: 'Action', open: 'Open subject', learning: 'Learning' },
-  hi: { navigation: 'डैशबोर्ड नेविगेशन', subjects: 'विषय', changeLanguage: 'भाषा बदलें', overview: 'तुम्हारे विषय', overviewNote: 'उसके ट्यूटर चैट को खोलने के लिए कोई विषय चुनो।', recentChat: 'हाल की बातचीत जारी रखें', books: 'पाठ्यपुस्तकें', classBoard: 'कक्षा और बोर्ड', action: 'खोलें', open: 'विषय खोलें', learning: 'पढ़ाई' },
-  or: { navigation: 'ଡ୍ୟାସବୋର୍ଡ୍‌ ନାଭିଗେସନ୍‌', subjects: 'ବିଷୟ', changeLanguage: 'ଭାଷା ବଦଳାଅ', overview: 'ତୁମ ବିଷୟଗୁଡ଼ିକ', overviewNote: 'ପାଠ ସାଥୀ ସହ କଥା ହେବାକୁ ଗୋଟିଏ ବିଷୟ ବାଛ।', recentChat: 'ସାମ୍ପ୍ରତିକ କଥା ଆଗକୁ ନିଅ', books: 'ପାଠ୍ୟ ବହି', classBoard: 'ଶ୍ରେଣୀ ଓ ବୋର୍ଡ', action: 'ଖୋଲ', open: 'ବିଷୟ ଖୋଲ', learning: 'ପଢ଼ା' },
+  en: { navigation: 'Dashboard navigation', collapseNavigation: 'Hide subject sidebar', expandNavigation: 'Show subject sidebar', subjects: 'Subjects', changeLanguage: 'Change language', overview: 'What shall we learn today?', overviewNote: 'Pick a subject and your textbook tutor is ready to help.', recentChat: 'Continue learning', books: 'Textbooks', classBoard: 'Class and board', action: 'Action', open: 'Open subject', learning: 'Learning', searchSubjects: 'Search your subjects', subjectCount: '{0} subjects ready to explore', textbookCount: '{0} textbook(s)', noSubjectMatch: 'No subjects match that search.', overviewKicker: 'Your learning space', heroArtLabel: 'Your next big idea', chatHistory: 'Chat history', newChat: 'New chat', noChatHistory: 'Your past chats for this subject will appear here.', historyFor: 'PREVIOUS CONVERSATIONS', closeHistory: 'Close chat history' },
+  hi: { navigation: 'डैशबोर्ड नेविगेशन', collapseNavigation: 'विषय साइडबार छिपाएँ', expandNavigation: 'विषय साइडबार दिखाएँ', subjects: 'विषय', changeLanguage: 'भाषा बदलें', overview: 'आज क्या सीखें?', overviewNote: 'कोई विषय चुनो और किताबों पर आधारित ट्यूटर से मदद पाओ।', recentChat: 'पढ़ाई जारी रखें', books: 'पाठ्यपुस्तकें', classBoard: 'कक्षा और बोर्ड', action: 'खोलें', open: 'विषय खोलें', learning: 'पढ़ाई', searchSubjects: 'अपने विषय खोजें', subjectCount: 'खोजने के लिए {0} विषय तैयार हैं', textbookCount: '{0} पाठ्यपुस्तकें', noSubjectMatch: 'इस खोज से कोई विषय नहीं मिला।', overviewKicker: 'तुम्हारी पढ़ाई की जगह', heroArtLabel: 'तुम्हारा अगला नया विचार', chatHistory: 'चैट इतिहास', newChat: 'नई चैट', noChatHistory: 'इस विषय की पुरानी चैट यहाँ दिखेंगी।', historyFor: 'पिछली बातचीत', closeHistory: 'चैट इतिहास बंद करें' },
+  or: { navigation: 'ଡ୍ୟାସବୋର୍ଡ୍‌ ନାଭିଗେସନ୍‌', collapseNavigation: 'ବିଷୟ ସାଇଡବାର୍‌ ଲୁଚାଅ', expandNavigation: 'ବିଷୟ ସାଇଡବାର୍‌ ଦେଖାଅ', subjects: 'ବିଷୟ', changeLanguage: 'ଭାଷା ବଦଳାଅ', overview: 'ଆଜି କ’ଣ ଶିଖିବା?', overviewNote: 'ଗୋଟିଏ ବିଷୟ ବାଛ ଏବଂ ବହି ଆଧାରିତ ଟ୍ୟୁଟର୍‌ଠାରୁ ସାହାଯ୍ୟ ପାଅ।', recentChat: 'ପଢ଼ା ଜାରି ରଖ', books: 'ପାଠ୍ୟ ବହି', classBoard: 'ଶ୍ରେଣୀ ଓ ବୋର୍ଡ', action: 'ଖୋଲ', open: 'ବିଷୟ ଖୋଲ', learning: 'ପଢ଼ା', searchSubjects: 'ତୁମ ବିଷୟ ଖୋଜ', subjectCount: 'ଖୋଜିବାକୁ {0}ଟି ବିଷୟ ଅଛି', textbookCount: '{0}ଟି ପାଠ୍ୟ ବହି', noSubjectMatch: 'ଏହି ଖୋଜରେ କୌଣସି ବିଷୟ ମିଳିଲା ନାହିଁ।', overviewKicker: 'ତୁମ ପଢ଼ା ଜାଗା', heroArtLabel: 'ତୁମର ପରବର୍ତ୍ତୀ ନୂଆ ଭାବନା', chatHistory: 'ଚାଟ୍ ଇତିହାସ', newChat: 'ନୂଆ ଚାଟ୍', noChatHistory: 'ଏହି ବିଷୟର ପୁରୁଣା ଚାଟ୍ ଏଠାରେ ଦେଖାଯିବ।', historyFor: 'ପୂର୍ବ କଥାବାର୍ତ୍ତା', closeHistory: 'ଚାଟ୍ ଇତିହାସ ବନ୍ଦ କର' },
 };
 const D = (lang: string, key: string) => DASHBOARD_LABELS[lang]?.[key] ?? DASHBOARD_LABELS.en![key] ?? key;
 
 type SubjectGroup = { name: Record<string, string | undefined>; ids: string[] };
 function SubjectOverview({ books, subjects, lang, hasHistory, onContinue, onOpen }: { books: BookInfo[]; subjects: SubjectGroup[]; lang: string; hasHistory: boolean; onContinue: () => void; onOpen: (ids: string[]) => void }) {
+  const [query, setQuery] = useState('');
   const titleFor = (b: BookInfo) => b.title[lang as 'or' | 'en'] ?? b.title.en;
+  const filtered = subjects.filter((s) => {
+    const names = [s.name.en, s.name[lang], ...books.filter((b) => s.ids.includes(b.id)).map(titleFor)];
+    return names.some((value) => value?.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  });
   return (
     <main class="overview">
       <div class="overview-heading">
-        <span>{D(lang, 'subjects')}</span>
-        <h1>{D(lang, 'overview')}</h1>
-        <p>{D(lang, 'overviewNote')}</p>
-        {hasHistory && <button class="continue-chat" onClick={onContinue}>{D(lang, 'recentChat')}</button>}
+        <div class="overview-copy">
+          <span class="overview-kicker"><Icon name="spark" size={16} />{D(lang, 'overviewKicker')}</span>
+          <h1>{D(lang, 'overview')}</h1>
+          <p>{D(lang, 'overviewNote')}</p>
+          {hasHistory && <button class="continue-chat" onClick={onContinue}><Icon name="play" size={17} />{D(lang, 'recentChat')}<Icon name="chevron" size={17} /></button>}
+        </div>
+        <div class="overview-art" aria-hidden="true">
+          <span class="overview-art-spark">✦</span><span class="overview-art-orbit"><Icon name="book" size={66} /></span>
+          <span class="overview-art-caption">{D(lang, 'heroArtLabel')}</span>
+          <span class="overview-art-dot dot-one" /><span class="overview-art-dot dot-two" />
+        </div>
       </div>
-      <div class="table-scroll">
-        <table class="subject-table">
-          <thead><tr><th scope="col">{D(lang, 'subjects')}</th><th scope="col">{D(lang, 'books')}</th><th scope="col">{D(lang, 'classBoard')}</th><th scope="col">{D(lang, 'action')}</th></tr></thead>
-          <tbody>
-            {subjects.map((s) => {
-              const groupBooks = books.filter((b) => s.ids.includes(b.id));
-              const classBoard = groupBooks.length ? [...new Set(groupBooks.map((b) => `${b.classLevel} · ${b.board}`))].join(', ') : '—';
-              return <tr>
-                <th scope="row" data-label={D(lang, 'subjects')}>{s.name[lang] ?? s.name.en}</th>
-                <td data-label={D(lang, 'books')}>{groupBooks.length ? groupBooks.map(titleFor).join(', ') : '—'}</td>
-                <td data-label={D(lang, 'classBoard')}>{classBoard}</td>
-                <td data-label={D(lang, 'action')}><button class="table-action" onClick={() => onOpen(s.ids)}>{D(lang, 'open')}</button></td>
-              </tr>;
-            })}
-            {!subjects.length && <tr><td class="table-empty" colSpan={4}>{D(lang, 'overviewNote')}</td></tr>}
-          </tbody>
-        </table>
+      <div class="subject-tools">
+        <label class="subject-search"><Icon name="search" size={19} /><span class="sr">{D(lang, 'searchSubjects')}</span><input type="search" value={query} onInput={(event) => setQuery((event.currentTarget as HTMLInputElement).value)} placeholder={D(lang, 'searchSubjects')} /></label>
+        <span class="subject-count" aria-live="polite">{D(lang, 'subjectCount').replace('{0}', String(filtered.length))}</span>
+      </div>
+      <div class="subject-grid">
+        {filtered.map((s) => {
+          const groupBooks = books.filter((b) => s.ids.includes(b.id));
+          const title = s.name[lang] ?? s.name.en ?? '';
+          const englishName = s.name.en?.toLocaleLowerCase() ?? '';
+          const symbol = englishName.includes('math') ? '∑' : englishName.includes('geography') ? '🌍' : englishName.includes('econom') ? '₹' : englishName.includes('english') ? 'Aa' : englishName.includes('hindi') ? 'अ' : englishName.includes('history') ? '⌛' : englishName.includes('life science') ? '🧬' : englishName.includes('physical science') ? '⚛' : '📘';
+          const levels = [...new Set(groupBooks.map((b) => `${b.classLevel} · ${b.board}`))];
+          return <button class="subject-card" onClick={() => onOpen(s.ids)} aria-label={`${D(lang, 'open')}: ${title}`}>
+            <span class="subject-card-top"><span class="subject-icon" aria-hidden="true">{symbol}</span><span class="subject-open-icon" aria-hidden="true"><Icon name="chevron" size={20} /></span></span>
+            <strong class="subject-card-title">{title}</strong>
+            <span class="subject-card-count">{D(lang, 'textbookCount').replace('{0}', String(groupBooks.length))}</span>
+            <span class="subject-book-list">{groupBooks.slice(0, 2).map(titleFor).join(' · ')}{groupBooks.length > 2 ? ` · +${groupBooks.length - 2}` : ''}</span>
+            <span class="subject-card-bottom">{levels.map((level) => <span class="class-chip">{level}</span>)}<span class="subject-card-action">{D(lang, 'open')} <Icon name="chevron" size={17} /></span></span>
+          </button>;
+        })}
+        {!filtered.length && <p class="subject-empty">{subjects.length ? D(lang, 'noSubjectMatch') : D(lang, 'overviewNote')}</p>}
       </div>
     </main>
   );

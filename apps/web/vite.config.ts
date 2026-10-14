@@ -9,11 +9,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       manifest: {
         name: 'Setu', short_name: 'Setu', lang: 'or', start_url: '/', display: 'standalone',
-        background_color: '#f5f1e8', theme_color: '#1f5a60',
-        icons: [{ src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+        background_color: '#DAC8AE', theme_color: '#DAC8AE',
+        icons: [{ src: '/setu-learning-bridge.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         // opt-in lesson reminders (P4.31)
         importScripts: ['push-sw.js'],
         // offline photo reading is an opt-in ~3 MB download (data is money, PLAN §8.1): cached on first use, not precached
