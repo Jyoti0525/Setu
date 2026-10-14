@@ -3,8 +3,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+# the base image ships a yarn apt source with an expired key, which fails apt-get update
+sudo rm -f /etc/apt/sources.list.d/yarn.list
+sudo apt-get update -qq || true
+sudo apt-get install -y -qq ffmpeg
 
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 corepack enable
 pnpm install --frozen-lockfile
 pnpm --filter @setu/web build
