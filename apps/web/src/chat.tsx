@@ -389,6 +389,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && <span class="account-email">{account.email}</span>}</div>}
         {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
         <button class="theme-toggle" aria-label={D(lang, dark ? 'light' : 'dark')} aria-pressed={dark} title={D(lang, dark ? 'light' : 'dark')} onClick={() => setDark(!dark)}><span aria-hidden="true">{dark ? '☀' : '☾'}</span><span class="theme-label">{D(lang, dark ? 'light' : 'dark')}</span></button>
+        {onLogout && <button class="theme-toggle topbar-logout" aria-label={D(lang, 'signOut')} title={D(lang, 'signOut')} onClick={onLogout}><Icon name="logout" size={18} /><span class="theme-label">{D(lang, 'signOut')}</span></button>}
         <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><AvatarPortrait avatar={profile.avatar} className="profile-pic" /><span class="profile-name">{who}</span></button>
       </header>
       {iosHelp && <button class="installhelp" role="status" onClick={() => setIosHelp(false)}>{U(lang, 'installIos')} ✕</button>}
