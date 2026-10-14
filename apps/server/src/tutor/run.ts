@@ -194,7 +194,9 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       // the model saw it was a new question, not her answer → it answered; the check stays open, nothing graded
       if (plan.action === 'grade' && out.intent === 'question') { plan.action = 'explain'; plan.reason += '; the model read it as a new question → answered it, no grade'; out.grade = null; }
       const tone = out.grade ? ({ right: 'praise', partly: 'hint', wrong: 'retry' } as const)[out.grade.verdict] : undefined;
-      messages.push({ text: out.reply, by: 'model', sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang), ...(out.terms.length ? { terms: out.terms } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
+      // "not in your book" with no passage used: no page card (the nearest search hit is unrelated, figures and all)
+      const offBook = plan.action === 'not_in_book' && !out.used.length;
+      messages.push({ text: out.reply, by: 'model', ...(offBook ? {} : { sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang) }), ...(out.terms.length ? { terms: out.terms } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
       if (plan.switchedBook) messages[0]!.text = TL(lang, 'switched', subjectName(d.shelf, plan.switchedBook, lang)) + '\n' + messages[0]!.text;
       if (plan.action === 'teach' && learn) messages[0]!.text = `📖 ${topicName(d.shelf, plan.topic, lang)} · ${TL(lang, 'part_of', String(learn.part + 1), String(learn.parts))}\n` + messages[0]!.text;
       // in a lesson a right answer opens the next part; partly / wrong keep her on this one (a hint, or a new check)

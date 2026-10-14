@@ -57,6 +57,13 @@ describe('tutor chat agent (PLAN v4)', () => {
     expect(r.memory.check).toBeUndefined();
   });
 
+  it('not in her book and no page used → no page card (the nearest search hit is unrelated)', async () => {
+    const { say } = setup((p) => (p.includes('not in her textbook') ? JSON.stringify({ reply: 'ଏହା ତୁମ ବହିରେ ନାହିଁ। ଜଳଚକ୍ରରେ ପାଣି ବାଷ୍ପ ହୋଇ ମେଘ ହୁଏ।', used: [], terms: [] }) : explainJson));
+    const r = await say('water cycle diagram explain with cell');
+    expect(r.trace.chosen).toMatch(/^not_in_book/);
+    expect(r.messages[0]!.sources).toBeUndefined();
+  });
+
   it('model down → her textbook page and an honest line, never an error; nothing graded', async () => {
     const { say } = setup(() => new Error('503 overloaded'));
     const r = await say('koshika prachira kana?');
