@@ -17,12 +17,17 @@ interface Profile { id: string; avatar: string; name?: string; lang: string; cla
 type Item = { msg: OutMsg; why?: string; answered?: string };
 
 const AVATARS = ['👧', '👦', '🧒', '👩‍🎓', '🧑‍🌾', '🐯'];
+const PROFILE_NOTE: Record<string, string> = {
+  or: 'ତୁମର ପଢ଼ା ଭାଷା ଓ ଶ୍ରେଣୀ ବାଛ।',
+  hi: 'अपनी पढ़ाई की भाषा और कक्षा चुनो।',
+  en: 'Choose your learning language and class to set up your study space.',
+};
 /** P4.22: a shared phone asks "who is learning?" when it was put down for this long (or more than one learner uses it). */
 const WHO_AFTER_MS = 30 * 60_000;
 /** P4.23: no tap for this long → the session is ended (inactivity); the next tap opens a new one. Same as the server. */
 const INACTIVE_MS = 30 * 60_000;
 
-export function App() {
+export function App({ accountId, displayName, onLogout, onProfileName }: { accountId: string; displayName?: string | null; onLogout: () => void; onProfileName: (name: string) => Promise<void> }) {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<'loading' | 'nopack' | 'onboard' | 'who' | 'ready'>('loading');
@@ -50,16 +55,30 @@ export function App() {
       if (r?.ok) {
         const p: Profile = { id: rs[1]!, avatar: q.get('a') ?? '👧', name: q.get('n') ?? undefined, lang: 'or', classCode: q.get('c') ?? undefined };
         await setMeta('profiles', [...(await getMeta<Profile[]>('profiles', [])).filter((x) => x.id !== p.id), p]);
+        await setMeta(`accountProfile:${accountId}`, p.id);
+        await setMeta(`accountProfiles:${accountId}`, [p.id]);
         await setMeta(`cursor:${p.id}`, 0);
         return void enter(p);
       }
     }
-    const p = await getMeta<Profile | null>('profile', null);
-    const list = await getMeta<Profile[]>('profiles', p ? [p] : []);
-    setProfiles(list);
+    const list = await getMeta<Profile[]>('profiles', []);
+    let activeId = await getMeta<string | null>(`accountProfile:${accountId}`, null);
+    let ownedIds = await getMeta<string[]>(`accountProfiles:${accountId}`, activeId ? [activeId] : []);
+    // Existing installations had device-local profiles before accounts. Reuse a sole profile automatically;
+    // when this is a shared phone, ask which existing learner belongs to the new account.
+    if (!ownedIds.length && !activeId && list.length === 1) {
+      activeId = list[0]!.id; ownedIds = [activeId];
+      await setMeta(`accountProfile:${accountId}`, activeId);
+      await setMeta(`accountProfiles:${accountId}`, ownedIds);
+    } else if (!ownedIds.length && !activeId && list.length > 1) {
+      setProfiles(list); setStatus('who'); return;
+    }
+    const ownProfiles = list.filter((x) => ownedIds.includes(x.id));
+    const p = activeId ? ownProfiles.find((x) => x.id === activeId) ?? null : ownProfiles[0] ?? null;
+    setProfiles(ownProfiles);
     const away = Date.now() - (await getMeta<number>('lastUsedAt', 0));
     // a shared phone (P4.22): confirm who is learning before her record is shown or added to
-    if (list.length > 1 || (p && away > WHO_AFTER_MS)) setStatus('who');
+    if (ownProfiles.length > 1 || (p && away > WHO_AFTER_MS)) setStatus('who');
     else if (p) void enter(p);
     else setStatus('onboard');
   };
@@ -74,8 +93,13 @@ export function App() {
 
   if (status === 'loading') return <div class="splash"><Logo size={72} /><span>{t('or', 'loading')}</span></div>;
   if (status === 'nopack') return <NoPack onPack={(p) => void start(p)} />;
-  if (status === 'who') return <Who profiles={profiles} onPick={(p) => void enter(p)} onNew={() => setStatus('onboard')} />;
-  if (status === 'onboard') return <Onboarding onDone={async (p) => {
+  if (status === 'who') return <Who profiles={profiles} onPick={(p) => { void (async () => {
+    const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, []);
+    await setMeta(`accountProfiles:${accountId}`, [...new Set([...ids, p.id])]);
+    await setMeta(`accountProfile:${accountId}`, p.id);
+    await enter(p);
+  })(); }} onNew={() => { setProfiles([]); setStatus('onboard'); }} />;
+  if (status === 'onboard') return <Onboarding initialName={displayName ?? ''} onDone={async (p) => {
     const { pack, device } = boot.current!;
     const a = new Agent(pack, device, p.id);
     if (device) void prefetchEssential(p.lang);
@@ -86,26 +110,36 @@ export function App() {
     ]);
     try { history.replaceState(null, '', location.pathname); } catch { /* drop #join */ }
     await setMeta('profile', p);
-    await setMeta('profiles', [...profiles.filter((x) => x.id !== p.id), p]);
+    const savedProfiles = await getMeta<Profile[]>('profiles', []);
+    await setMeta('profiles', [...savedProfiles.filter((x) => x.id !== p.id), p]);
+    await setMeta(`accountProfile:${accountId}`, p.id);
+    const accountProfiles = await getMeta<string[]>(`accountProfiles:${accountId}`, []);
+    await setMeta(`accountProfiles:${accountId}`, [...new Set([...accountProfiles, p.id])]);
+    if (p.name && p.name !== displayName) await onProfileName(p.name);
     await setMeta('lastUsedAt', Date.now());
     setProfile(p); setAgent(a); setStatus('ready');
   }} />;
   const onLang = async (l: string) => { const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
-  const onSwitch = async () => { setProfiles(await getMeta<Profile[]>('profiles', [profile!])); setStatus('who'); };
+  const onSwitch = async () => {
+    const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, [profile!.id]);
+    const all = await getMeta<Profile[]>('profiles', []);
+    setProfiles(all.filter((x) => ids.includes(x.id)));
+    setStatus('who');
+  };
   // PLAN v4: the tutor chat is the home screen; the hand-built Motion chapter is guided practice inside it
-  if (!guided) return <Chat key={profile!.id + profile!.lang} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} />;
+  if (!guided) return <Chat key={profile!.id + profile!.lang} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} onLogout={onLogout} />;
   return <>
     <button class="link back" onClick={() => setGuided(false)}><Icon name="back" size={18} /> {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
     <Home agent={agent!} profile={profile!} tier={tier} onLang={onLang} onSwitch={() => void onSwitch()} />
   </>;
 }
 
-function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
+function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; initialName: string }) {
   const [lang, setLang] = useState<string | null>(null);
   const [home, setHome] = useState<string | null>(null);
   const [showHome, setShowHome] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [classLevel, setClassLevel] = useState(9);
   // a teacher's QR opens /#join=123456
   const [code, setCode] = useState(() => /^#join=(\d{6})$/.exec(location.hash)?.[1] ?? '');
@@ -129,10 +163,11 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
   }, [code]);
   const L = lang ?? 'or';
   const tagline: Record<string, string> = { or: 'ତୁମ ବହିର ପାଠ ସାଥୀ', hi: 'तुम्हारी किताब का पढ़ाई साथी', en: 'Your textbook study buddy' };
-  const ready = !!avatar && className !== null;
+  const ready = !!avatar && !!name.trim() && className !== null;
   return (
     <div class="onboard">
       <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div></div>
+      <p class="profile-note">{PROFILE_NOTE[L] ?? PROFILE_NOTE.en}</p>
       <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
       <div class="grid langs">
         {LANGS.map((l) => (

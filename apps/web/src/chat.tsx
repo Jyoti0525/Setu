@@ -17,7 +17,7 @@ import { Icon, Logo } from './icons.tsx';
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
 interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string }
 interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; tone?: string; chips?: { label: string; text?: string; review?: string; bookId?: string }[]; by: 'model' | 'policy' }
-type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
+type Line = ({ role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string }) & { bookIds?: string[] };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
 interface Queued { id: string; text: string; bookIds?: string[]; at: number }
@@ -35,15 +35,16 @@ function subjectsOf(books: BookInfo[]) {
   return [...m.values()];
 }
 
-export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }: {
+export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang, onLogout }: {
   agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string };
-  onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>;
+  onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>; onLogout: () => void;
 }) {
   const pid = profile.id;
   const online = tier !== 'device' && !!agent.device;
   const [lines, setLines] = useState<Line[]>([]);
   const [books, setBooks] = useState<BookInfo[]>([]);
   const [subject, setSubject] = useState<string[] | undefined>(undefined);
+  const [view, setView] = useState<'overview' | 'chat'>('overview');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [memory, setMemory] = useState<Memory>({ topics: [] });
@@ -55,7 +56,10 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   const end = useRef<HTMLDivElement>(null);
   const shelf = useRef<Shelf | null>(null);
   const headers = () => ({ 'content-type': 'application/json', 'x-device-token': agent.device!.token });
-  const add = (l: Line[]) => setLines((p) => { const n = keep([...p, ...l]); void setMeta(`chat:${pid}`, n); return n; });
+  const add = (l: Line[], bookIds = subject) => setLines((p) => {
+    const scoped = bookIds?.length ? l.map((line) => ({ ...line, bookIds })) : l;
+    const n = keep([...p, ...scoped]); void setMeta(`chat:${pid}`, n); return n;
+  });
 
   // start: her conversation so far (kept on the phone), her subjects, then the agent speaks first
   useEffect(() => {
@@ -110,7 +114,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
       setLines((p) => {
         const last = [...p].reverse().find((l) => l.role === 'tutor');
         const msgs = j.messages.filter((msg) => !(last?.role === 'tutor' && last.msg.text === msg.text));
-        const n = keep([...p, ...msgs.map((msg) => ({ role: 'tutor' as const, msg, at: Date.now() }))]);
+        const n = keep([...p, ...msgs.map((msg) => ({ role: 'tutor' as const, msg, at: Date.now(), ...(subject?.length ? { bookIds: subject } : {}) }))]);
         void setMeta(`chat:${pid}`, n);
         return n;
       });
@@ -120,6 +124,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
 
   /** One message to the agent: online the server; no signal (or it drops mid-way) the phone. */
   async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; show?: string } = {}) {
+    setView('chat');
     const msg = scrubPii(raw, profile.name ? [profile.name] : []).trim();
     if (!msg && !opts.review) return;
     add([{ role: 'student', text: opts.show ?? msg, at: Date.now() }]);
@@ -175,7 +180,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
         const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, queuedAt: x.at, turnId: x.id }) }, 30000);
         if (!r.ok) { left.push(x); continue; }
         const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
-        add([{ role: 'tutor', msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))]);
+        add([{ role: 'tutor', msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))], x.bookIds ?? []);
         setMemory(j.memory);
       } catch { left.push(x); }
     }
@@ -221,58 +226,73 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
     void ask(read.slice(0, 600), { mode: 'photo', show: `📷 ${read.slice(0, 80)}…` });
   }
 
-  const pick = async (ids: string[] | undefined) => { setSubject(ids); await setMeta(`subject:${pid}`, ids); };
+  const pick = async (ids: string[] | undefined) => { setSubject(ids); setView('chat'); await setMeta(`subject:${pid}`, ids); };
+  const showOverview = async () => { setSubject(undefined); setView('overview'); await setMeta(`subject:${pid}`, undefined); };
+  const continueConversation = () => { setSubject(undefined); setView('chat'); void setMeta(`subject:${pid}`, undefined); };
   const subjects = subjectsOf(books);
   const physics = books.find((b) => b.id === 'physical-science-9');
-  const openCheck = [...lines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
+  const visibleLines = subject ? lines.filter((l) => l.bookIds?.some((id) => subject.includes(id))) : lines;
+  const openCheck = [...visibleLines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
   const answering = !!(memory.check && openCheck);
   const placeholder = answering ? U(lang, 'answerShort') : U(lang, 'askShort');
   const current = subject ? subjects.find((s) => s.ids.every((id) => subject.includes(id))) : undefined;
   const ideas = suggestions(current?.ids ?? subjects.flatMap((s) => s.ids), lang);
-  const fresh = !lines.some((l) => l.role === 'student');
+  const fresh = !visibleLines.some((l) => l.role === 'student');
   const send = () => { if (!text.trim() || busy) return; const x = text; setText(''); void ask(x); };
   const listening = mic === 'rec' || mic === 'live';
 
   return (
-    <div class="app chat">
+    <div class="app chat dashboard">
       <header class="topbar">
-        <button class="me" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><span class="avatar">{profile.avatar}</span></button>
         <div class="brand">
           <Logo size={30} />
           <div class="brand-text">
             <b>{t(lang, 'app')}</b>
-            <span class={'net ' + tier} role="status"><i class="dot" />{t(lang, tier)}</span>
           </div>
         </div>
-        <button class="iconbtn" aria-label={TL(lang, 'progress')} aria-pressed={sheet === 'progress'} onClick={() => setSheet('progress')}><Icon name="chart" /></button>
-        <button class="iconbtn" aria-label={t(lang, 'chooseLang')} aria-pressed={sheet === 'lang'} onClick={() => setSheet('lang')}><Icon name="globe" /></button>
+        <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><span class="profile-initial">{profile.name?.trim().slice(0, 1) || 'S'}</span><span>{profile.name ?? t(lang, 'switchLearner')}</span></button>
       </header>
 
-      <nav class="subjects" aria-label={TL(lang, 'pick_subject')}>
-        <button class={'pill' + (!subject ? ' on' : '')} aria-pressed={!subject} onClick={() => void pick(undefined)}><span class="emo">📚</span>{TL(lang, 'all_subjects')}</button>
-        {subjects.map((s) => {
-          const on = !!subject && s.ids.every((id) => subject.includes(id));
-          const look = subjectLook(s.name.en ?? '');
-          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void pick(s.ids)}><span class="emo">{look.emoji}</span>{s.name[lang] ?? s.name.en}</button>;
-        })}
-      </nav>
+      <div class="dashboard-body">
+        <aside class="sidebar" aria-label={D(lang, 'navigation')}>
+          <div class="side-group side-subjects">
+            <span class="side-label">{D(lang, 'subjects')}</span>
+            <button class={'side-link' + (view === 'overview' ? ' selected' : '')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => void showOverview()}>{TL(lang, 'all_subjects')}</button>
+            {subjects.map((s) => {
+              const on = view === 'chat' && !!subject && s.ids.every((id) => subject.includes(id));
+              return <button class={'side-link' + (on ? ' selected' : '')} aria-current={on ? 'page' : undefined} onClick={() => void pick(s.ids)}>{s.name[lang] ?? s.name.en}</button>;
+            })}
+          </div>
+          <div class="side-bottom">
+            <div class="side-utilities">
+              <button class="side-link" aria-pressed={sheet === 'lang'} onClick={() => setSheet('lang')}>{D(lang, 'changeLanguage')}</button>
+              <button class="side-link" aria-pressed={sheet === 'progress'} onClick={() => setSheet('progress')}>{TL(lang, 'progress')}</button>
+              <button class="side-link account-signout" onClick={onLogout}>{lang === 'hi' ? 'लॉग आउट' : lang === 'or' ? 'ଲଗ୍‌ଆଉଟ୍‌' : 'Sign out'}</button>
+            </div>
+            <button class="side-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}>
+              <span class="profile-initial">{profile.name?.trim().slice(0, 1) || 'S'}</span>
+              <span class="profile-name">{profile.name ?? t(lang, 'switchLearner')}</span>
+            </button>
+          </div>
+        </aside>
 
-      <main class="feed" aria-live="polite">
+        {view === 'overview' ? <SubjectOverview books={books} subjects={subjects} lang={lang} hasHistory={lines.some((l) => l.role === 'student')} onContinue={continueConversation} onOpen={(ids) => void pick(ids)} /> : <div class="workarea">
+        <main class="feed" aria-live="polite">
+        {subject && current && <div class="chat-page-title"><span>{D(lang, 'learning')}</span><h1>{current.name[lang] ?? current.name.en}</h1></div>}
         {fresh && (
           <section class="hero">
-            <Logo size={56} />
-            <h1>{U(lang, 'hello')}{profile.name ? `, ${profile.name}` : ''} 👋</h1>
-            <div class="ways">
-              <span><Icon name="book" size={16} />{U(lang, 'wayBook')}</span>
-              <span><Icon name="mic" size={16} />{U(lang, 'wayVoice')}</span>
-              <span><Icon name="offline" size={16} />{U(lang, 'wayOffline')}</span>
-            </div>
+            <div class="hero-mark"><Logo size={36} /><span>{U(lang, 'hello')}{profile.name ? `, ${profile.name}` : ''}</span></div>
+            <h1>{START_PROMPTS[lang] ?? START_PROMPTS.en}</h1>
           </section>
         )}
-        {lines.map((l, i) => l.role === 'student'
-          ? <div class="msg me"><div class="bubble">{l.text}</div></div>
-          : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
-              onChip={(c) => { if (c.bookId) void pick([c.bookId]); else if (c.review) void ask('', { review: c.review, show: c.label }); else if (c.text) void ask(c.text); }} />)}
+        {visibleLines.map((l, i) => {
+          // The empty-state hero already welcomes a new learner; avoid showing the same greeting twice.
+          if (fresh && l.role === 'tutor' && (l.msg.text === T(lang, 'welcome') || l.msg.text === T(lang, 'welcome_back'))) return null;
+          return l.role === 'student'
+            ? <div class="msg me"><div class="bubble">{l.text}</div></div>
+            : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
+                onChip={(c) => { if (c.bookId) void pick([c.bookId]); else if (c.review) void ask('', { review: c.review, show: c.label }); else if (c.text) void ask(c.text); }} />;
+        })}
         {fresh && !busy && ideas.length > 0 && (
           <section class="ideas" aria-label={U(lang, 'tryAsking')}>
             <h2><Icon name="spark" size={16} />{U(lang, 'tryAsking')}</h2>
@@ -296,9 +316,11 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           {text.trim()
             ? <button class="iconbtn send" type="submit" disabled={!!busy} aria-label={t(lang, 'send')}><Icon name="send" /></button>
-            : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
+          : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
         </form>
       </footer>
+        </div>}
+      </div>
 
       {sheet && <div class="scrim" onClick={() => setSheet(null)} />}
       {sheet === 'progress' && (
@@ -330,18 +352,45 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   );
 }
 
-const LOOKS: Record<string, { emoji: string; color: string }> = {
-  'Life Science': { emoji: '🌿', color: '#2f855a' },
-  'Geography & Economics': { emoji: '🌏', color: '#2b6cb0' },
-  'Physical Science': { emoji: '⚡', color: '#6b46c1' },
-  'History & Political Science': { emoji: '🏛️', color: '#b7791f' },
-  Mathematics: { emoji: '➗', color: '#c05621' },
-  Odia: { emoji: 'ଅ', color: '#c53030' },
-  English: { emoji: '🔤', color: '#2c7a7b' },
-  Hindi: { emoji: 'अ', color: '#d69e2e' },
-  Sanskrit: { emoji: 'सं', color: '#975a16' },
+const DASHBOARD_LABELS: Record<string, Record<string, string>> = {
+  en: { navigation: 'Dashboard navigation', subjects: 'Subjects', changeLanguage: 'Change language', overview: 'Your subjects', overviewNote: 'Choose a subject to open its tutor chat.', recentChat: 'Continue recent chat', books: 'Textbooks', classBoard: 'Class and board', action: 'Action', open: 'Open subject', learning: 'Learning' },
+  hi: { navigation: 'डैशबोर्ड नेविगेशन', subjects: 'विषय', changeLanguage: 'भाषा बदलें', overview: 'तुम्हारे विषय', overviewNote: 'उसके ट्यूटर चैट को खोलने के लिए कोई विषय चुनो।', recentChat: 'हाल की बातचीत जारी रखें', books: 'पाठ्यपुस्तकें', classBoard: 'कक्षा और बोर्ड', action: 'खोलें', open: 'विषय खोलें', learning: 'पढ़ाई' },
+  or: { navigation: 'ଡ୍ୟାସବୋର୍ଡ୍‌ ନାଭିଗେସନ୍‌', subjects: 'ବିଷୟ', changeLanguage: 'ଭାଷା ବଦଳାଅ', overview: 'ତୁମ ବିଷୟଗୁଡ଼ିକ', overviewNote: 'ପାଠ ସାଥୀ ସହ କଥା ହେବାକୁ ଗୋଟିଏ ବିଷୟ ବାଛ।', recentChat: 'ସାମ୍ପ୍ରତିକ କଥା ଆଗକୁ ନିଅ', books: 'ପାଠ୍ୟ ବହି', classBoard: 'ଶ୍ରେଣୀ ଓ ବୋର୍ଡ', action: 'ଖୋଲ', open: 'ବିଷୟ ଖୋଲ', learning: 'ପଢ଼ା' },
 };
-const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
+const D = (lang: string, key: string) => DASHBOARD_LABELS[lang]?.[key] ?? DASHBOARD_LABELS.en![key] ?? key;
+
+type SubjectGroup = { name: Record<string, string | undefined>; ids: string[] };
+function SubjectOverview({ books, subjects, lang, hasHistory, onContinue, onOpen }: { books: BookInfo[]; subjects: SubjectGroup[]; lang: string; hasHistory: boolean; onContinue: () => void; onOpen: (ids: string[]) => void }) {
+  const titleFor = (b: BookInfo) => b.title[lang as 'or' | 'en'] ?? b.title.en;
+  return (
+    <main class="overview">
+      <div class="overview-heading">
+        <span>{D(lang, 'subjects')}</span>
+        <h1>{D(lang, 'overview')}</h1>
+        <p>{D(lang, 'overviewNote')}</p>
+        {hasHistory && <button class="continue-chat" onClick={onContinue}>{D(lang, 'recentChat')}</button>}
+      </div>
+      <div class="table-scroll">
+        <table class="subject-table">
+          <thead><tr><th scope="col">{D(lang, 'subjects')}</th><th scope="col">{D(lang, 'books')}</th><th scope="col">{D(lang, 'classBoard')}</th><th scope="col">{D(lang, 'action')}</th></tr></thead>
+          <tbody>
+            {subjects.map((s) => {
+              const groupBooks = books.filter((b) => s.ids.includes(b.id));
+              const classBoard = groupBooks.length ? [...new Set(groupBooks.map((b) => `${b.classLevel} · ${b.board}`))].join(', ') : '—';
+              return <tr>
+                <th scope="row" data-label={D(lang, 'subjects')}>{s.name[lang] ?? s.name.en}</th>
+                <td data-label={D(lang, 'books')}>{groupBooks.length ? groupBooks.map(titleFor).join(', ') : '—'}</td>
+                <td data-label={D(lang, 'classBoard')}>{classBoard}</td>
+                <td data-label={D(lang, 'action')}><button class="table-action" onClick={() => onOpen(s.ids)}>{D(lang, 'open')}</button></td>
+              </tr>;
+            })}
+            {!subjects.length && <tr><td class="table-empty" colSpan={4}>{D(lang, 'overviewNote')}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  );
+}
 
 /** First questions to tap, per book, written as a student would ask them (checked against the books' pages). */
 const IDEAS: Record<string, Record<string, string[]>> = {
@@ -373,6 +422,16 @@ const UI: Record<string, Record<string, string>> = {
   en: { noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided' },
 };
 const U = (lang: string, k: string) => UI[lang]?.[k] ?? UI.en![k] ?? k;
+const START_PROMPTS: Record<string, string> = {
+  or: 'ଆଜି କ’ଣ ପଢ଼ୁଛ?',
+  hi: 'आज क्या पढ़ रहे हो?',
+  en: 'What are you learning today?',
+};
+const OFFLINE_LABELS: Record<string, string> = {
+  or: 'ସେଭ୍‌ ଥିବା ବହିରୁ · ଅଫ୍‌ଲାଇନ୍‌',
+  hi: 'ऑफ़लाइन · सेव की हुई किताब',
+  en: 'Offline · saved book',
+};
 
 const TONE: Record<string, { icon: string; key: string }> = {
   praise: { icon: 'check', key: 'right' }, hint: { icon: 'spark', key: 'partly' }, retry: { icon: 'help', key: 'wrong' },
@@ -388,7 +447,7 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip }
     <div class="msg tutor">
       <span class="mark"><Logo size={28} /></span>
       <div class={'bubble ' + (m.tone ?? '')} role={care ? 'alert' : undefined}>
-        {tone && <span class="badge"><Icon name={tone.icon} size={14} />{U(lang, tone.key)}</span>}
+        {tone && <span class="badge"><Icon name={tone.icon} size={14} />{tone.key === 'offline' ? (OFFLINE_LABELS[lang] ?? OFFLINE_LABELS.en) : U(lang, tone.key)}</span>}
         <p class="say">{care ? m.text.split(/(1098|14416|112)/).map((x, i) => (i % 2 ? <a class="tel" href={`tel:${x}`}>{x}</a> : x)) : m.text}</p>
         {m.terms?.length ? <div class="terms" aria-label={U(lang, 'keyWords')}>{m.terms.map((x) => <span class="term"><b>{x.or}</b><i>{x.en}</i></span>)}</div> : null}
         {m.check && <div class="qcheck"><span class="label"><Icon name="help" size={15} />{U(lang, 'quickCheck')}</span><p>{m.check}</p></div>}
