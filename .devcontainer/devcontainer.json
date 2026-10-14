@@ -1,12 +1,12 @@
 // GitHub Codespaces: the whole Setu server (API, built PWA, IndicTrans2, IndicConformer, MMS voice, e5 + pgvector)
-// on one 8 GB machine, with a public https link. Keys come from Codespaces secrets, never from the repo.
+// on one 16 GB machine (4 cores), with a public https link. Keys come from Codespaces secrets, never from the repo.
 {
   "name": "Setu server",
   "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "20" }
   },
-  "hostRequirements": { "cpus": 2, "memory": "8gb", "storage": "32gb" },
+  "hostRequirements": { "cpus": 4, "memory": "16gb", "storage": "32gb" },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "bash .devcontainer/start.sh",
   "forwardPorts": [8787],
@@ -16,6 +16,9 @@
     "GEMINI_API_KEY": { "description": "Gemini key: photo reading, voice typing backup" },
     "GEMINI_API_KEY_2": { "description": "Second Gemini key (used when the first is busy)" },
     "HF_TOKEN": { "description": "Hugging Face read token: downloads IndicTrans2 and IndicConformer (accept their licences first)" },
-    "SETU_ADMIN_KEY": { "description": "Your own password for /trace/live?key=… and admin actions" }
+    "SETU_ADMIN_KEY": { "description": "Your own password for /trace/live?key=… and admin actions" },
+    "FIREBASE_PROJECT_ID": { "description": "Firebase project id: sign-in (email, Google, phone OTP). Leave empty to run without accounts" },
+    "FIREBASE_API_KEY": { "description": "Firebase web apiKey (from Project settings → Your apps)" },
+    "FIREBASE_APP_ID": { "description": "Firebase web appId (same place)" }
   }
 }
