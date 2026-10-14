@@ -103,6 +103,8 @@ code { word-break: break-all; font-size: 0.875rem; }
 .onboard.who-screen .head { width: 100%; margin: clamp(22px, 7vh, 72px) auto 0; justify-content: center; flex-direction: column; gap: 18px; padding: 0; border: 0; }
 .who-bar { display: flex; justify-content: space-between; align-items: center; width: min(100%, 1100px); margin: 0 auto -12px; }
 .who-bar-btn { display: inline-flex; align-items: center; gap: 7px; min-height: 42px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: .88rem; font-weight: 700; }
+.who-bar-end { display: inline-flex; gap: 8px; }
+.onboard .head .theme-toggle { margin-left: auto; }
 .who-bar-btn:hover { border-color: var(--primary); }
 .who-bar-btn.who-logout { color: var(--bad); }
 .who-screen .head h1 { font-size: clamp(2rem, 4.6vw, 3.25rem); letter-spacing: -.035em; }
@@ -257,9 +259,9 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
 .profile-caption { color: var(--muted); font-size: .62rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .account-name { color: var(--ink); font-size: .93rem; font-weight: 700; overflow-wrap: anywhere; }
 .account-email { color: var(--muted); font-size: .75rem; overflow-wrap: anywhere; }
-.dashboard .theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-width: 76px; min-height: 42px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: .82rem; font-weight: 650; white-space: nowrap; }
-.dashboard .theme-toggle:hover { border-color: var(--primary); background: var(--surface-2); }
-.dashboard .theme-toggle > span:first-child { color: var(--primary-strong); font-size: 1.1rem; }
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 7px; flex: none; min-width: 76px; min-height: 42px; padding: 7px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: .82rem; font-weight: 650; white-space: nowrap; }
+.theme-toggle:hover { border-color: var(--primary); background: var(--surface-2); }
+.theme-toggle > span:first-child { color: var(--primary-strong); font-size: 1.1rem; }
 .dashboard .mobile-profile { display: none; }
 .profile-pic { display: block; width: 36px; height: 36px; flex: none; border-radius: 50%; object-fit: cover; background: var(--surface-2); border: 1px solid var(--line); }
 .overview-art img { width: 100%; max-width: 150px; height: auto; object-fit: contain; }

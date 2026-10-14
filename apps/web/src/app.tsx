@@ -4,6 +4,7 @@ import { BOARDS, textIn, scrubPii, gradeNumeric, toScriptDigits, DATA_BUDGET_KB,
 import { Agent, ensureDevice, ensurePack, importPack } from './agent.ts';
 import { Chat } from './chat.tsx';
 import { Icon, Logo } from './icons.tsx';
+import { ThemeToggle } from './theme.tsx';
 import { AvatarPortrait } from './avatar.tsx';
 import { sharePack, readPackFile } from './packfile.ts';
 import { pushSupported, pushOn, enablePush, disablePush } from './push.ts';
@@ -201,7 +202,7 @@ function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; ini
   const nextStep = () => setStep(step === 'language' ? 'avatar' : 'class');
   return (
     <div class="onboard">
-      <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div></div>
+      <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div><ThemeToggle lang={L} /></div>
       <p class="profile-note">{PROFILE_NOTE[L] ?? PROFILE_NOTE.en}</p>
       {step !== 'language' && <button class="link small setup-back" onClick={() => setStep(step === 'class' ? 'avatar' : 'language')}>← {L === 'hi' ? 'वापस' : L === 'or' ? 'ପଛକୁ' : 'Back'}</button>}
       {step === 'language' && <>
@@ -683,10 +684,10 @@ function Who({ profiles, onPick, onNew, onBack, onLogout }: { profiles: Profile[
   const words = WHO_BAR[L] ?? WHO_BAR[LANGUAGES[L]?.school ?? ''] ?? WHO_BAR.en!;
   return (
     <div class="onboard who-screen">
-      {(onBack || onLogout) && <div class="who-bar">
+      <div class="who-bar">
         {onBack ? <button class="who-bar-btn" onClick={onBack}><Icon name="back" size={18} />{words.back}</button> : <span />}
-        {onLogout && <button class="who-bar-btn who-logout" onClick={onLogout}><Icon name="logout" size={18} />{words.out}</button>}
-      </div>}
+        <span class="who-bar-end"><ThemeToggle lang={L} />{onLogout && <button class="who-bar-btn who-logout" onClick={onLogout}><Icon name="logout" size={18} />{words.out}</button>}</span>
+      </div>
       <div class="head"><Logo size={84} /><h1>{t(L, 'whoIsIt')}</h1></div>
       <div class="grid avatars">
         {profiles.map((p) => <button class="big who" aria-label={p.name ? `${t(L, 'whoIsIt')} ${p.name}` : t(L, 'whoIsIt')} onClick={() => onPick(p)}><span class="who-avatar"><AvatarPortrait avatar={p.avatar} /></span><span class="small">{p.name ?? t(L, 'switchLearner')}</span></button>)}

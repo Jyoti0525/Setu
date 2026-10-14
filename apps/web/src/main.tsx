@@ -2,6 +2,9 @@ import './install.ts'; // first: Chrome's install offer can fire before any scre
 import { render } from 'preact';
 import { ProductApp } from './product.tsx';
 import './styles.css';
+import { applyTheme } from './theme.tsx';
+
+applyTheme();
 
 const root = document.getElementById('app')!;
 // #teacher → teacher view, #review → native language review (both loaded on demand); everything else is the learner app

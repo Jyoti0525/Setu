@@ -17,6 +17,7 @@ import type { Tier } from '@setu/core';
 import { Icon, Logo } from './icons.tsx';
 import { AvatarPortrait } from './avatar.tsx';
 import { LangMenu } from './langmenu.tsx';
+import { ThemeToggle } from './theme.tsx';
 
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
 interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string; figures?: { src: string; text: string }[] }
@@ -80,8 +81,6 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
   const [past, setPast] = useState<PastChat[]>([]);
   const [showPast, setShowPast] = useState(false);
   const [collapsed, setCollapsed] = useState(() => store('setu-sidebar-collapsed') === 'true');
-  const [dark, setDark] = useState(() => (store('setu-theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark');
-  useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; store('setu-theme', dark ? 'dark' : 'light'); }, [dark]);
   // install on the home screen (P7.6): Chrome's own sheet, or the Safari steps on an iPhone
   const [inst, setInst] = useState<InstallState>(installState());
   const [iosHelp, setIosHelp] = useState(false);
@@ -390,7 +389,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && (account.name?.trim() || account.email.includes('@')) && <span class="account-email">{account.email}</span>}</div>}
         {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
         <LangMenu value={lang} ids={LANGS.map((l) => l.id)} label={D(lang, 'changeLanguage')} onPick={(id) => { if (id !== lang) void onLang(id); }} />
-        <button class="theme-toggle" aria-label={D(lang, dark ? 'light' : 'dark')} aria-pressed={dark} title={D(lang, dark ? 'light' : 'dark')} onClick={() => setDark(!dark)}><span aria-hidden="true">{dark ? '☀' : '☾'}</span><span class="theme-label">{D(lang, dark ? 'light' : 'dark')}</span></button>
+        <ThemeToggle label={(k) => D(lang, k)} />
         {onLogout && <button class="theme-toggle topbar-logout" aria-label={D(lang, 'signOut')} title={D(lang, 'signOut')} onClick={onLogout}><Icon name="logout" size={18} /><span class="theme-label">{D(lang, 'signOut')}</span></button>}
         <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><AvatarPortrait avatar={profile.avatar} className="profile-pic" /><span class="profile-name">{who}</span></button>
       </header>
