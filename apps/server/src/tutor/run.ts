@@ -69,7 +69,7 @@ export interface TutorChip { label: string; text?: string; review?: string; book
 export interface TutorTrace extends TraceStep { latency_ms: number; status: 'ok' | 'fallback' | 'failed'; llm_calls: { job: string; provider?: string; latency_ms: number; outcome: string }[]; synced_in: number; kind: 'tutor' }
 export interface TutorResponse { messages: TutorMsg[]; trace: TutorTrace; memory: { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: TutorLesson & { chapter: string } } }
 
-const BUDGET_MS = 14_000;
+const BUDGET_MS = 20_000;
 
 export function memoryOf(store: Store, profileId: string): TutorMemory { return store.tutorState<TutorMemory>(profileId) ?? emptyMemory(); }
 

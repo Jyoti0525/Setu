@@ -134,13 +134,13 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
     ...base,
     action: stuck ? 'explain_differently' : 'explain',
     topic, strategy, grounding, switchedBook, escalate,
-    // explain, then check she understood — unless she has shown mastery here already, or a check is waiting
-    askCheck: !mastered && !m.check,
+    // explain, then check she understood — unless she has shown mastery here already (a new check replaces an old one)
+    askCheck: !mastered,
     reason: [
       `found in ${h0.bookId} p. ${h0.passage.page} (coverage ${h0.coverage})`,
       t ? `${topic}: mastery ${pct(t.pKnown)}, ${t.wrongInARow} wrong in a row, ${t.doubts} doubts` : `${topic}: new topic for her`,
       stuck ? `still stuck → next strategy: ${strategy} (tried: ${t!.tried.join(', ') || 'none'})` : 'explain from the book',
-      mastered ? 'already mastered → no check' : m.check ? 'a check is already open → no new one' : 'then one short check',
+      mastered ? 'already mastered → no check' : 'then one short check',
       escalate ? `wrong ${t!.wrongInARow}× in a row → tell her teacher` : '',
     ].filter(Boolean).join('; '),
     candidates: [{ action: stuck ? 'explain_differently' : 'explain', score: 0.8 }, { action: 'not_in_book', score: 0.1 }],
@@ -175,9 +175,10 @@ export function applyTurn(m: TutorMemory, x: { plan: TutorPlan; now: number; gra
     t.gap = right ? undefined : x.grade.gap ?? t.gap;
     // not right yet: the same question stays open for one more try (she was just given a hint), then it is closed
     check = right || check.tries >= 1 ? undefined : { ...check, tries: check.tries + 1, ignored: 0 };
-  } else if (check && p.action !== 'grade') {
-    // she moved on: the open check waits one more message, then it is dropped (she is never nagged)
-    check = check.ignored >= 1 ? undefined : { ...check, ignored: check.ignored + 1 };
+  } else if (check && p.action !== 'grade' && p.action !== 'show_passage') {
+    // she moved on to a new question: the old check is dropped at once (she is never nagged);
+    // offline (show_passage) it stays, so an answer typed without signal is still graded later
+    check = undefined;
   }
   if (x.newCheck) check = { ...x.newCheck, askedAt: x.now, ignored: 0, tries: 0 };
   const lesson = x.lesson === null ? undefined : x.lesson ?? m.lesson;

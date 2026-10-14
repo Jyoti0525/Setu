@@ -64,6 +64,16 @@ describe('tutor policy (P8.4–P8.8)', () => {
     expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check, [other, { ...other, bookId: 'bio', passage: { ...other.passage, ch: 1 } }])).toBe(true);
     expect(planTurn(m, { safety: 'ok', text: 'ଏହା ଦୃଢ଼ତା ଦିଏ', hits: [], online: true, now }).action).toBe('grade');
   });
+  it('a new question closes the old check at once and gets its own check', () => {
+    const m: TutorMemory = { ...emptyMemory(), check: { question: 'old?', keyIdeas: [], topic: 'bio#9', passageIds: [], askedAt: now, ignored: 0, tries: 0 } };
+    const q = 'କୋଷ ପ୍ରାଚୀର କ\'ଣ';
+    const p = planTurn(m, { safety: 'ok', text: q, hits: hits(q), online: true, now });
+    expect(p.askCheck).toBe(true);
+    expect(applyTurn(m, { plan: p, now }).check).toBeUndefined();
+    expect(applyTurn(m, { plan: p, now, newCheck: { question: 'new?', keyIdeas: [], topic: p.topic!, passageIds: [] } }).check?.question).toBe('new?');
+    // offline the answer is kept for grading later
+    expect(applyTurn(m, { plan: { ...p, action: 'show_passage' }, now }).check?.question).toBe('old?');
+  });
   it('still stuck → a different way of explaining (strategy ladder), not the same words louder', () => {
     let m = emptyMemory();
     const q = 'କୋଷ ପ୍ରାଚୀର କ\'ଣ';
