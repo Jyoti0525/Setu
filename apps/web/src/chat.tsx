@@ -387,7 +387,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
             <span class={'net ' + tier} role="status"><i class="dot" />{t(lang, tier)}</span>
           </div>
         </div>
-        {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && <span class="account-email">{account.email}</span>}</div>}
+        {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && (account.name?.trim() || account.email.includes('@')) && <span class="account-email">{account.email}</span>}</div>}
         {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
         <LangMenu value={lang} ids={LANGS.map((l) => l.id)} label={D(lang, 'changeLanguage')} onPick={(id) => { if (id !== lang) void onLang(id); }} />
         <button class="theme-toggle" aria-label={D(lang, dark ? 'light' : 'dark')} aria-pressed={dark} title={D(lang, dark ? 'light' : 'dark')} onClick={() => setDark(!dark)}><span aria-hidden="true">{dark ? '☀' : '☾'}</span><span class="theme-label">{D(lang, dark ? 'light' : 'dark')}</span></button>

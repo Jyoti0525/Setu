@@ -101,7 +101,7 @@ export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, 
 
   if (status === 'loading') return <div class="splash"><Logo size={72} /><span>{t('or', 'loading')}</span></div>;
   if (status === 'nopack') return <NoPack onPack={(p) => void start(p)} />;
-  if (status === 'who') return <Who profiles={profiles} onPick={(p) => { void (async () => {
+  if (status === 'who') return <Who profiles={profiles} onBack={profile && agent ? () => setStatus('ready') : undefined} onLogout={onLogout} onPick={(p) => { void (async () => {
     const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, []);
     await setMeta(`accountProfiles:${accountId}`, [...new Set([...ids, p.id])]);
     await setMeta(`accountProfile:${accountId}`, p.id);
@@ -663,10 +663,16 @@ function Hints(p: { m: Extract<OutMsg, { kind: 'hints' }>; lang: string; say: pr
 }
 
 /** P4.22: a shared phone — who is learning now? Her record opens only after she picks herself. */
-function Who({ profiles, onPick, onNew }: { profiles: Profile[]; onPick: (p: Profile) => void; onNew: () => void }) {
+const WHO_BAR: Record<string, { back: string; out: string }> = { or: { back: 'ଫେରିଯାଅ', out: 'ଲଗ୍‌ଆଉଟ୍‌' }, hi: { back: 'वापस जाएँ', out: 'लॉग आउट' }, en: { back: 'Go back', out: 'Log out' } };
+function Who({ profiles, onPick, onNew, onBack, onLogout }: { profiles: Profile[]; onPick: (p: Profile) => void; onNew: () => void; onBack?: () => void; onLogout?: () => void }) {
   const L = profiles[0]?.lang ?? 'or';
+  const words = WHO_BAR[L] ?? WHO_BAR[LANGUAGES[L]?.school ?? ''] ?? WHO_BAR.en!;
   return (
     <div class="onboard who-screen">
+      {(onBack || onLogout) && <div class="who-bar">
+        {onBack ? <button class="who-bar-btn" onClick={onBack}><Icon name="back" size={18} />{words.back}</button> : <span />}
+        {onLogout && <button class="who-bar-btn who-logout" onClick={onLogout}><Icon name="logout" size={18} />{words.out}</button>}
+      </div>}
       <div class="head"><Logo size={84} /><h1>{t(L, 'whoIsIt')}</h1></div>
       <div class="grid avatars">
         {profiles.map((p) => <button class="big who" aria-label={p.name ? `${t(L, 'whoIsIt')} ${p.name}` : t(L, 'whoIsIt')} onClick={() => onPick(p)}><span class="who-avatar"><AvatarPortrait avatar={p.avatar} /></span><span class="small">{p.name ?? t(L, 'switchLearner')}</span></button>)}
