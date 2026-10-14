@@ -128,7 +128,7 @@ export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, 
     await loadLocale(p.lang);
     setProfile(p); setAgent(a); setStatus('ready');
   }} />;
-  const onLang = async (l: string) => { await loadLocale(l); const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
+  const onLang = async (l: string) => { await loadLocale(l); try { localStorage.setItem('setu-auth-lang', l); } catch { /* private mode */ } const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
   const onSwitch = async () => {
     const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, [profile!.id]);
     const all = await getMeta<Profile[]>('profiles', []);
@@ -143,10 +143,24 @@ export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, 
   </>;
 }
 
+/** the language she picked on the sign-in page: the app's own language, or a home language taught in its school language */
+function signInLanguage(): { lang: string; home: string | null } | null {
+  let id: string | null = null;
+  try { id = localStorage.getItem('setu-auth-lang'); } catch { /* private mode */ }
+  if (!id) return null;
+  if (LANGS.some((l) => l.id === id)) return { lang: id, home: null };
+  const school = LANGUAGES[id]?.school;
+  return school ? { lang: school, home: id } : null;
+}
+
 function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; initialName: string }) {
-  const [step, setStep] = useState<'language' | 'avatar' | 'class'>('language');
-  const [lang, setLang] = useState<string | null>(null);
-  const [home, setHome] = useState<string | null>(null);
+  // chosen already on the sign-in page: no need to ask again (Back still reaches the language step)
+  const [picked] = useState(signInLanguage);
+  const [step, setStep] = useState<'language' | 'avatar' | 'class'>(picked ? 'avatar' : 'language');
+  const [lang, setLang] = useState<string | null>(picked?.lang ?? null);
+  const [home, setHome] = useState<string | null>(picked?.home ?? null);
+  const [, setLocaleReady] = useState(0);
+  useEffect(() => { if (picked) void loadLocale(picked.lang).then(() => setLocaleReady(1)); }, []);
   const [showHome, setShowHome] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState(initialName);
