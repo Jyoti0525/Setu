@@ -16,6 +16,12 @@ describe('maths read by vision (P8.17): LaTeX → what the phone shows', () => {
     expect(latexToText('$\\triangle ABC \\cong \\triangle PQR$')).toBe('△ABC ≅ △PQR');
     expect(latexToText('$\\overline{AB} \\parallel \\overline{CD}$')).toBe('A̅B̅ ∥ C̅D̅');
   });
+  it('long division written as an array over several lines', () => {
+    expect(latexToText('ସ୍ତମ୍ଭ ପ୍ରଣାଳୀ : $\\begin{array}{rrr} 2x^{3} & +3x^{2} \\\\\n \\hline -\\phantom{0}5 & \\end{array}$ ।')).toBe('ସ୍ତମ୍ଭ ପ୍ରଣାଳୀ : 2x³ +3x²\n-5 ।');
+  });
+  it('a proof\'s braced list of reasons', () => {
+    expect(latexToText('ମଧ୍ୟରେ $\\left.\\begin{cases} \\text{AB} = \\text{AC} & (\\text{ଦତ୍ତ}) \\\\\n \\text{AD} = \\text{AD} \\end{cases}\\right\\}$ ।')).toBe('ମଧ୍ୟରେ AB = AC (ଦତ୍ତ)\nAD = AD } ।');
+  });
   it('Odia words inside the maths stay as written', () => {
     expect(latexToText('P(H) = $\\frac{\\text{H ର ବାରମ୍ବାରତା}}{\\text{ଟସ୍ ସଂଖ୍ୟା}} = \\frac{260}{500}$')).toBe('P(H) = (H ର ବାରମ୍ବାରତା)/(ଟସ୍ ସଂଖ୍ୟା) = 260/500');
   });

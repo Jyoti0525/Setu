@@ -55,11 +55,14 @@ function parse(src: string, at: { i: number }, stop?: string): string {
     } else if (name === 'overline' || name === 'bar') out += [...group()].map((c) => (/\p{L}/u.test(c) ? c + '̅' : c)).join('');
     else if (name === 'overrightarrow' || name === 'vec') out += group() + '⃗';
     else if (name === 'overleftrightarrow') out += group() + '⃡';
-    else if (name === 'begin' || name === 'end') group();
+    else if (name === 'begin' || name === 'end') { const env = group(); if (name === 'begin' && /array|tabular/.test(env) && src[at.i] === '{') group(); } // and its {rrr}
+    else if (name === 'phantom' || name === 'hphantom') group();
+    else if (name === 'hline') { /* a rule under a line */ }
     else if (name === '\\') out += '\n';
     else if (name === ',' || name === ';' || name === ' ' || name === ':') out += ' ';
     else if (name === '!') { /* negative space */ }
     else if (name === '{' || name === '}' || name === '%' || name === '$' || name === '#' || name === '&' || name === '_') out += name;
+    else if (name === 'left' || name === 'right') { if (src[at.i] === '.') at.i++; } // \left. is an invisible bracket
     else if (STYLE.has(name)) { /* the group that follows is read as ordinary text */ }
     else {
       out += SYM[name] ?? name;
@@ -72,8 +75,9 @@ function parse(src: string, at: { i: number }, stop?: string): string {
 /** LaTeX inside $…$, $$…$$, \(…\), \[…\] → plain Unicode; outside it only a stray \le or 	imes is replaced. */
 export function latexToText(text: string): string {
   return text
-    .replace(/\$\$([\s\S]+?)\$\$|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g, (_m, a?: string, b?: string, c?: string, d?: string) =>
-      parse((a ?? b ?? c ?? d ?? '').trim(), { i: 0 }).replace(/[ \t]+/g, ' ').trim())
+    // a single $ spans lines only around an array (long division is written that way)
+    .replace(/\$\$([\s\S]+?)\$\$|\$([^$\n]*?\\begin[\s\S]+?|[^$\n]+?)\$|\\\(([\s\S]+?)\\\)|\\\[([\s\S]+?)\\\]/g, (_m, a?: string, b?: string, c?: string, d?: string) =>
+      parse((a ?? b ?? c ?? d ?? '').trim(), { i: 0 }).replace(/[ \t]+/g, ' ').replace(/ *\n\s*/g, '\n').trim())
     // outside $…$ only a stray symbol name (\le, \times) is replaced
     .replace(/\\([A-Za-z]+)/g, (m, name: string) => SYM[name] ?? m);
 }

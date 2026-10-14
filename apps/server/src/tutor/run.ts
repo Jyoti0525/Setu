@@ -6,7 +6,7 @@
 
 import type { LlmRequest } from '@google/adk';
 import {
-  focusQuote, applyTurn, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan,
+  focusQuote, applyTurn, normalizeForMatch, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan,
 } from '@setu/core';
 import { canCall, type ModelSet } from '../llm.ts';
 import { parseJson, textOf } from '../agent/cycle.ts';
@@ -88,7 +88,11 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       tools.push({ tool: 'books.search', args: { q: q.slice(0, 60), books: picked ?? 'all' }, status: 'ok', latency_ms: Date.now() - ts, note: hits[0] ? `best ${hits[0].passage.id} coverage ${hits[0].coverage}` : 'nothing' });
     }
     // 2b. her words are not the book's words (English/romanized for an Odia book): the model rewrites, search again
-    if (!req.review && !answering && (hits[0]?.coverage ?? 0) < 0.67 && canCall(d.models, 'decide')) {
+    //     Not when she named the chapter the first search found ("ସମ୍ଭାବ୍ୟତାର ମାନ…"): a rewrite adds words like
+    //     "range" (ପରିସର) that belong to another chapter (Statistics) and would win on coverage.
+    const ch0 = hits[0] && d.shelf.chapterOf(hits[0].bookId, hits[0].passage.ch);
+    const named = !!ch0 && [ch0.title.or, ch0.title.en].some((t) => t.length >= 4 && normalizeForMatch(text).includes(normalizeForMatch(t)));
+    if (!req.review && !answering && !named && (hits[0]?.coverage ?? 0) < 0.67 && canCall(d.models, 'decide')) {
       const r = await rewriteQuery(d.models, text);
       llm.push({ job: 'rewrite_query', provider: d.models.lastUsed.decide, latency_ms: r.ms, outcome: r.q ? 'ok' : 'failed' });
       if (!r.q) tools.push({ tool: 'books.rewrite_query', args: {}, status: 'failed', latency_ms: r.ms, note: 'model unavailable → first search kept' });
