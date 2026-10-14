@@ -100,6 +100,9 @@ function saveMemory(store: Store, profileId: string, scope: string | undefined, 
   store.setTutorState(scopedId, prior ? { ...memory, check: memory.check ?? prior.check } : memory, at);
 }
 
+/** "explain the whole chapter / topic": too big for one answer — her chapter is then taught part by part */
+const WHOLE_CHAPTER = /\b(whole|entire|full|complete|all of the)\s+(chapter|lesson|topic)\b|\bexplain\s+(the\s+|this\s+)?(chapter|lesson)\b|\b(pura|poora|pure)\s+(chapter|adhyay|path|topic)\b|पूर(ा|े)\s*(अध्याय|पाठ|चैप्टर|टॉपिक)|ପୂରା\s*(ଅଧ୍ୟାୟ|ପାଠ|ଚାପ୍ଟର)/i;
+
 /** One message from her → the agent's reply. */
 export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorResponse> {
   const now = d.now?.() ?? Date.now();
@@ -117,6 +120,9 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
   // 2. search her books (the chosen subject first; the whole shelf so a wrong pick is caught)
   let hits: BookHit[] = [];
   let english: string | undefined;
+  // she asked for her whole chapter: the lesson, part by part (each part ends with "Next part")
+  const whole = !req.learn && !req.review && req.chapter && safety === 'ok' && WHOLE_CHAPTER.test(text) ? req.chapter : undefined;
+  if (whole) { req = { ...req, learn: whole }; tools.push({ tool: 'intent.whole_chapter', args: { chapter: whole }, status: 'ok', note: 'the whole chapter → taught part by part' }); }
   // the lesson she chose: which part comes next (a new chapter starts at part 1)
   const learn = req.learn ? lessonAt(d.shelf, m, req.learn) : undefined;
   if (learn) {

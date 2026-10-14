@@ -56,3 +56,17 @@ describe('a check per subject (memoryScope)', () => {
     expect(Object.keys(memoryOf(store, 'p1', 'subject:maths').topics)).toEqual(Object.keys(memoryOf(store, 'p1', 'subject:bio').topics));
   });
 });
+
+describe('the whole chapter', () => {
+  it('"explain the whole chapter" in a picked chapter becomes its lesson, part by part', async () => {
+    const store = new Store();
+    const gen = new ScriptedLlm(() => JSON.stringify({ reply: 'ଉଦ୍ଭିଦ କୋଷର ବାହାରେ କୋଷ ପ୍ରାଚୀର ଥାଏ। (ବହି ପୃଷ୍ଠା 5)', used: [pid], terms: [], check: { question: 'କୋଷ ପ୍ରାଚୀର କାହିଁକି ଦରକାର?', key_ideas: ['strength'] } }));
+    const d: TutorDeps = { store, shelf: new Shelf([book]), models: buildModels({}, { generate: { scripted: gen } }), now: () => 1_760_000_000_000 };
+    const r = await runTutor(d, { profileId: 'p2', deviceId: 'phone', text: 'please explain the whole chapter', lang: 'en', chapter: 'bio#2', memoryScope: 'subject:bio' });
+    expect(r.trace.tools.some((t) => t.tool === 'intent.whole_chapter')).toBe(true);
+    expect(r.trace.tools.some((t) => t.tool === 'books.open')).toBe(true);
+    // an ordinary doubt in the same chapter is still just answered
+    const q = await runTutor(d, { profileId: 'p3', deviceId: 'phone', text: 'what is a cell wall?', lang: 'en', chapter: 'bio#2', memoryScope: 'subject:bio' });
+    expect(q.trace.tools.some((t) => t.tool === 'intent.whole_chapter')).toBe(false);
+  });
+});
