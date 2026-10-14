@@ -11,17 +11,16 @@ export default defineConfig({
         // installable from Chrome on Android (PNG 192 + 512 + maskable) and Safari on iPhone (apple-touch-icon, index.html)
         id: '/', name: 'Setu · ସେତୁ — Class 9 study buddy', short_name: 'Setu', description: 'Odia-first tutor for BSE Odisha Class 9 textbooks. Works offline.',
         lang: 'or', dir: 'ltr', start_url: '/', scope: '/', display: 'standalone', orientation: 'portrait', categories: ['education'],
-        background_color: '#f5f1e8', theme_color: '#1f5a60',
+        background_color: '#DAC8AE', theme_color: '#DAC8AE',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
           { src: '/maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-          { src: '/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}', '*.png'],
+        globPatterns: ['**/*.{js,css,html,svg,woff2}', '*.png', 'avatars/*.png'],
         // opt-in lesson reminders (P4.31)
         importScripts: ['push-sw.js'],
         // offline photo reading is an opt-in ~3 MB download (data is money, PLAN §8.1): cached on first use, not precached

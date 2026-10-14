@@ -18,10 +18,20 @@ function setTier(t: Tier) {
   if (t !== tier) { tier = t; listeners.forEach((f) => f(t)); }
 }
 
+let idToken: (() => Promise<string | null>) | null = null;
+/** set once sign-in is loaded (firebase.ts) */
+export function setIdToken(f: () => Promise<string | null>) { idToken = f; }
+
 export async function fetchWithTimeout(url: string, init: RequestInit = {}, ms = 8000): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
-  try { return await fetch(url, { ...init, signal: ctrl.signal }); } finally { clearTimeout(timer); }
+  try {
+    const headers = new Headers(init.headers);
+    // signed in: the server learns who (it is not needed to learn: the device token below is her key)
+    const token = url.startsWith('/api/') && !url.startsWith('/api/auth/') && !url.startsWith('/api/health') ? await Promise.race([idToken?.().catch(() => null) ?? null, new Promise<null>((r) => setTimeout(() => r(null), 1500))]) : null;
+    if (token) headers.set('authorization', `Bearer ${token}`);
+    return await fetch(url, { ...init, headers, signal: ctrl.signal });
+  } finally { clearTimeout(timer); }
 }
 
 export async function probe(): Promise<Tier> {

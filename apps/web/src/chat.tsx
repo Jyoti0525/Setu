@@ -4,7 +4,7 @@
 // textbook passage and keeps the question; the full answer arrives when the signal is back.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { boardKey, nameIn, emptyMemory, LANGUAGES, localeOf, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
+import { BOARDS, boardKey, nameIn, toScriptDigits, emptyMemory, LANGUAGES, localeOf, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
 import type { Agent } from './agent.ts';
 import { getMeta, setMeta } from './db.ts';
 import { bookLink, fetchWithTimeout, goodLink } from './net.ts';
@@ -15,6 +15,7 @@ import { readOnline, readOffline, ocrReady } from './snap.ts';
 import { canRecord, record, transcribe, hasWebSpeech, webSpeech, serverListens, type Recording } from './listen.ts';
 import type { Tier } from '@setu/core';
 import { Icon, Logo } from './icons.tsx';
+import { AvatarPortrait } from './avatar.tsx';
 
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
 interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string; figures?: { src: string; text: string }[] }
@@ -30,8 +31,12 @@ interface Memory { topics: { key: string; subject: string; chapter: string; pKno
 interface Chip { label: string; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
 interface Queued { id: string; text: string; bookIds?: string[]; at: number }
+/** an earlier conversation, kept on the phone (Chat history); the open one is `chat:<profile>` */
+interface PastChat { id: string; subject?: string[]; at: number; lines: Line[] }
 
 const keep = (lines: Line[]) => lines.slice(-60);
+/** a quick check asked in one subject waits in that subject (her topics are shared by all) */
+const scopeOf = (ids?: string[]) => (ids?.length ? `subject:${[...ids].sort().join('|')}` : undefined);
 
 /** Subjects from the books on the server/phone: one subject may be several books (a supplement chapter). */
 function subjectsOf(books: BookInfo[]) {
@@ -44,9 +49,11 @@ function subjectsOf(books: BookInfo[]) {
   return [...m.values()];
 }
 
-export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }: {
+export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, onLang, onLogout, onSignIn }: {
   agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; home?: string };
-  onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>;
+  /** the signed-in account (Firebase), when she signed in */
+  account?: { name?: string | null; email?: string | null };
+  onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>; onLogout?: () => void; onSignIn?: () => void;
 }) {
   const pid = profile.id;
   // her board's books only (one phone may hold learners of different boards: the list is kept whole, filtered here)
@@ -66,6 +73,14 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   const [showWhy, setShowWhy] = useState<number | null>(null);
   const [sheet, setSheet] = useState<'progress' | 'lang' | null>(null);
   const [mic, setMic] = useState<'idle' | 'rec' | 'live' | 'hearing'>('idle');
+  // the dashboard (her subjects as cards) or the chat; the agent's own news (a check, a lesson to continue) shows on both
+  const [view, setView] = useState<'overview' | 'chat'>('overview');
+  const [nudge, setNudge] = useState<TMsg | null>(null);
+  const [past, setPast] = useState<PastChat[]>([]);
+  const [showPast, setShowPast] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => store('setu-sidebar-collapsed') === 'true');
+  const [dark, setDark] = useState(() => (store('setu-theme') ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark');
+  useEffect(() => { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; store('setu-theme', dark ? 'dark' : 'light'); }, [dark]);
   // install on the home screen (P7.6): Chrome's own sheet, or the Safari steps on an iPhone
   const [inst, setInst] = useState<InstallState>(installState());
   const [iosHelp, setIosHelp] = useState(false);
@@ -81,6 +96,7 @@ export function Chat({ agent, lang, tier, profile, onGuided, onSwitch, onLang }:
   useEffect(() => {
     void (async () => {
       setLines(await getMeta<Line[]>(`chat:${pid}`, []));
+      setPast(await getMeta<PastChat[]>(`chatHistory:${pid}`, []));
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
       setFocus(await getMeta<string | undefined>(`chapter:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
@@ -150,7 +166,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
 
   async function openSession(): Promise<boolean> {
     try {
-      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject, board }) }, 8000);
+      const r = await fetchWithTimeout('/api/tutor/open', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, lang, bookIds: subject, board, memoryScope: scopeOf(subject) }) }, 8000);
       // the server no longer knows this phone (its data was reset): register again, once
       if (r.status === 401 && !sessionStorage.getItem('re-device')) { sessionStorage.setItem('re-device', '1'); await setMeta('device', null); location.reload(); return false; }
       if (!r.ok) return false;
@@ -164,12 +180,15 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         return n;
       });
       setMemory(j.memory); void setMeta(`memory:${pid}`, j.memory);
+      // a check left open, a lesson to continue, a topic to review: the agent's own news, shown on the dashboard too
+      setNudge(j.messages.find((m) => m.tone === 'info' && (m.check || m.chips?.length)) ?? null);
       return true;
     } catch { return false; }
   }
 
   /** One message to the agent: online the server; no signal (or it drops mid-way) the phone. */
   async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; learn?: string; show?: string } = {}) {
+    setView('chat');
     const msg = scrubPii(raw, profile.name ? [profile.name] : []).trim();
     if (!msg && !opts.review && !opts.learn) return;
     add([{ role: 'student', text: opts.show ?? msg, at: Date.now() }]);
@@ -178,7 +197,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
       setBusy(t(lang, 'thinking'));
       try {
         const chapter = opts.learn || opts.review ? undefined : focus;
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId, board, home: profile.home }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject, memoryScope: scopeOf(subject), mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId, board, home: profile.home }) }, 30000);
         if (r.ok) {
           const j = (await r.json()) as { messages: TMsg[]; memory: Memory; trace: { chosen: string; reason: string; tools: { tool: string; note?: string }[] } };
           const why = `${j.trace.chosen} — ${j.trace.reason}\n${j.trace.tools.map((x) => x.tool + (x.note ? ` (${x.note})` : '')).join(' → ')}`;
@@ -214,6 +233,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   const setChapter = async (c: string | undefined) => { setFocus(c); await setMeta(`chapter:${pid}`, c); };
 
   async function onChip(c: Chip) {
+    setView('chat'); setNudge(null);
     const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
     if (ids) {
       add([{ role: 'student', text: c.label, at: Date.now() }]);
@@ -271,7 +291,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     const left: Queued[] = [];
     for (const x of q) {
       try {
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, queuedAt: x.at, turnId: x.id, board, home: profile.home }) }, 30000);
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: x.text, lang, bookIds: x.bookIds, memoryScope: scopeOf(x.bookIds), queuedAt: x.at, turnId: x.id, board, home: profile.home }) }, 30000);
         if (!r.ok) { left.push(x); continue; }
         const j = (await r.json()) as { messages: TMsg[]; memory: Memory };
         add([{ role: 'tutor', msg: { text: `${TL(lang, 'kept_answered')} “${x.text}”`, tone: 'info', by: 'policy' }, at: Date.now() }, ...j.messages.map((m) => ({ role: 'tutor' as const, msg: m, at: Date.now() }))]);
@@ -321,6 +341,24 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   }
 
   const pick = async (ids: string[] | undefined) => { setSubject(ids); await setMeta(`subject:${pid}`, ids); };
+  /** the open conversation goes to Chat history (when she asked anything in it); `restore` (or a fresh one) opens */
+  async function shelve(restore?: PastChat) {
+    const now = await getMeta<Line[]>(`chat:${pid}`, []);
+    let list = (await getMeta<PastChat[]>(`chatHistory:${pid}`, [])).filter((x) => x.id !== restore?.id);
+    if (now.some((l) => l.role === 'student')) list = [{ id: crypto.randomUUID(), subject, at: now[now.length - 1]!.at, lines: now }, ...list].slice(0, 30);
+    await setMeta(`chatHistory:${pid}`, list); setPast(list);
+    const next = restore?.lines ?? [];
+    await setMeta(`chat:${pid}`, next); setLines(next);
+    setShowPast(false); setShowWhy(null); setOpenSrc(null); setText('');
+  }
+  /** a subject card or the sidebar: a new chat in that subject, the agent lists its chapters (no subject: her subjects) */
+  async function openSubject(ids: string[] | undefined) {
+    await shelve(); await setChapter(undefined); await pick(ids); setView('chat'); setNudge(null);
+    const s = ids && subjectsOf(books).find((x) => x.ids.some((id) => ids.includes(id)));
+    if (ids && s) say(TL(lang, 'ask_chapter', nameIn(s.name as { or: string; en: string; hi?: string }, lang)), chapterChips(ids), 'subject picked → list its chapters');
+    else say(TL(lang, 'ask_subject'), subjectChips(), 'a new chat → list her subjects');
+  }
+  async function openPast(c: PastChat) { await shelve(c); await pick(c.subject); await setChapter(undefined); setView('chat'); }
   const subjects = subjectsOf(books);
   const physics = books.find((b) => b.id === 'physical-science-9');
   const openCheck = [...lines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
@@ -329,72 +367,119 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   const fresh = !lines.some((l) => l.role === 'student');
   const send = () => { if (!text.trim() || busy) return; const x = text; setText(''); void ask(x); };
   const listening = mic === 'rec' || mic === 'live';
+  const current = subject ? subjects.find((s) => s.ids.every((id) => subject.includes(id))) : undefined;
+  const subjectName = (x?: { name: Record<string, string | undefined> }) => (x ? nameIn(x.name as { or: string; en: string; hi?: string }, lang) : TL(lang, 'all_subjects'));
+  const pastHere = past.filter((c) => !current || c.subject?.some((id) => current.ids.includes(id)));
+  const toggleSide = () => setCollapsed((c) => { store('setu-sidebar-collapsed', String(!c)); return !c; });
+  const who = profile.name?.trim() || account?.name?.trim() || '';
+  const canInstall = inst === 'prompt' || inst === 'ios';
+  const asked = lines.some((l) => l.role === 'student');
+  const onInstallTap = () => (inst === 'prompt' ? void install() : setIosHelp(true));
 
   return (
-    <div class="app chat">
+    <div class="app chat dashboard">
       <header class="topbar">
-        <button class="me" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><span class="avatar">{profile.avatar}</span></button>
         <div class="brand">
-          <Logo size={30} />
+          <Logo size={38} />
           <div class="brand-text">
             <b>{t(lang, 'app')}</b>
             <span class={'net ' + tier} role="status"><i class="dot" />{t(lang, tier)}</span>
           </div>
         </div>
-        <button class="iconbtn" aria-label={TL(lang, 'progress')} aria-pressed={sheet === 'progress'} onClick={() => setSheet('progress')}><Icon name="chart" /></button>
-        {(inst === 'prompt' || inst === 'ios') && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={() => (inst === 'prompt' ? void install() : setIosHelp(true))}><Icon name="install" /></button>}
-        <button class="iconbtn" aria-label={t(lang, 'chooseLang')} aria-pressed={sheet === 'lang'} onClick={() => setSheet('lang')}><Icon name="globe" /></button>
+        {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && <span class="account-email">{account.email}</span>}</div>}
+        {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
+        <button class="theme-toggle" aria-label={D(lang, dark ? 'light' : 'dark')} aria-pressed={dark} title={D(lang, dark ? 'light' : 'dark')} onClick={() => setDark(!dark)}><span aria-hidden="true">{dark ? '☀' : '☾'}</span><span class="theme-label">{D(lang, dark ? 'light' : 'dark')}</span></button>
+        <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><AvatarPortrait avatar={profile.avatar} className="profile-pic" /><span class="profile-name">{who}</span></button>
       </header>
       {iosHelp && <button class="installhelp" role="status" onClick={() => setIosHelp(false)}>{U(lang, 'installIos')} ✕</button>}
 
-      <nav class="subjects" aria-label={TL(lang, 'pick_subject')}>
-        <button class={'pill' + (!subject ? ' on' : '')} aria-pressed={!subject} onClick={() => { void pick(undefined); void setChapter(undefined); }}><span class="emo">📚</span>{TL(lang, 'all_subjects')}</button>
-        {subjects.map((s) => {
-          const on = !!subject && s.ids.every((id) => subject.includes(id));
-          const look = subjectLook(s.name.en ?? '');
-          return <button class={'pill' + (on ? ' on' : '')} style={{ '--sc': look.color }} aria-pressed={on} onClick={() => void onChip({ label: nameIn(s.name as { or: string; en: string; hi?: string }, lang), subject: s.ids })}><span class="emo">{look.emoji}</span>{nameIn(s.name as { or: string; en: string; hi?: string }, lang)}</button>;
-        })}
-      </nav>
-
-      <main class="feed" aria-live="polite">
-        {fresh && (
-          <section class="hero">
-            <Logo size={56} />
-            <h1>{U(lang, 'hello')}{profile.name ? `, ${profile.name}` : ''} 👋</h1>
-            <div class="ways">
-              <span><Icon name="book" size={16} />{U(lang, 'wayBook')}</span>
-              <span><Icon name="mic" size={16} />{U(lang, 'wayVoice')}</span>
-              <span><Icon name="offline" size={16} />{U(lang, 'wayOffline')}</span>
+      <div class={'dashboard-body' + (collapsed ? ' sidebar-collapsed' : '')}>
+        <aside class="sidebar" aria-label={TL(lang, 'pick_subject')}>
+          <button class="sidebar-toggle" aria-expanded={!collapsed} aria-label={D(lang, collapsed ? 'expandNavigation' : 'collapseNavigation')} title={D(lang, collapsed ? 'expandNavigation' : 'collapseNavigation')} onClick={toggleSide}><Icon name={collapsed ? 'chevron' : 'chevron-left'} size={18} /></button>
+          <div class="side-group side-subjects">
+            <button class={'side-link' + (view === 'overview' ? ' selected' : '')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}>{D(lang, 'home')}</button>
+            {subjects.map((s) => {
+              const on = view === 'chat' && !!subject && s.ids.every((id) => subject.includes(id));
+              return <button class={'side-link' + (on ? ' selected' : '')} aria-current={on ? 'page' : undefined} onClick={() => void openSubject(s.ids)}>{subjectName(s)}</button>;
+            })}
+          </div>
+          <div class="side-bottom">
+            <div class="side-utilities">
+              <button class="side-link" aria-pressed={sheet === 'lang'} onClick={() => setSheet('lang')}>{D(lang, 'changeLanguage')}</button>
+              <button class="side-link" aria-pressed={sheet === 'progress'} onClick={() => setSheet('progress')}>{TL(lang, 'progress')}</button>
+              {physics && <button class="side-link" onClick={onGuided}>{TL(lang, 'guided')}</button>}
+              {onLogout && <button class="side-link account-signout" onClick={onLogout}>{D(lang, 'signOut')}</button>}
+              {onSignIn && <button class="side-link" onClick={onSignIn}>{D(lang, 'signIn')}</button>}
             </div>
+            <button class="side-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}>
+              <AvatarPortrait avatar={profile.avatar} className="profile-pic" />
+              <span class="profile-details"><span class="profile-caption">{D(lang, 'learningAs')}</span><span class="profile-name">{who || t(lang, 'switchLearner')}</span></span>
+            </button>
+          </div>
+        </aside>
+
+        {view === 'overview' ? <SubjectOverview books={books} subjects={subjects} lang={lang} name={who} nudge={nudge}
+          notes={<>
             {LANGUAGES[lang]?.draft && <p class="small muted">{U(lang, 'draftLang')}</p>}
             {profile.home && LANGUAGES[profile.home] && <p class="small muted">🏠 {LANGUAGES[profile.home]!.name} · {U(lang, 'homeNote').replaceAll('{0}', LANGUAGES[profile.home]!.name)}</p>}
-            {(inst === 'prompt' || inst === 'ios') && <button class="install" onClick={() => (inst === 'prompt' ? void install() : setIosHelp(!iosHelp))}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
-          </section>
-        )}
-        {lines.map((l, i) => l.role === 'student'
-          ? <div class="msg me"><div class="bubble">{l.text}</div></div>
-          : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
-              onChip={(c) => { if (!busy) void onChip(c); }} />)}
-        {busy && <div class="msg tutor"><span class="mark"><Logo size={28} /></span><div class="bubble typing" role="status" aria-label={busy}><i /><i /><i /><span class="sr">{busy}</span></div></div>}
-        <div ref={end} />
-      </main>
+            {canInstall && <button class="install" onClick={onInstallTap}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
+          </>}
+          hasChat={asked || past.length > 0} onContinue={() => (asked || !past[0] ? setView('chat') : void openPast(past[0]))} onOpen={(ids) => void openSubject(ids)} onChip={(c) => { if (!busy) void onChip(c); }} /> : <div class="workarea">
+        <main class="feed" aria-live="polite">
+          <div class="chat-page-title">
+            <div class="chat-title-copy"><span>{D(lang, 'learning')}</span><h1>{subjectName(current)}</h1></div>
+            <div class="chat-title-actions">
+              <button class="chat-history-button" onClick={() => setShowPast(true)}><Icon name="history" size={17} />{D(lang, 'chatHistory')}{pastHere.length ? <span class="chat-history-count">{toScriptDigits(String(pastHere.length), lang)}</span> : null}</button>
+              <button class="chat-new-button" onClick={() => void openSubject(current?.ids)}><Icon name="plus" size={17} />{D(lang, 'newChat')}</button>
+            </div>
+          </div>
+          {fresh && (
+            <section class="hero">
+              <div class="hero-mark"><Logo size={36} /><span>{U(lang, 'hello')}{who ? `, ${who}` : ''}</span></div>
+              <h1>{D(lang, 'startPrompt')}</h1>
+            </section>
+          )}
+          {lines.map((l, i) => l.role === 'student'
+            ? <div class="msg me"><div class="bubble">{l.text}</div></div>
+            : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
+                onChip={(c) => { if (!busy) void onChip(c); }} />)}
+          {busy && <div class="msg tutor"><span class="mark"><Logo size={28} /></span><div class="bubble typing" role="status" aria-label={busy}><i /><i /><i /><span class="sr">{busy}</span></div></div>}
+          <div ref={end} />
+        </main>
 
-      <footer class="composer">
-        {answering && <div class="answering"><Icon name="help" size={16} /><span><b>{U(lang, 'quickCheck')}:</b> {memory.check}</span></div>}
-        {listening && <div class="listening" role="status"><i class="wave" />{t(lang, mic === 'rec' ? 'listening' : 'speakNow')}</div>}
-        <form class="inputrow" onSubmit={(e) => { e.preventDefault(); send(); }}>
-          <label class={'iconbtn ghost' + (busy ? ' disabled' : '')} aria-label={t(lang, 'snap')} title={t(lang, 'snap')}>
-            <Icon name="camera" />
-            <input type="file" accept="image/*" capture="environment" hidden disabled={!!busy} onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; (e.target as HTMLInputElement).value = ''; if (f) void onPhoto(f); }} />
-          </label>
-          <textarea ref={field} class="field" rows={1} aria-label={t(lang, 'ask')} placeholder={placeholder} value={text}
-            onInput={(e) => { const el = e.target as HTMLTextAreaElement; setText(el.value); el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
-          {text.trim()
-            ? <button class="iconbtn send" type="submit" disabled={!!busy} aria-label={t(lang, 'send')}><Icon name="send" /></button>
-            : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
-        </form>
-      </footer>
+        <footer class="composer">
+          {answering && <div class="answering"><Icon name="help" size={16} /><span><b>{U(lang, 'quickCheck')}:</b> {memory.check}</span></div>}
+          {listening && <div class="listening" role="status"><i class="wave" />{t(lang, mic === 'rec' ? 'listening' : 'speakNow')}</div>}
+          <form class="inputrow" onSubmit={(e) => { e.preventDefault(); send(); }}>
+            <label class={'iconbtn ghost' + (busy ? ' disabled' : '')} aria-label={t(lang, 'snap')} title={t(lang, 'snap')}>
+              <Icon name="camera" />
+              <input type="file" accept="image/*" capture="environment" hidden disabled={!!busy} onChange={(e) => { const f = (e.target as HTMLInputElement).files?.[0]; (e.target as HTMLInputElement).value = ''; if (f) void onPhoto(f); }} />
+            </label>
+            <textarea ref={field} class="field" rows={1} aria-label={t(lang, 'ask')} placeholder={placeholder} value={text}
+              onInput={(e) => { const el = e.target as HTMLTextAreaElement; setText(el.value); el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
+            {text.trim()
+              ? <button class="iconbtn send" type="submit" disabled={!!busy} aria-label={t(lang, 'send')}><Icon name="send" /></button>
+              : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
+          </form>
+        </footer>
+        </div>}
+      </div>
+
+      {showPast && <div class="chat-history-overlay">
+        <button class="chat-history-scrim" aria-label={t(lang, 'close')} onClick={() => setShowPast(false)} />
+        <aside class="chat-history-panel" role="dialog" aria-modal="true" aria-label={D(lang, 'chatHistory')}>
+          <header class="chat-history-header"><div><span>{subjectName(current)}</span><h2>{D(lang, 'chatHistory')}</h2></div><button class="iconbtn" aria-label={t(lang, 'close')} onClick={() => setShowPast(false)}><Icon name="close" /></button></header>
+          <button class="chat-history-start" onClick={() => void openSubject(current?.ids)}><Icon name="plus" size={18} />{D(lang, 'newChat')}</button>
+          <div class="chat-history-list">
+            {pastHere.map((c) => <button class="chat-history-item" onClick={() => void openPast(c)}>
+              <strong>{c.lines.find((l): l is Extract<Line, { role: 'student' }> => l.role === 'student')?.text.slice(0, 56) ?? D(lang, 'newChat')}</strong>
+              <span>{new Date(c.at).toLocaleString(lang === 'en' ? 'en-IN' : `${lang}-IN`, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+            </button>)}
+            {!pastHere.length && <p class="chat-history-empty">{D(lang, 'noChatHistory')}</p>}
+          </div>
+        </aside>
+      </div>}
 
       {sheet && <div class="scrim" onClick={() => setSheet(null)} />}
       {sheet === 'progress' && (
@@ -427,25 +512,79 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   );
 }
 
-const LOOKS: Record<string, { emoji: string; color: string }> = {
-  'Life Science': { emoji: '🌿', color: '#2f855a' },
-  Science: { emoji: '🔬', color: '#2f855a' },
-  'Social Science': { emoji: '🌏', color: '#2b6cb0' },
-  'Geography & Economics': { emoji: '🌏', color: '#2b6cb0' },
-  'Physical Science': { emoji: '⚡', color: '#6b46c1' },
-  'History & Political Science': { emoji: '🏛️', color: '#b7791f' },
-  Mathematics: { emoji: '➗', color: '#c05621' },
-  Odia: { emoji: 'ଅ', color: '#c53030' },
-  English: { emoji: '🔤', color: '#2c7a7b' },
-  Hindi: { emoji: 'अ', color: '#d69e2e' },
-  Sanskrit: { emoji: 'सं', color: '#975a16' },
+/** the dashboard's words (the rest come from the tutor's and the app's own lists) */
+const DASH: Record<string, Record<string, string>> = {
+  en: { home: 'Home', collapseNavigation: 'Hide subjects', expandNavigation: 'Show subjects', changeLanguage: 'Change language', signOut: 'Sign out', signIn: 'Sign in', learningAs: 'Learning as', account: 'Account', dark: 'Dark', light: 'Light', overview: 'What shall we learn today?', overviewNote: 'Pick a subject and your textbook tutor is ready to help.', recentChat: 'Continue learning', open: 'Open', learning: 'Learning', searchSubjects: 'Search your subjects', subjectCount: '{0} subjects ready', textbookCount: '{0} textbook(s)', noSubjectMatch: 'No subject matches that search.', overviewKicker: 'Your learning space', chatHistory: 'Chat history', newChat: 'New chat', noChatHistory: 'Your earlier chats will appear here.', startPrompt: 'What are you learning today?', fromSetu: 'Setu says', classShort: 'Class' },
+  hi: { home: 'होम', collapseNavigation: 'विषय छिपाएँ', expandNavigation: 'विषय दिखाएँ', changeLanguage: 'भाषा बदलें', signOut: 'लॉग आउट', signIn: 'लॉग इन', learningAs: 'अभी पढ़ रहे हैं', account: 'खाता', dark: 'डार्क', light: 'लाइट', overview: 'आज क्या सीखें?', overviewNote: 'कोई विषय चुनो, तुम्हारी किताब वाला ट्यूटर मदद के लिए तैयार है।', recentChat: 'पढ़ाई जारी रखें', open: 'खोलें', learning: 'पढ़ाई', searchSubjects: 'अपने विषय खोजें', subjectCount: '{0} विषय तैयार', textbookCount: '{0} किताबें', noSubjectMatch: 'इस खोज से कोई विषय नहीं मिला।', overviewKicker: 'तुम्हारी पढ़ाई की जगह', chatHistory: 'पुरानी बातचीत', newChat: 'नई बातचीत', noChatHistory: 'तुम्हारी पुरानी बातचीत यहाँ दिखेगी।', startPrompt: 'आज क्या पढ़ रहे हो?', fromSetu: 'सेतु कहता है', classShort: 'कक्षा' },
+  or: { home: 'ମୂଳ ପୃଷ୍ଠା', collapseNavigation: 'ବିଷୟ ଲୁଚାଅ', expandNavigation: 'ବିଷୟ ଦେଖାଅ', changeLanguage: 'ଭାଷା ବଦଳାଅ', signOut: 'ଲଗ୍‌ଆଉଟ୍‌', signIn: 'ଲଗ୍‌ଇନ୍', learningAs: 'ଏବେ ପଢ଼ୁଛନ୍ତି', account: 'ଖାତା', dark: 'ଅନ୍ଧାର', light: 'ଆଲୁଅ', overview: 'ଆଜି କ’ଣ ଶିଖିବା?', overviewNote: 'ଗୋଟିଏ ବିଷୟ ବାଛ, ତୁମ ବହିର ଟ୍ୟୁଟର୍ ସାହାଯ୍ୟ ପାଇଁ ପ୍ରସ୍ତୁତ।', recentChat: 'ପଢ଼ା ଜାରି ରଖ', open: 'ଖୋଲ', learning: 'ପଢ଼ା', searchSubjects: 'ତୁମ ବିଷୟ ଖୋଜ', subjectCount: '{0}ଟି ବିଷୟ ପ୍ରସ୍ତୁତ', textbookCount: '{0}ଟି ବହି', noSubjectMatch: 'ଏହି ଖୋଜରେ କୌଣସି ବିଷୟ ମିଳିଲା ନାହିଁ।', overviewKicker: 'ତୁମ ପଢ଼ା ଜାଗା', chatHistory: 'ପୁରୁଣା କଥାବାର୍ତ୍ତା', newChat: 'ନୂଆ କଥାବାର୍ତ୍ତା', noChatHistory: 'ତୁମର ପୁରୁଣା କଥାବାର୍ତ୍ତା ଏଠାରେ ଦେଖାଯିବ।', startPrompt: 'ଆଜି କ’ଣ ପଢ଼ୁଛ?', fromSetu: 'ସେତୁ କହୁଛି', classShort: 'ଶ୍ରେଣୀ' },
 };
-const subjectLook = (en: string) => LOOKS[en] ?? { emoji: '📘', color: '#1f5a60' };
+const D = (lang: string, k: string) => DASH[lang]?.[k] ?? DASH[LANGUAGES[lang]?.school ?? '']?.[k] ?? DASH.en![k] ?? k;
+/** a small per-browser setting (sidebar, theme): may be unavailable (private mode), then the default stays */
+function store(k: string, v?: string): string | null {
+  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { /* not kept */ }
+  return null;
+}
+
+const MARKS: [RegExp, string][] = [[/math/, '∑'], [/geograph|social/, '🌏'], [/econom/, '₹'], [/english/, 'Aa'], [/hindi/, 'अ'], [/odia/, 'ଅ'], [/sanskrit/, 'सं'], [/history/, '⌛'], [/life/, '🧬'], [/physical/, '⚛'], [/science/, '🔬']];
+/** her board in her language ('BSE ଓଡ଼ିଶା') */
+const boardName = (id: string, lang: string) => { const b = BOARDS.find((x) => boardKey(x.id) === boardKey(id)); return b ? nameIn(b.name, lang) : id; };
+const markOf = (en: string) => MARKS.find(([re]) => re.test(en.toLowerCase()))?.[1] ?? '📘';
+
+type SubjectGroup = { name: Record<string, string | undefined>; ids: string[] };
+/** The dashboard: her subjects as cards (with their books, class and board), a search, and the agent's own news. */
+function SubjectOverview({ books, subjects, lang, name, nudge, notes, hasChat, onContinue, onOpen, onChip }: {
+  books: BookInfo[]; subjects: SubjectGroup[]; lang: string; name: string; nudge: TMsg | null; notes: preact.ComponentChildren;
+  hasChat: boolean; onContinue: () => void; onOpen: (ids: string[]) => void; onChip: (c: Chip) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLocaleLowerCase();
+  const title = (b: BookInfo) => nameIn(b.title, lang);
+  const shown = subjects.filter((s) => !q || [s.name.en, s.name[lang], ...books.filter((b) => s.ids.includes(b.id)).map(title)].some((v) => v?.toLocaleLowerCase().includes(q)));
+  return (
+    <main class="overview">
+      <div class="overview-heading">
+        <div class="overview-copy">
+          <span class="overview-kicker"><Icon name="spark" size={16} />{D(lang, 'overviewKicker')}</span>
+          <h1>{name ? `${U(lang, 'hello')}, ${name}! ` : ''}{D(lang, 'overview')}</h1>
+          <p>{D(lang, 'overviewNote')}</p>
+          {hasChat && <button class="continue-chat" onClick={onContinue}><Icon name="play" size={17} />{D(lang, 'recentChat')}<Icon name="chevron" size={17} /></button>}
+          {notes}
+        </div>
+        <div class="overview-art" aria-hidden="true"><img src="/logo.png" alt="" width={150} height={150} /></div>
+      </div>
+      {nudge && <section class="nudge" aria-label={D(lang, 'fromSetu')}>
+        <span class="nudge-from"><Logo size={22} />{D(lang, 'fromSetu')}</span>
+        <p>{nudge.text}</p>
+        {nudge.check && <p class="nudge-check"><Icon name="help" size={15} /> {nudge.check}</p>}
+        <div class="chips">{nudge.chips?.length ? nudge.chips.map((c) => <button class="chip" onClick={() => onChip(c)}>{c.label}</button>) : <button class="chip" onClick={onContinue}>{D(lang, 'recentChat')}</button>}</div>
+      </section>}
+      <div class="subject-tools">
+        <label class="subject-search"><Icon name="search" size={19} /><span class="sr">{D(lang, 'searchSubjects')}</span><input type="search" value={query} onInput={(e) => setQuery((e.currentTarget as HTMLInputElement).value)} placeholder={D(lang, 'searchSubjects')} /></label>
+        <span class="subject-count" aria-live="polite">{D(lang, 'subjectCount').replace('{0}', toScriptDigits(String(shown.length), lang))}</span>
+      </div>
+      <div class="subject-grid">
+        {shown.map((s) => {
+          const bs = books.filter((b) => s.ids.includes(b.id));
+          const label = nameIn(s.name as { or: string; en: string; hi?: string }, lang);
+          const levels = [...new Set(bs.map((b) => `${D(lang, 'classShort')} ${toScriptDigits(String(b.classLevel), lang)} · ${boardName(b.board, lang)}`))];
+          return <button class="subject-card" onClick={() => onOpen(s.ids)} aria-label={`${D(lang, 'open')}: ${label}`}>
+            <span class="subject-card-top"><span class="subject-icon" aria-hidden="true">{markOf(s.name.en ?? '')}</span><span class="subject-open-icon" aria-hidden="true"><Icon name="chevron" size={20} /></span></span>
+            <strong class="subject-card-title">{label}</strong>
+            <span class="subject-card-count">{D(lang, 'textbookCount').replace('{0}', toScriptDigits(String(bs.length), lang))}</span>
+            <span class="subject-book-list">{bs.slice(0, 2).map(title).join(' · ')}{bs.length > 2 ? ` · +${bs.length - 2}` : ''}</span>
+            <span class="subject-card-bottom">{levels.map((l) => <span class="class-chip">{l}</span>)}<span class="subject-card-action">{D(lang, 'open')} <Icon name="chevron" size={17} /></span></span>
+          </button>;
+        })}
+        {!shown.length && <p class="subject-empty">{subjects.length ? D(lang, 'noSubjectMatch') : U(lang, 'noBooksYet')}</p>}
+      </div>
+    </main>
+  );
+}
 
 const UI: Record<string, Record<string, string>> = {
-  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ନେଟ୍ ନାହିଁ', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି', draftLang: 'ଏହି ଭାଷାର ଉତ୍ତର AI ଲେଖେ — ଏ ଭାଷା ଜାଣିଥିବା ଶିକ୍ଷକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।', homeWords: 'ତୁମ ଘର ଭାଷାର ଶବ୍ଦ', homeNote: 'ମୁଁ ସହଜ ଓଡ଼ିଆରେ ବୁଝାଇବି, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ {0} ଶବ୍ଦକୋଷରୁ ତୁମ ଘର ଭାଷାର ଶବ୍ଦ ଯୋଡ଼ିବି।', homeSay: '{0}ରେ ମୂଳ କଥା', homeSayNote: 'AI ଶବ୍ଦକୋଷରୁ ଲେଖିଛି — {0} ଜାଣିଥିବା ଲୋକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।' },
-  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'नेट नहीं है', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया', draftLang: 'इस भाषा के जवाब AI लिखता है — इस भाषा के किसी शिक्षक ने अभी तक इन्हें जाँचा नहीं है।', homeWords: 'तुम्हारी घर की भाषा के शब्द', homeNote: 'मैं आसान ओड़िया में समझाऊँगा, और ओडिशा सरकार के {0} शब्दकोश से तुम्हारी घर की भाषा के शब्द जोड़ूँगा।', homeSay: '{0} में मुख्य बात', homeSayNote: 'AI ने शब्दकोश से लिखा है — {0} जानने वाले किसी ने अभी जाँचा नहीं है।' },
-  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'No internet', teacher: 'Teacher told', howDecided: 'How I decided', draftLang: 'Replies in this language are written by AI and not yet checked by a teacher who speaks it.', homeWords: 'Words in your home language', homeNote: 'I explain in easy Odia and add words of your home language from the Government of Odisha {0} dictionary.', homeSay: 'The main idea in {0}', homeSayNote: 'Written by AI from the dictionary — not yet checked by a {0} speaker.' },
+  or: { install: 'ସେତୁକୁ ଫୋନରେ ରଖ', installIos: 'Safari ତଳେ Share ⬆ ଦବାଅ, ତାପରେ "Add to Home Screen" ବାଛ।', noBooksYet: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହି ଏହି ଫୋନରେ ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।', askShort: 'ପ୍ରଶ୍ନ ପଚାର…', answerShort: 'ଉତ୍ତର ଲେଖ, ବା ନୂଆ ପ୍ରଶ୍ନ…', hello: 'ନମସ୍କାର', heroLine: 'ତୁମ ବହିର ଯେକୌଣସି ପ୍ରଶ୍ନ ପଚାର। ମୁଁ ତୁମ ବହିରୁ ବୁଝାଇବି, ଛୋଟ ପ୍ରଶ୍ନ ପଚାରି ଦେଖିବି ତୁମେ ବୁଝିଲ କି ନାହିଁ, ଆଉ ମନେ ରଖିବି।', wayBook: 'ତୁମ ବହିରୁ', wayVoice: 'କହି ପଚାର', wayOffline: 'ନେଟ୍ ବିନା ବି', tryAsking: 'ଏମିତି ପଚାରି ପାରିବ', quickCheck: 'ଛୋଟ ପ୍ରଶ୍ନ', keyWords: 'ମୁଖ୍ୟ ଶବ୍ଦ', fromBook: 'ତୁମ ବହିରୁ', showMore: 'ପୂରା ଅଂଶ ଦେଖ', showLess: 'କମ୍ ଦେଖ', scanned: 'ବହିର ସ୍କାନ୍ ଲେଖା — ଛୋଟ ଭୁଲ ଥାଇପାରେ', done: 'ଶିଖିସାରିଛ', mid: 'ଶିଖୁଛ', low: 'ଆଉ ଅଭ୍ୟାସ ଦରକାର', right: 'ଠିକ୍!', partly: 'ପ୍ରାୟ ଠିକ୍', wrong: 'ଆଉ ଥରେ ଦେଖିବା', offline: 'ସେଭ୍‌ ଥିବା ବହିରୁ · ଅଫ୍‌ଲାଇନ୍‌', teacher: 'ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଲି', howDecided: 'ମୁଁ କିପରି ଠିକ୍ କଲି', draftLang: 'ଏହି ଭାଷାର ଉତ୍ତର AI ଲେଖେ — ଏ ଭାଷା ଜାଣିଥିବା ଶିକ୍ଷକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।', homeWords: 'ତୁମ ଘର ଭାଷାର ଶବ୍ଦ', homeNote: 'ମୁଁ ସହଜ ଓଡ଼ିଆରେ ବୁଝାଇବି, ଆଉ ଓଡ଼ିଶା ସରକାରଙ୍କ {0} ଶବ୍ଦକୋଷରୁ ତୁମ ଘର ଭାଷାର ଶବ୍ଦ ଯୋଡ଼ିବି।', homeSay: '{0}ରେ ମୂଳ କଥା', homeSayNote: 'AI ଶବ୍ଦକୋଷରୁ ଲେଖିଛି — {0} ଜାଣିଥିବା ଲୋକ ଏଯାଏଁ ଯାଞ୍ଚ କରିନାହାନ୍ତି।' },
+  hi: { install: 'सेतु को फ़ोन पर रखो', installIos: 'Safari में नीचे Share ⬆ दबाओ, फिर "Add to Home Screen" चुनो।', noBooksYet: 'अभी नेट नहीं है, और तुम्हारी किताब इस फ़ोन पर अभी सेव नहीं हुई। सवाल मैंने रख लिया — नेट आते ही जवाब दूँगा।', askShort: 'सवाल पूछो…', answerShort: 'जवाब लिखो, या नया सवाल…', hello: 'नमस्ते', heroLine: 'अपनी किताब का कोई भी सवाल पूछो। मैं तुम्हारी किताब से समझाऊँगा, छोटा सवाल पूछकर देखूँगा कि समझ आया या नहीं, और याद रखूँगा।', wayBook: 'तुम्हारी किताब से', wayVoice: 'बोलकर पूछो', wayOffline: 'बिना नेट भी', tryAsking: 'ऐसे पूछ सकते हो', quickCheck: 'छोटा सवाल', keyWords: 'मुख्य शब्द', fromBook: 'तुम्हारी किताब से', showMore: 'पूरा हिस्सा देखो', showLess: 'कम देखो', scanned: 'किताब का स्कैन किया पाठ — छोटी गलतियाँ हो सकती हैं', done: 'सीख लिया', mid: 'सीख रहे हो', low: 'और अभ्यास चाहिए', right: 'सही!', partly: 'लगभग सही', wrong: 'एक बार और देखें', offline: 'ऑफ़लाइन · सेव की हुई किताब', teacher: 'शिक्षक को बताया', howDecided: 'मैंने कैसे तय किया', draftLang: 'इस भाषा के जवाब AI लिखता है — इस भाषा के किसी शिक्षक ने अभी तक इन्हें जाँचा नहीं है।', homeWords: 'तुम्हारी घर की भाषा के शब्द', homeNote: 'मैं आसान ओड़िया में समझाऊँगा, और ओडिशा सरकार के {0} शब्दकोश से तुम्हारी घर की भाषा के शब्द जोड़ूँगा।', homeSay: '{0} में मुख्य बात', homeSayNote: 'AI ने शब्दकोश से लिखा है — {0} जानने वाले किसी ने अभी जाँचा नहीं है।' },
+  en: { install: 'Install Setu on this phone', installIos: 'In Safari, tap Share ⬆ at the bottom, then "Add to Home Screen".', noBooksYet: "No internet right now, and your books aren't saved on this phone yet. I kept your question — I'll answer when you're online.", askShort: 'Ask a question…', answerShort: 'Your answer, or a new question…', hello: 'Hello', heroLine: 'Ask anything from your textbook. I explain from your own book, ask a small question to check you understood, and remember what you find hard.', wayBook: 'From your book', wayVoice: 'Ask by voice', wayOffline: 'Works offline', tryAsking: 'Try asking', quickCheck: 'Quick check', keyWords: 'Key words', fromBook: 'From your book', showMore: 'Show the whole part', showLess: 'Show less', scanned: 'Scanned from the book — may have small mistakes', done: 'Learned', mid: 'Learning', low: 'Needs practice', right: 'Right!', partly: 'Almost', wrong: "Let's look again", offline: 'Offline · saved book', teacher: 'Teacher told', howDecided: 'How I decided', draftLang: 'Replies in this language are written by AI and not yet checked by a teacher who speaks it.', homeWords: 'Words in your home language', homeNote: 'I explain in easy Odia and add words of your home language from the Government of Odisha {0} dictionary.', homeSay: 'The main idea in {0}', homeSayNote: 'Written by AI from the dictionary — not yet checked by a {0} speaker.' },
 };
 const U = (lang: string, k: string) => UI[lang]?.[k] ?? localeOf(lang)?.chat[k] ?? UI.en![k] ?? k;
 

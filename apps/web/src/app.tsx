@@ -4,6 +4,7 @@ import { BOARDS, textIn, scrubPii, gradeNumeric, toScriptDigits, DATA_BUDGET_KB,
 import { Agent, ensureDevice, ensurePack, importPack } from './agent.ts';
 import { Chat } from './chat.tsx';
 import { Icon, Logo } from './icons.tsx';
+import { AvatarPortrait } from './avatar.tsx';
 import { sharePack, readPackFile } from './packfile.ts';
 import { pushSupported, pushOn, enablePush, disablePush } from './push.ts';
 import { prefetchEssential, warmVoice, setTextOnly, takeAudioBytes } from './audio.ts';
@@ -16,13 +17,22 @@ import { canRecord, record, transcribe, serverListens, hasWebSpeech, webSpeech, 
 interface Profile { id: string; avatar: string; name?: string; lang: string; classLevel?: number; classCode?: string; showName?: boolean; region?: string; /** tier-C home language (P3.26): taught in `lang`, with her teacher's words in this one */ home?: string; /** her board: only its books answer her ('BSE Odisha', 'CBSE') */ board?: string }
 type Item = { msg: OutMsg; why?: string; answered?: string };
 
-const AVATARS = ['👧', '👦', '🧒', '👩‍🎓', '🧑‍🌾', '🐯'];
+const KID: Record<string, [string, string]> = { or: ['ପୁଅ', 'ଝିଅ'], hi: ['लड़का', 'लड़की'], en: ['Boy', 'Girl'] };
+const AVATARS = ['boy-1', 'boy-2', 'boy-3', 'boy-4', 'girl-1', 'girl-2', 'girl-3', 'girl-4'];
+const PROFILE_NOTE: Record<string, string> = {
+  or: 'ତୁମର ପଢ଼ା ଭାଷା ଓ ଶ୍ରେଣୀ ବାଛ।',
+  hi: 'अपनी पढ़ाई की भाषा और कक्षा चुनो।',
+  en: 'Choose your learning language and class to set up your study space.',
+};
 /** P4.22: a shared phone asks "who is learning?" when it was put down for this long (or more than one learner uses it). */
 const WHO_AFTER_MS = 30 * 60_000;
 /** P4.23: no tap for this long → the session is ended (inactivity); the next tap opens a new one. Same as the server. */
 const INACTIVE_MS = 30 * 60_000;
 
-export function App() {
+/** the account id when she uses Setu without signing in */
+export const LOCAL = 'local';
+
+export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, onProfileName }: { accountId: string; displayName?: string | null; accountEmail?: string | null; onLogout?: () => void; onSignIn?: () => void; onProfileName?: (name: string) => Promise<void> }) {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<'loading' | 'nopack' | 'onboard' | 'who' | 'ready'>('loading');
@@ -51,16 +61,32 @@ export function App() {
       if (r?.ok) {
         const p: Profile = { id: rs[1]!, avatar: q.get('a') ?? '👧', name: q.get('n') ?? undefined, lang: 'or', classCode: q.get('c') ?? undefined };
         await setMeta('profiles', [...(await getMeta<Profile[]>('profiles', [])).filter((x) => x.id !== p.id), p]);
+        await setMeta(`accountProfile:${accountId}`, p.id);
+        await setMeta(`accountProfiles:${accountId}`, [p.id]);
         await setMeta(`cursor:${p.id}`, 0);
         return void enter(p);
       }
     }
-    const p = await getMeta<Profile | null>('profile', null);
-    const list = await getMeta<Profile[]>('profiles', p ? [p] : []);
-    setProfiles(list);
+    const list = await getMeta<Profile[]>('profiles', []);
+    let activeId = await getMeta<string | null>(`accountProfile:${accountId}`, null);
+    let ownedIds = await getMeta<string[]>(`accountProfiles:${accountId}`, activeId ? [activeId] : []);
+    // no account (offline, or no sign-in set up): the phone is shared as before, every learner on it is offered
+    if (accountId === LOCAL) ownedIds = list.map((x) => x.id);
+    // Existing installations had device-local profiles before accounts. Reuse a sole profile automatically;
+    // when this is a shared phone, ask which existing learner belongs to the new account.
+    if (!ownedIds.length && !activeId && list.length === 1) {
+      activeId = list[0]!.id; ownedIds = [activeId];
+      await setMeta(`accountProfile:${accountId}`, activeId);
+      await setMeta(`accountProfiles:${accountId}`, ownedIds);
+    } else if (!ownedIds.length && !activeId && list.length > 1) {
+      setProfiles(list); setStatus('who'); return;
+    }
+    const ownProfiles = list.filter((x) => ownedIds.includes(x.id));
+    const p = activeId ? ownProfiles.find((x) => x.id === activeId) ?? null : ownProfiles[0] ?? null;
+    setProfiles(ownProfiles);
     const away = Date.now() - (await getMeta<number>('lastUsedAt', 0));
     // a shared phone (P4.22): confirm who is learning before her record is shown or added to
-    if (list.length > 1 || (p && away > WHO_AFTER_MS)) setStatus('who');
+    if (p && (ownProfiles.length > 1 || away > WHO_AFTER_MS)) setStatus('who');
     else if (p) void enter(p);
     else setStatus('onboard');
   };
@@ -75,8 +101,13 @@ export function App() {
 
   if (status === 'loading') return <div class="splash"><Logo size={72} /><span>{t('or', 'loading')}</span></div>;
   if (status === 'nopack') return <NoPack onPack={(p) => void start(p)} />;
-  if (status === 'who') return <Who profiles={profiles} onPick={(p) => void enter(p)} onNew={() => setStatus('onboard')} />;
-  if (status === 'onboard') return <Onboarding onDone={async (p) => {
+  if (status === 'who') return <Who profiles={profiles} onPick={(p) => { void (async () => {
+    const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, []);
+    await setMeta(`accountProfiles:${accountId}`, [...new Set([...ids, p.id])]);
+    await setMeta(`accountProfile:${accountId}`, p.id);
+    await enter(p);
+  })(); }} onNew={() => { setProfiles([]); setStatus('onboard'); }} />;
+  if (status === 'onboard') return <Onboarding initialName={displayName ?? ''} onDone={async (p) => {
     const { pack, device } = boot.current!;
     const a = new Agent(pack, device, p.id);
     if (device) void prefetchEssential(p.lang);
@@ -87,27 +118,38 @@ export function App() {
     ]);
     try { history.replaceState(null, '', location.pathname); } catch { /* drop #join */ }
     await setMeta('profile', p);
-    await setMeta('profiles', [...profiles.filter((x) => x.id !== p.id), p]);
+    const savedProfiles = await getMeta<Profile[]>('profiles', []);
+    await setMeta('profiles', [...savedProfiles.filter((x) => x.id !== p.id), p]);
+    await setMeta(`accountProfile:${accountId}`, p.id);
+    const accountProfiles = await getMeta<string[]>(`accountProfiles:${accountId}`, []);
+    await setMeta(`accountProfiles:${accountId}`, [...new Set([...accountProfiles, p.id])]);
+    if (onProfileName && p.name && p.name !== displayName) await onProfileName(p.name).catch(() => {});
     await setMeta('lastUsedAt', Date.now());
     await loadLocale(p.lang);
     setProfile(p); setAgent(a); setStatus('ready');
   }} />;
   const onLang = async (l: string) => { await loadLocale(l); const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
-  const onSwitch = async () => { setProfiles(await getMeta<Profile[]>('profiles', [profile!])); setStatus('who'); };
+  const onSwitch = async () => {
+    const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, [profile!.id]);
+    const all = await getMeta<Profile[]>('profiles', []);
+    setProfiles(all.filter((x) => ids.includes(x.id)));
+    setStatus('who');
+  };
   // PLAN v4: the tutor chat is the home screen; the hand-built Motion chapter is guided practice inside it
-  if (!guided) return <Chat key={profile!.id + profile!.lang + (profile!.board ?? '')} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} />;
+  if (!guided) return <Chat key={profile!.id + profile!.lang + (profile!.board ?? '')} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} account={accountId === LOCAL ? undefined : { name: displayName, email: accountEmail }} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} onLogout={onLogout} onSignIn={onSignIn} />;
   return <>
     <button class="link back" onClick={() => setGuided(false)}><Icon name="back" size={18} /> {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
     <Home agent={agent!} profile={profile!} tier={tier} onLang={onLang} onSwitch={() => void onSwitch()} />
   </>;
 }
 
-function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
+function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; initialName: string }) {
+  const [step, setStep] = useState<'language' | 'avatar' | 'class'>('language');
   const [lang, setLang] = useState<string | null>(null);
   const [home, setHome] = useState<string | null>(null);
   const [showHome, setShowHome] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName);
   const [classLevel, setClassLevel] = useState(9);
   // her board: Odisha's for Odia, Santali and the tribal languages; NCERT (CBSE) otherwise — she can change it
   const [board, setBoard] = useState<string | null>(null);
@@ -135,27 +177,41 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
   const L = lang ?? 'or';
   const tagline: Record<string, string> = { or: 'ତୁମ ବହିର ପାଠ ସାଥୀ', hi: 'तुम्हारी किताब का पढ़ाई साथी', en: 'Your textbook study buddy' };
   const ready = !!avatar && className !== null;
+  const canContinue = step === 'language' ? !!lang : step === 'avatar' ? !!avatar : ready;
+  const stepAction: Record<string, Record<string, string>> = {
+    en: { picture: 'Continue to choose a picture', class: 'Continue to choose a class', start: 'Start learning' },
+    hi: { picture: 'तस्वीर चुनने के लिए आगे बढ़ें', class: 'कक्षा चुनने के लिए आगे बढ़ें', start: 'पढ़ाई शुरू करें' },
+    or: { picture: 'ଛବି ବାଛିବାକୁ ଆଗକୁ ଯାଅ', class: 'ଶ୍ରେଣୀ ବାଛିବାକୁ ଆଗକୁ ଯାଅ', start: 'ପଢ଼ା ଆରମ୍ଭ କର' },
+  };
+  const stepLabel = stepAction[L] ?? stepAction.en!;
+  const nextStep = () => setStep(step === 'language' ? 'avatar' : 'class');
   return (
     <div class="onboard">
       <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div></div>
-      <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
-      <div class="grid langs">
-        {LANGS.map((l) => (
-          <button class={'big langcard ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => void loadLocale(l.id).then(() => { setLang(l.id); setHome(null); speak(l.label, l.id); })} aria-pressed={lang === l.id && !home}>{l.label}<Icon name="volume" size={18} /></button>
-        ))}
-      </div>
-      {/* tier C (PLAN §7.4): never silently dropped — taught in the school language, with home-language words */}
-      <button class="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setShowHome(!showHome)}>{t(L, 'otherHome')}</button>
-      {showHome && <div class="row">{bridgeLanguages().map((h) => (
-        <button class={home === h.id ? 'sel' : ''} aria-pressed={home === h.id} onClick={() => { setHome(h.id); setLang(h.school ?? 'or'); }}>{h.name}{h.name !== h.english ? ` · ${h.english}` : ''}</button>
-      ))}</div>}
-      {home && <p class="hint" role="status">{t(L, 'bridgeNote').replaceAll('{0}', LANGUAGES[home]?.english ?? home).replaceAll('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
-      {lang && <>
+      <p class="profile-note">{PROFILE_NOTE[L] ?? PROFILE_NOTE.en}</p>
+      {step !== 'language' && <button class="link small setup-back" onClick={() => setStep(step === 'class' ? 'avatar' : 'language')}>← {L === 'hi' ? 'वापस' : L === 'or' ? 'ପଛକୁ' : 'Back'}</button>}
+      {step === 'language' && <>
+        <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
+        <div class="grid langs">
+          {LANGS.map((l) => (
+            <button class={'big langcard ' + (lang === l.id && !home ? 'sel' : '')} onClick={() => void loadLocale(l.id).then(() => { setLang(l.id); setHome(null); speak(l.label, l.id); })} aria-pressed={lang === l.id && !home}>{l.label}<Icon name="volume" size={18} /></button>
+          ))}
+        </div>
+        {/* tier C (PLAN §7.4): never silently dropped — taught in the school language, with home-language words */}
+        <button class="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setShowHome(!showHome)}>{t(L, 'otherHome')}</button>
+        {showHome && <div class="row">{bridgeLanguages().map((h) => (
+          <button class={home === h.id ? 'sel' : ''} aria-pressed={home === h.id} onClick={() => { setHome(h.id); setLang(h.school ?? 'or'); }}>{h.name}{h.name !== h.english ? ` · ${h.english}` : ''}</button>
+        ))}</div>}
+        {home && <p class="hint" role="status">{t(L, 'bridgeNote').replaceAll('{0}', LANGUAGES[home]?.english ?? home).replaceAll('{1}', LANGUAGES[lang ?? 'or']?.name ?? '')}</p>}
+      </>}
+      {step === 'avatar' && lang && <>
         <h2><span class="n">2</span>{t(lang, 'chooseAvatar')}</h2>
         <div class="grid avatars">
-          {AVATARS.map((a) => <button class={'big ' + (avatar === a ? 'sel' : '')} onClick={() => setAvatar(a)} aria-label={a} aria-pressed={avatar === a}>{a}</button>)}
+          {AVATARS.map((a) => <button class={'big avatar-choice ' + (avatar === a ? 'sel' : '')} onClick={() => setAvatar(a)} aria-label={`${(KID[lang] ?? KID.en!)[a.startsWith('boy') ? 0 : 1]} ${a.slice(-1)}`} aria-pressed={avatar === a}><AvatarPortrait avatar={a} /><span class="avatar-label">{(KID[lang] ?? KID.en!)[a.startsWith('boy') ? 0 : 1]} {toScriptDigits(a.slice(-1), lang)}</span></button>)}
         </div>
-        <input class="text" placeholder={t(lang, 'name')} aria-label={t(lang, 'name')} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+        <label class="setup-name-label">{t(lang, 'name')}<input class="text" placeholder={t(lang, 'name')} aria-label={t(lang, 'name')} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} /></label>
+      </>}
+      {step === 'class' && lang && <>
         <h2><span class="n">3</span>{t(lang, 'chooseClass')}</h2>
         <div class="classes">
           {[8, 9, 10].map((n) => <button class={classLevel === n ? 'sel' : ''} aria-pressed={classLevel === n} disabled={n !== 9} onClick={() => setClassLevel(n)}>{t(lang, 'className')} {n}{n !== 9 ? ` · ${t(lang, 'soon')}` : ''}</button>)}
@@ -174,10 +230,11 @@ function Onboarding({ onDone }: { onDone: (p: Profile) => void }) {
           {code.length === 6 && name.trim() && <label class="small row"><input type="checkbox" checked={showName} onChange={(e) => setShowName((e.target as HTMLInputElement).checked)} /> {t(lang, 'showName')}</label>}
         </details>
         {Scan && <Scan lang={lang} onCode={(c) => { setCode(c); setScan(null); }} onClose={() => setScan(null)} />}
-        <div class="cta">
-          <button class="primary" disabled={!ready} onClick={() => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang, classLevel, board: board ?? boardFor(lang, home), classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) })}>{t(lang, 'start')} →</button>
-        </div>
       </>}
+      <div class="cta"><button class="primary" disabled={!canContinue} onClick={() => {
+        if (step !== 'class') return nextStep();
+        onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang: lang!, classLevel, board: board ?? boardFor(lang, home), classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) });
+      }}>{step === 'language' ? stepLabel.picture : step === 'avatar' ? stepLabel.class : stepLabel.start} →</button></div>
     </div>
   );
 }
@@ -439,7 +496,7 @@ function Home({ agent, profile, tier, onSwitch, onLang }: { agent: Agent; profil
   return (
     <div class="home">
       <header class="bar">
-        <button class="who link" aria-label={t(lang, 'switchLearner')} onClick={() => void run({ type: 'end', sessionId: sessionId.current, minutesUsed: minutesUsed() }).then(onSwitch)}>{profile.avatar} {profile.name ?? ''}</button>
+        <button class="who link" aria-label={t(lang, 'switchLearner')} onClick={() => void run({ type: 'end', sessionId: sessionId.current, minutesUsed: minutesUsed() }).then(onSwitch)}><AvatarPortrait avatar={profile.avatar} className="chat-profile-avatar" />{profile.name ?? ''}</button>
         <button class="link small" aria-label={t(lang, 'chooseLang')} onClick={() => setPickLang(!pickLang)}>{LANGS.find((l) => l.id === lang)?.label ?? lang}</button>
         <button class="link small" aria-label={t(lang, 'timeToday')} onClick={() => setPickMinutes(!pickMinutes)}>⏱ {toScriptDigits(String(state?.session?.minutes ?? state?.constraints.sessionMinutes ?? 20), lang)}′</button>
         <span class={'tier ' + tier} role="status">{t(lang, tier)}</span>
@@ -610,10 +667,10 @@ function Who({ profiles, onPick, onNew }: { profiles: Profile[]; onPick: (p: Pro
   const L = profiles[0]?.lang ?? 'or';
   return (
     <div class="onboard who-screen">
-      <div class="head"><Logo size={64} /><h1>{t(L, 'whoIsIt')}</h1></div>
+      <div class="head"><Logo size={84} /><h1>{t(L, 'whoIsIt')}</h1></div>
       <div class="grid avatars">
-        {profiles.map((p) => <button class="big who" onClick={() => onPick(p)}>{p.avatar}<span class="small">{p.name ?? ''}</span></button>)}
-        <button class="big" aria-label={t(L, 'newLearner')} onClick={onNew}><span style={{ display: 'grid', placeItems: 'center' }}><Icon name="plus" size={30} /></span><span class="small">{t(L, 'newLearner')}</span></button>
+        {profiles.map((p) => <button class="big who" aria-label={p.name ? `${t(L, 'whoIsIt')} ${p.name}` : t(L, 'whoIsIt')} onClick={() => onPick(p)}><span class="who-avatar"><AvatarPortrait avatar={p.avatar} /></span><span class="small">{p.name ?? t(L, 'switchLearner')}</span></button>)}
+        <button class="big who new-learner" aria-label={t(L, 'newLearner')} onClick={onNew}><span class="who-avatar new-avatar"><Icon name="users" size={34} /></span><span class="new-learner-add"><Icon name="plus" size={20} /></span><span class="small">{t(L, 'newLearner')}</span></button>
       </div>
     </div>
   );

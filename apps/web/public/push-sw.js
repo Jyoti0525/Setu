@@ -2,7 +2,7 @@
 self.addEventListener('push', (e) => {
   let d = { title: 'Setu', body: '', url: '/' };
   try { d = { ...d, ...e.data.json() }; } catch { /* plain text or empty */ }
-  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: '/icon.svg', badge: '/icon.svg', data: { url: d.url }, tag: d.url === '/' ? 'setu-ready' : 'setu-teacher' }));
+  e.waitUntil(self.registration.showNotification(d.title, { body: d.body, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: d.url }, tag: d.url === '/' ? 'setu-ready' : 'setu-teacher' }));
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

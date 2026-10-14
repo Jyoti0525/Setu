@@ -1,6 +1,6 @@
 import './install.ts'; // first: Chrome's install offer can fire before any screen is drawn
 import { render } from 'preact';
-import { App } from './app.tsx';
+import { ProductApp } from './product.tsx';
 import './styles.css';
 
 const root = document.getElementById('app')!;
@@ -9,6 +9,6 @@ const view = (h = location.hash) => (h.startsWith('#teacher') ? 'teacher' : h.st
 const current = view();
 if (current === 'teacher') void import('./teacher.tsx').then(({ Teacher }) => render(<Teacher />, root));
 else if (current === 'review') void import('./review.tsx').then(({ Review }) => render(<Review />, root));
-else render(<App />, root);
+else render(<ProductApp />, root);
 // switching views in the same tab (e.g. a join link opened where the teacher view is open) needs a fresh start
 addEventListener('hashchange', () => { if (view() !== current) location.reload(); });

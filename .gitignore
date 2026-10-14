@@ -1,6 +1,8 @@
 node_modules/
 dist/
 .env
+.env.*
+!.env.example
 *.sqlite
 *.sqlite-*
 spikes/**/out/
@@ -13,3 +15,4 @@ __pycache__/
 content/books/pdf/
 content/books/pages/
 content/books/ocr/tribal/
+.pnpm-store/

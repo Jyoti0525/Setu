@@ -18,6 +18,7 @@ import { LiveVoice, shippedClips } from './voice.ts';
 import { LocalAsr } from './asr.ts';
 import { warmOcr } from './vision.ts';
 import { NlpWorker, ragDir } from './rag.ts';
+import { createFirebaseTokenVerifier } from './firebase_auth.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const envFile = resolve(here, '../.env');
@@ -27,6 +28,7 @@ const dataDir = resolve(here, '../data');
 mkdirSync(dataDir, { recursive: true });
 const store = new Store(process.env.SETU_DB ?? resolve(dataDir, 'setu.sqlite'));
 const models = buildModels();
+const firebaseAuth = createFirebaseTokenVerifier();
 // live Odia voice for AI-written replies: needs the MMS venv (see tools/tts); without it phones use their own voice
 const repo = resolve(here, '../../..');
 const venvPython = resolve(repo, 'spikes/tts/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
@@ -70,6 +72,12 @@ const { app, deps } = createApp({
   adminKey: process.env.SETU_ADMIN_KEY || undefined,
   demoKey: process.env.SETU_DEMO_KEY || undefined,
   reviewKey: process.env.SETU_REVIEW_KEY || undefined,
+  firebaseAuth,
+  firebaseWeb: process.env.FIREBASE_API_KEY && process.env.FIREBASE_PROJECT_ID ? {
+    apiKey: process.env.FIREBASE_API_KEY, projectId: process.env.FIREBASE_PROJECT_ID,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || `${process.env.FIREBASE_PROJECT_ID}.firebaseapp.com`,
+    ...(process.env.FIREBASE_APP_ID ? { appId: process.env.FIREBASE_APP_ID } : {}),
+  } : undefined,
   voice,
   // opt-in reminders (P4.31); SETU_PUSH=0 turns them off. Subject: a contact URL for push services (not a learner's)
   push: process.env.SETU_PUSH === '0' ? undefined : new Push(store, { subject: process.env.SETU_PUSH_SUBJECT || undefined }),
@@ -108,4 +116,5 @@ serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, () => {
   console.log(`Setu server on http://localhost:${port}  ·  trace: /trace/live`);
   console.log(`Books: ${books.map((b) => `${b.meta.id} (${b.passages.length})`).join(', ') || 'none — run content/scripts/build_book.ts'}`);
   console.log(`LLM providers: ${models.providers.join(', ') || 'none (policy + pack mode)'}  ·  live generation: ${[...deps.liveGenLangs].join(',')}`);
+  console.log(`Firebase ID token verification: ${firebaseAuth ? 'configured' : 'off (set FIREBASE_PROJECT_ID)'}`);
 });

@@ -93,7 +93,11 @@ export class Store {
     this.db.prepare('DELETE FROM tutor_log WHERE at < ?').run(now - traceDays * DAY);
     const stale = (this.db.prepare('SELECT profile_id, MAX(received_at) AS last FROM events GROUP BY profile_id HAVING last < ?').all(now - profileDays * DAY) as any[]).map((r) => r.profile_id as string);
     const tx = this.db.transaction((ids: string[]) => {
-      for (const id of ids) for (const t of ['events', 'traces', 'grants', 'tutor_state', 'tutor_log', ...(push ? ['push_subs'] : [])]) this.db.prepare(`DELETE FROM ${t} WHERE profile_id = ?`).run(id);
+      for (const id of ids) {
+        for (const t of ['events', 'traces', 'grants', 'tutor_state', 'tutor_log', ...(push ? ['push_subs'] : [])]) this.db.prepare(`DELETE FROM ${t} WHERE profile_id = ?`).run(id);
+        const prefix = `${id}::subject::`;
+        this.db.prepare('DELETE FROM tutor_state WHERE substr(profile_id, 1, ?) = ?').run(prefix.length, prefix);
+      }
     });
     // reminder subscriptions live in a table the Push module creates (absent when push is off)
     const push = !!this.db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'push_subs'").get();

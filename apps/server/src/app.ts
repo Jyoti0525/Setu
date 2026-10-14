@@ -22,6 +22,7 @@ import { listen, MAX_AUDIO_BYTES, type ListenDeps } from './asr.ts';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { compress } from 'hono/compress';
+import type { FirebaseIdentity, FirebaseTokenVerifier } from './firebase_auth.ts';
 
 export interface AppOptions {
   store: Store;
@@ -37,6 +38,10 @@ export interface AppOptions {
   trustDraft?: boolean;
   /** enables POST /admin/tick */
   adminKey?: string;
+  /** Firebase Admin token verifier; absent when Firebase is not configured on the server. */
+  firebaseAuth?: FirebaseTokenVerifier;
+  /** the Firebase web app's public config, given to the PWA at run time (nothing to build in); absent = no sign-in */
+  firebaseWeb?: { apiKey: string; authDomain: string; projectId: string; appId?: string };
   /** native reviewers' key for /#review (TODO D6); the admin key also works */
   reviewKey?: string;
   /** requests per minute per device */
@@ -127,7 +132,13 @@ export function createApp(o: AppOptions) {
   // ---- device auth + rate limit (the demo tunnel URL is public) ----
   const hits = new Map<string, number[]>();
   app.use('/api/*', async (c, next) => {
-    const open = c.req.path === '/api/device' || c.req.path === '/api/health' || c.req.path.startsWith('/api/pack');
+    const open = c.req.path === '/api/device' || c.req.path === '/api/health' || c.req.path.startsWith('/api/auth/') || c.req.path.startsWith('/api/pack');
+    // a signed-in account (Firebase) is checked when the server knows the project; the device token below stays the
+    // key to her data, so a missing or stale sign-in never locks her out of learning
+    const authorization = c.req.header('authorization');
+    if (o.firebaseAuth && authorization?.startsWith('Bearer ')) {
+      try { c.set('firebaseIdentity' as never, (await o.firebaseAuth.verifyIdToken(authorization.slice(7).trim())) as never); } catch { /* not signed in */ }
+    }
     if (open) return next();
     // the live trace quotes what learners asked: on a public link only the presenter (demo or admin key) may watch it
     if (c.req.path.startsWith('/api/trace')) return traceAllowed(c) ? next() : c.json({ error: 'not found' }, 404);
@@ -160,11 +171,11 @@ export function createApp(o: AppOptions) {
   app.get('/api/book/:id', (c) => { const b = shelf.books.get(c.req.param('id')); return b ? c.json(b) : c.json({ error: 'no such book' }, 404); });
   app.post('/api/tutor/open', async (c) => {
     const deviceId = c.get('deviceId' as never) as string;
-    const body = (await c.req.json()) as { profileId: string; lang: string; bookIds?: string[]; board?: string };
+    const body = (await c.req.json()) as { profileId: string; lang: string; bookIds?: string[]; board?: string; memoryScope?: string };
     if (!store.canUse(body.profileId, deviceId)) return c.json({ error: 'not your profile' }, 403);
     // the chat may come before her first synced event: this phone keeps access after the tutor writes events for her
     store.grant(body.profileId, deviceId);
-    return c.json(openTutor(tutor, body));
+    return c.json(openTutor(tutor, { ...body, memoryScope: typeof body.memoryScope === 'string' && /^(?:pilot|subject):/.test(body.memoryScope) ? body.memoryScope.slice(0, 240) : undefined }));
   });
   // a retry of the same message (same device + turnId) gets the same reply, never a second run (as /api/turn)
   const tutorTurns = new Map<string, { at: number; res: Promise<Awaited<ReturnType<typeof runTutor>>> }>();
@@ -179,7 +190,7 @@ export function createApp(o: AppOptions) {
     const key = body.turnId ? `${deviceId}:${body.turnId}` : undefined;
     const seen = key ? tutorTurns.get(key) : undefined;
     if (seen) { c.header('x-replayed', '1'); return c.json(await seen.res); }
-    const running = runTutor(tutor, { ...body, deviceId });
+    const running = runTutor(tutor, { ...body, memoryScope: typeof body.memoryScope === 'string' && /^(?:pilot|subject):/.test(body.memoryScope) ? body.memoryScope.slice(0, 240) : undefined, deviceId });
     if (key) { tutorTurns.set(key, { at: now, res: running }); running.catch(() => tutorTurns.delete(key)); }
     const res = await running;
     // AI-written replies get a recorded voice too (Odia phones have none)
@@ -199,6 +210,11 @@ export function createApp(o: AppOptions) {
   const asr: ListenDeps = { models, ...o.asr };
   const canListen = (lang: string) => canCall(models, 'listen') || !!asr.local?.supports(lang) || !!asr.sarvamKey;
   app.get('/api/health', (c) => c.req.query('lite') ? c.json({ ok: true, listen: { or: canListen('or'), en: canListen('en'), hi: canListen('hi') } }) : c.json({ ok: true, listen: { or: canListen('or'), en: canListen('en'), hi: canListen('hi') }, providers: models.providers, breakers: models.breakers.status(), recentFailures: models.breakers.failures.slice(-5), liveGen: [...deps.liveGenLangs], packs: [...packs.keys()], tokens: Object.fromEntries(tokenMeter) }));
+  app.get('/api/auth/config', (c) => c.json(o.firebaseWeb ?? {}));
+  app.get('/api/auth/session', (c) => {
+    const identity = c.get('firebaseIdentity' as never) as FirebaseIdentity | undefined;
+    return identity ? c.json({ authenticated: true, user: identity }) : c.json({ error: 'Firebase sign-in required' }, 401);
+  });
 
   app.post('/api/device', (c) => {
     const token = randomUUID();
