@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BOARDS, boardKey, nameIn, toScriptDigits, emptyMemory, LANGUAGES, localeOf, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
 import type { Agent } from './agent.ts';
-import { getMeta, setMeta } from './db.ts';
+import { getMeta, persistStorage, setMeta } from './db.ts';
 import { bookLink, fetchWithTimeout, goodLink } from './net.ts';
 import { install, installState, onInstall, type InstallState } from './install.ts';
 import { t, speak, LANGS } from './i18n.ts';
@@ -19,6 +19,7 @@ import { AvatarPortrait } from './avatar.tsx';
 import { LangMenu } from './langmenu.tsx';
 import { ThemeToggle } from './theme.tsx';
 import { J, JoinClassDialog, type Joined } from './joinclass.tsx';
+import { Assessment } from './assessment.tsx';
 
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
 interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string; figures?: { src: string; text: string }[] }
@@ -27,11 +28,13 @@ const figs = (sh: Shelf, bookId: string, page: number) => {
   const f = sh.figuresOn(bookId, page).slice(0, 3).map((p) => ({ src: `/figure/${p.fig}`, text: p.text }));
   return f.length ? { figures: f } : {};
 };
-interface TMsg { text: string; sources?: Source[]; check?: string; options?: string[]; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[]; say?: string }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
+interface RevisionCard { id: string; type: 'idea' | 'steps' | 'formula' | 'remember'; title: string; body: string; formula?: string; keywords: string[]; sources: { passageId: string; page: number }[] }
+interface ChapterOption { chapter: string; title: string; detail: string; action: 'tutor' | 'notes' }
+interface TMsg { text: string; sources?: Source[]; check?: string; options?: string[]; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[]; say?: string }; tone?: string; chips?: Chip[]; chapterOptions?: ChapterOption[]; revisionCards?: RevisionCard[]; revisionTopic?: string; savedOnly?: boolean; dismissedRevision?: string[]; refreshError?: string; by: 'model' | 'policy' }
 type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: { topic: string; part: number; parts: number; chapter: string } }
 /** A button in a tutor message: send text, quiz a chapter, pick a subject ([] = all) or chapter, learn a chapter, ask in it. */
-interface Chip { label: string; join?: boolean; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
+interface Chip { label: string; join?: boolean; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; notes?: string; saved?: string; ask?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
 interface Queued { id: string; text: string; bookIds?: string[]; at: number }
 /** an earlier conversation, kept on the phone (Chat history); the open one is `chat:<profile>` */
@@ -68,7 +71,7 @@ function subjectsOf(books: BookInfo[]) {
 }
 
 export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, onLang, onLogout, onSignIn, onJoinClass }: {
-  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; home?: string; classCode?: string; classTitle?: string };
+  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; classLevel?: number; home?: string; classCode?: string; classTitle?: string };
   /** join (or change) her teacher's class */
   onJoinClass?: (j: Joined) => Promise<void>;
   /** the signed-in account (Firebase), when she signed in */
@@ -86,6 +89,9 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
   const [subject, setSubject] = useState<string[] | undefined>(undefined);
   /** the chapter she picked (topic key `bookId#n`): her doubts are searched there first */
   const [focus, setFocus] = useState<string | undefined>(undefined);
+  /** the chat composer is only available after she enters Setu's tutor mode */
+  const [chapterMode, setChapterMode] = useState<'choose' | 'tutor' | 'notes'>('choose');
+  const [savedRevision, setSavedRevision] = useState<Record<string, RevisionCard[]>>({});
   const field = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -96,7 +102,7 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
   const [joining, setJoining] = useState(false);
   const [mic, setMic] = useState<'idle' | 'rec' | 'live' | 'hearing'>('idle');
   // the dashboard (her subjects as cards) or the chat; the agent's own news (a check, a lesson to continue) shows on both
-  const [view, setView] = useState<'overview' | 'chat'>('overview');
+  const [view, setView] = useState<'overview' | 'assessment' | 'chat' | 'tutor'>('overview');
   const [nudge, setNudge] = useState<TMsg | null>(null);
   const [past, setPast] = useState<PastChat[]>([]);
   const [showPast, setShowPast] = useState(false);
@@ -120,6 +126,7 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
       setFocus(await getMeta<string | undefined>(`chapter:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
+      setSavedRevision(await getMeta<Record<string, RevisionCard[]>>(`revisionCards:${pid}`, {}));
       setBooks(await getMeta<BookInfo[]>('books', []));
       if (online) {
         started.current = true;
@@ -209,7 +216,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   /** One message to the agent: online the server; no signal (or it drops mid-way) the phone. */
   async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; learn?: string; show?: string; /** a new chat in another subject: its subject (the state is not updated yet) */ subject?: string[] } = {}) {
     const subj = opts.subject ?? subject;
-    setView('chat');
+    setView(opts.learn || opts.review || chapterMode === 'tutor' ? 'tutor' : 'chat');
     const msg = scrubPii(raw, profile.name ? [profile.name] : []).trim();
     if (!msg && !opts.review && !opts.learn) return;
     add([{ role: 'student', text: opts.show ?? msg, at: Date.now() }]);
@@ -252,11 +259,75 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   const chapterName = (topic: string) => { const [id, n] = topic.split('#'); return titleOf(books.find((b) => b.id === id)?.chapters.find((c) => c.n === Number(n))?.title) || topic; };
   const say = (text: string, chips?: Chip[], why?: string) => add([{ role: 'tutor', msg: { text, by: 'policy', ...(chips ? { chips } : {}) }, at: Date.now(), ...(why ? { why } : {}) }]);
   const setChapter = async (c: string | undefined) => { setFocus(c); await setMeta(`chapter:${pid}`, c); };
+  const revisionCardKey = (card: RevisionCard) => `${card.type}|${card.title.trim().toLocaleLowerCase()}|${card.body.trim().toLocaleLowerCase()}`;
+  async function toggleSavedRevision(topic: string, card: RevisionCard) {
+    const current = savedRevision[topic] ?? [];
+    const key = revisionCardKey(card);
+    const nextCards = current.some((item) => revisionCardKey(item) === key)
+      ? current.filter((item) => revisionCardKey(item) !== key)
+      : [...current, card];
+    const next = { ...savedRevision };
+    if (nextCards.length) next[topic] = nextCards;
+    else delete next[topic];
+    setSavedRevision(next);
+    await setMeta(`revisionCards:${pid}`, next).catch(() => undefined);
+    await persistStorage();
+  }
+
+  function updateRevisionMessage(index: number, update: (msg: TMsg) => TMsg) {
+    setLines((current) => {
+      const line = current[index];
+      if (!line || line.role !== 'tutor') return current;
+      const next = current.map((entry, i) => i === index && entry.role === 'tutor' ? { ...entry, msg: update(entry.msg) } : entry);
+      void setMeta(`chat:${pid}`, next).catch(() => undefined);
+      return next;
+    });
+  }
+
+  function dismissRevisionCard(index: number, card: RevisionCard) {
+    updateRevisionMessage(index, (msg) => {
+      const key = revisionCardKey(card);
+      return { ...msg, dismissedRevision: [...new Set([...(msg.dismissedRevision ?? []), key])] };
+    });
+  }
+
+  async function refreshRevisionCards(index: number) {
+    const line = lines[index];
+    if (busy || line?.role !== 'tutor' || !line.msg.revisionTopic || line.msg.savedOnly) return;
+    const topic = line.msg.revisionTopic;
+    const cards = line.msg.revisionCards ?? [];
+    const [bookId, chapterText] = topic.split('#');
+    const info = books.find((book) => book.id === bookId);
+    const chapter = Number(chapterText);
+    if (!info || !Number.isInteger(chapter) || !agent.device) return;
+    setBusy(D(lang, 'revisionCardsLoading'));
+    updateRevisionMessage(index, (msg) => ({ ...msg, refreshError: undefined }));
+    try {
+      const response = await fetchWithTimeout('/api/tutor/revision-cards', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, board, classLevel: profile.classLevel ?? info.classLevel, lang, bookId, chapter, avoidTitles: cards.map((card) => card.title) }) }, 26000);
+      const data = await response.json() as { title?: string; cards?: RevisionCard[]; error?: string };
+      if (!response.ok) throw new Error(data.error || D(lang, 'revisionCardsError'));
+      if (!Array.isArray(data.cards) || data.cards.length < 4) throw new Error(D(lang, 'revisionCardsError'));
+      updateRevisionMessage(index, (msg) => ({ ...msg, revisionCards: data.cards, dismissedRevision: [], refreshError: undefined, text: `${D(lang, 'revisionCardsTitle')} · ${data.title ?? chapterName(topic)}` }));
+    } catch (error) {
+      updateRevisionMessage(index, (msg) => ({ ...msg, refreshError: `${D(lang, 'revisionRefreshError')} ${(error as Error).message}` }));
+    } finally { setBusy(null); }
+  }
+
+  async function backToChapterChoices(topic: string) {
+    await setChapter(topic);
+    setChapterMode('choose'); setView('chat'); setText('');
+    const line: Line = { role: 'tutor', msg: { text: TL(lang, 'ask_mode', chapterName(topic)), by: 'policy', chapterOptions: [
+      { chapter: topic, title: D(lang, 'studyWithSetu'), detail: D(lang, 'studyWithSetuNote'), action: 'tutor' },
+      { chapter: topic, title: D(lang, 'revisionCards'), detail: D(lang, 'revisionCardsNote'), action: 'notes' },
+    ] }, at: Date.now(), why: 'returned to chapter choices' };
+    setLines([line]);
+    await setMeta(`chat:${pid}`, [line]);
+  }
 
   async function onChip(c: Chip) {
     if (c.join) return setJoining(true);
     // "Another subject": this chat is kept in Chat history and she goes back to the subject cards, where a new chat starts
-    if (c.subject && !c.subject.length) { await shelve(); await setChapter(undefined); await pick(undefined); setNudge(null); setView('overview'); return; }
+    if (c.subject && !c.subject.length) { await shelve(); await setChapter(undefined); await pick(undefined); setNudge(null); setChapterMode('choose'); setView('overview'); return; }
     setView('chat'); setNudge(null);
     const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
     // one chat, one subject: from a subject's chat another subject opens its own new chat (her question goes with it)
@@ -268,6 +339,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (ids) {
       add([{ role: 'student', text: c.label, at: Date.now() }]);
       await setChapter(undefined);
+      setChapterMode('choose');
       await pick(ids);
       const s = subjectsOf(books).find((x) => x.ids.some((id) => ids.includes(id)));
       return say(TL(lang, 'ask_chapter', s?.name[lang] ?? s?.name.en ?? c.label), chapterChips(ids), 'subject picked → list its chapters');
@@ -275,11 +347,48 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (c.chapter) {
       add([{ role: 'student', text: c.label, at: Date.now() }]);
       await setChapter(c.chapter);
-      return say(TL(lang, 'ask_mode', chapterName(c.chapter)), [{ label: `📖 ${TL(lang, 'mode_teach')}`, learn: c.chapter }, { label: `✍️ ${TL(lang, 'mode_quiz')}`, review: c.chapter }, { label: `❓ ${TL(lang, 'mode_ask')}`, ask: c.chapter }], 'chapter picked → teach it part by part, quiz her, or take her own doubt');
+      setChapterMode('choose');
+      const title = chapterName(c.chapter);
+      return add([{ role: 'tutor', msg: { text: TL(lang, 'ask_mode', title), by: 'policy', chapterOptions: [
+        { chapter: c.chapter, title: D(lang, 'studyWithSetu'), detail: D(lang, 'studyWithSetuNote'), action: 'tutor' },
+        { chapter: c.chapter, title: D(lang, 'revisionCards'), detail: D(lang, 'revisionCardsNote'), action: 'notes' },
+      ] }, at: Date.now(), why: 'chapter picked → choose Setu tutor or textbook revision cards' }]);
     }
-    if (c.learn) { await setChapter(c.learn); return void ask('', { learn: c.learn, show: c.label }); }
-    if (c.review) return void ask('', { review: c.review, show: c.label });
+    if (c.saved) {
+      setChapterMode('notes');
+      const cards = savedRevision[c.saved] ?? [];
+      if (!cards.length) return say(D(lang, 'noSavedRevision'));
+      return add([{ role: 'tutor', msg: { text: `${D(lang, 'savedRevisionTitle')} · ${chapterName(c.saved)}`, revisionCards: cards, revisionTopic: c.saved, savedOnly: true, by: 'policy' }, at: Date.now(), why: `${cards.length} saved card${cards.length === 1 ? '' : 's'} for ${c.saved}` }]);
+    }
+    if (c.notes) {
+      setChapterMode('notes');
+      add([{ role: 'student', text: c.label, at: Date.now() }]);
+      const [bookId, chapterText] = c.notes.split('#');
+      const info = books.find((b) => b.id === bookId);
+      const chapter = Number(chapterText);
+      if (!info || !Number.isInteger(chapter) || !agent.device) return say(D(lang, 'revisionCardsError'), [{ label: D(lang, 'tryAgain'), notes: c.notes }]);
+      setBusy(D(lang, 'revisionCardsLoading'));
+      try {
+        const response = await fetchWithTimeout('/api/tutor/revision-cards', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, board, classLevel: profile.classLevel ?? info.classLevel, lang, bookId, chapter }) }, 26000);
+        const data = await response.json() as { title?: string; cards?: RevisionCard[]; trace?: { tool: string; note: string }[]; error?: string };
+        if (!response.ok) throw new Error(data.error || D(lang, 'revisionCardsError'));
+        if (!Array.isArray(data.cards) || data.cards.length < 4) throw new Error(D(lang, 'revisionCardsError'));
+        add([{ role: 'tutor', msg: { text: `${D(lang, 'revisionCardsTitle')} · ${data.title ?? chapterName(c.notes)}`, revisionCards: data.cards, revisionTopic: c.notes, by: 'model' }, at: Date.now(), why: data.trace?.map((x) => `${x.tool}: ${x.note}`).join(' → ') }]);
+      } catch (error) {
+        add([{ role: 'tutor', msg: { text: `${D(lang, 'revisionCardsError')} ${(error as Error).message}`, by: 'policy', chips: [{ label: D(lang, 'tryAgain'), notes: c.notes }] }, at: Date.now() }]);
+      } finally { setBusy(null); }
+      return;
+    }
+    if (c.learn) {
+      await setMeta(`chat:${pid}`, []); setLines([]); setText('');
+      setChapterMode('tutor'); setView('tutor'); setNudge(null);
+      await setChapter(c.learn);
+      return void ask('', { learn: c.learn, show: c.label });
+    }
+    if (c.review) { setChapterMode('tutor'); setView('tutor'); return void ask('', { review: c.review, show: c.label }); }
     if (c.ask) {
+      setChapterMode('tutor');
+      setView('tutor');
       add([{ role: 'student', text: c.label, at: Date.now() }]);
       await setChapter(c.ask);
       say(TL(lang, 'ask_doubt', chapterName(c.ask)), undefined, 'her own doubt → searched in this chapter first');
@@ -391,12 +500,12 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   }
   /** a subject card or the sidebar: a new chat in that subject, the agent lists its chapters (no subject: her subjects) */
   async function openSubject(ids: string[] | undefined) {
-    await shelve(); await setChapter(undefined); await pick(ids); setView('chat'); setNudge(null);
+    await shelve(); await setChapter(undefined); await pick(ids); setChapterMode('choose'); setView('chat'); setNudge(null);
     const s = ids && subjectsOf(books).find((x) => x.ids.some((id) => ids.includes(id)));
     if (ids && s) say(TL(lang, 'ask_chapter', nameIn(s.name as { or: string; en: string; hi?: string }, lang)), chapterChips(ids), 'subject picked → list its chapters');
     else say(TL(lang, 'ask_subject'), subjectChips(), 'a new chat → list her subjects');
   }
-  async function openPast(c: PastChat) { await shelve(c); await pick(c.subject); await setChapter(undefined); setView('chat'); }
+  async function openPast(c: PastChat) { await shelve(c); await pick(c.subject); await setChapter(undefined); setChapterMode('tutor'); setView('chat'); }
   const subjects = subjectsOf(books);
   const physics = books.find((b) => b.id === 'physical-science-9');
   // the open check is the one in the newest reply (a note after it, like "I told your teacher", does not close it;
@@ -432,6 +541,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         </div>
         {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && (account.name?.trim() || account.email.includes('@')) && <span class="account-email">{account.email}</span>}</div>}
         {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
+        <button class={'theme-toggle assessment-nav' + (view === 'assessment' ? ' active' : '')} aria-current={view === 'assessment' ? 'page' : undefined} aria-label={D(lang, 'assessment')} title={D(lang, 'assessment')} onClick={() => setView('assessment')}><Icon name="check" size={17} /><span class="theme-label">{D(lang, 'assessment')}</span></button>
         <LangMenu value={lang} ids={LANGS.map((l) => l.id)} label={D(lang, 'changeLanguage')} onPick={(id) => { if (id !== lang) void onLang(id); }} />
         {onJoinClass && <button class={'theme-toggle class-chip' + (profile.classCode ? ' in' : '')} title={profile.classCode ? J(lang, 'joined').replace('{0}', profile.classTitle ?? profile.classCode) : J(lang, 'title')} onClick={() => setJoining(true)}><Icon name="users" size={17} /><span class="theme-label">{profile.classCode ? profile.classTitle ?? profile.classCode : J(lang, 'title')}</span></button>}
         <ThemeToggle label={(k) => D(lang, k)} />
@@ -447,7 +557,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
           <div class="side-group side-subjects">
             <button class={'side-link' + (view === 'overview' ? ' selected' : '')} aria-current={view === 'overview' ? 'page' : undefined} onClick={() => setView('overview')}>{D(lang, 'home')}</button>
             {subjects.map((s) => {
-              const on = view === 'chat' && !!subject && s.ids.every((id) => subject.includes(id));
+              const on = (view === 'chat' || view === 'tutor') && !!subject && s.ids.every((id) => subject.includes(id));
               return <button class={'side-link' + (on ? ' selected' : '')} aria-current={on ? 'page' : undefined} onClick={() => void openSubject(s.ids)}>{subjectName(s)}</button>;
             })}
           </div>
@@ -472,11 +582,13 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
             {profile.home && LANGUAGES[profile.home] && <p class="small muted">🏠 {LANGUAGES[profile.home]!.name} · {U(lang, 'homeNote').replaceAll('{0}', LANGUAGES[profile.home]!.name)}</p>}
             {canInstall && <button class="install" onClick={onInstallTap}><Icon name="install" size={18} />{U(lang, 'install')}</button>}
           </>}
-          hasChat={asked || past.length > 0} onContinue={() => (asked || !past[0] ? setView('chat') : void openPast(past[0]))} onOpen={(ids) => void openSubject(ids)} onChip={(c) => { if (!busy) void onChip(c); }} /> : <div class="workarea">
+          hasChat={asked || past.length > 0} onContinue={() => { if (asked || !past[0]) { setChapterMode('tutor'); setView('chat'); } else void openPast(past[0]); }} onOpen={(ids) => void openSubject(ids)} onChip={(c) => { if (!busy) void onChip(c); }} /> : view === 'assessment' ? <Assessment books={books} lang={lang} profile={profile} headers={headers} onBack={() => setView('overview')} /> : <div class="workarea">
         <main class="feed" aria-live="polite">
           <div class="chat-page-title">
-            <div class="chat-title-copy"><span>{D(lang, 'learning')}</span><h1>{subjectName(current)}</h1></div>
+            <div class="chat-title-copy"><span>{view === 'tutor' ? D(lang, 'studyWithSetu') : D(lang, 'learning')}</span><h1>{view === 'tutor' && focus ? chapterName(focus) : subjectName(current)}</h1></div>
             <div class="chat-title-actions">
+              {view === 'tutor' && subject && <button class="chat-history-button" onClick={() => void openSubject(subject)}><Icon name="back" size={17} />{D(lang, 'backToChapters')}</button>}
+              {chapterMode === 'notes' && focus && <button class="chat-history-button" onClick={() => void backToChapterChoices(focus)}><Icon name="back" size={17} />{D(lang, 'backToChapterChoices')}</button>}
               <button class="chat-history-button" onClick={() => setShowPast(true)}><Icon name="history" size={17} />{D(lang, 'chatHistory')}{pastHere.length ? <span class="chat-history-count">{toScriptDigits(String(pastHere.length), lang)}</span> : null}</button>
               <button class="chat-new-button" onClick={() => void openSubject(current?.ids)}><Icon name="plus" size={17} />{D(lang, 'newChat')}</button>
             </div>
@@ -490,13 +602,16 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
           {lines.map((l, i) => l.role === 'student'
             ? <div class="msg me"><div class="bubble">{l.text}</div></div>
             : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
+                savedRevision={savedRevision} onSaveRevision={(topic, card) => void toggleSavedRevision(topic, card)}
+                onDismissRevision={(card) => dismissRevisionCard(i, card)} onRefreshRevision={() => void refreshRevisionCards(i)}
+                onBackToChapterChoices={(topic) => void backToChapterChoices(topic)}
                 onChip={(c) => { if (!busy) void onChip(c); }}
                 onAnswer={l === openCheck ? (x) => { if (busy) return; if (x === true) void ask(U(lang, 'dontKnow')); else if (typeof x === 'string') void ask(x); else field.current?.focus(); } : undefined} />)}
           {busy && <div class="msg tutor"><span class="mark"><Logo size={28} /></span><div class="bubble typing" role="status" aria-label={busy}><i /><i /><i /><span class="sr">{busy}</span></div></div>}
           <div ref={end} />
         </main>
 
-        <footer class="composer">
+        {chapterMode === 'tutor' && <footer class="composer">
           {answering && <div class="answering"><Icon name="help" size={16} /><span><b>{U(lang, 'quickCheck')}:</b> {openCheck!.role === 'tutor' && openCheck!.msg.check}</span></div>}
           {listening && <div class="listening" role="status"><i class="wave" />{t(lang, mic === 'rec' ? 'listening' : 'speakNow')}</div>}
           <form class={'inputrow' + (answering ? ' answering-row' : '')} onSubmit={(e) => { e.preventDefault(); send(); }}>
@@ -511,7 +626,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
               ? <button class="iconbtn send" type="submit" disabled={!!busy} aria-label={t(lang, 'send')}><Icon name="send" /></button>
               : <button type="button" class={'iconbtn send' + (listening ? ' rec' : '')} aria-pressed={listening} aria-label={t(lang, 'mic')} disabled={!!busy || mic === 'hearing'} onClick={() => void onMic()}><Icon name={listening ? 'stop' : 'mic'} /></button>}
           </form>
-        </footer>
+        </footer>}
         </div>}
       </div>
 
@@ -563,11 +678,16 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
 
 /** the dashboard's words (the rest come from the tutor's and the app's own lists) */
 const DASH: Record<string, Record<string, string>> = {
-  en: { home: 'Home', collapseNavigation: 'Hide subjects', expandNavigation: 'Show subjects', changeLanguage: 'Change language', signOut: 'Sign out', signIn: 'Sign in', learningAs: 'Learning as', account: 'Account', dark: 'Dark', light: 'Light', overview: 'What shall we learn today?', overviewNote: 'Pick a subject and your textbook tutor is ready to help.', recentChat: 'Continue learning', open: 'Open', learning: 'Learning', searchSubjects: 'Search your subjects', subjectCount: '{0} subjects ready', textbookCount: '{0} textbook(s)', noSubjectMatch: 'No subject matches that search.', overviewKicker: 'Your learning space', chatHistory: 'Chat history', newChat: 'New chat', noChatHistory: 'Your earlier chats will appear here.', startPrompt: 'What are you learning today?', fromSetu: 'Setu says', classShort: 'Class' },
-  hi: { home: 'होम', collapseNavigation: 'विषय छिपाएँ', expandNavigation: 'विषय दिखाएँ', changeLanguage: 'भाषा बदलें', signOut: 'लॉग आउट', signIn: 'लॉग इन', learningAs: 'अभी पढ़ रहे हैं', account: 'खाता', dark: 'डार्क', light: 'लाइट', overview: 'आज क्या सीखें?', overviewNote: 'कोई विषय चुनो, तुम्हारी किताब वाला ट्यूटर मदद के लिए तैयार है।', recentChat: 'पढ़ाई जारी रखें', open: 'खोलें', learning: 'पढ़ाई', searchSubjects: 'अपने विषय खोजें', subjectCount: '{0} विषय तैयार', textbookCount: '{0} किताबें', noSubjectMatch: 'इस खोज से कोई विषय नहीं मिला।', overviewKicker: 'तुम्हारी पढ़ाई की जगह', chatHistory: 'पुरानी बातचीत', newChat: 'नई बातचीत', noChatHistory: 'तुम्हारी पुरानी बातचीत यहाँ दिखेगी।', startPrompt: 'आज क्या पढ़ रहे हो?', fromSetu: 'सेतु कहता है', classShort: 'कक्षा' },
-  or: { home: 'ମୂଳ ପୃଷ୍ଠା', collapseNavigation: 'ବିଷୟ ଲୁଚାଅ', expandNavigation: 'ବିଷୟ ଦେଖାଅ', changeLanguage: 'ଭାଷା ବଦଳାଅ', signOut: 'ଲଗ୍‌ଆଉଟ୍‌', signIn: 'ଲଗ୍‌ଇନ୍', learningAs: 'ଏବେ ପଢ଼ୁଛନ୍ତି', account: 'ଖାତା', dark: 'ଅନ୍ଧାର', light: 'ଆଲୁଅ', overview: 'ଆଜି କ’ଣ ଶିଖିବା?', overviewNote: 'ଗୋଟିଏ ବିଷୟ ବାଛ, ତୁମ ବହିର ଟ୍ୟୁଟର୍ ସାହାଯ୍ୟ ପାଇଁ ପ୍ରସ୍ତୁତ।', recentChat: 'ପଢ଼ା ଜାରି ରଖ', open: 'ଖୋଲ', learning: 'ପଢ଼ା', searchSubjects: 'ତୁମ ବିଷୟ ଖୋଜ', subjectCount: '{0}ଟି ବିଷୟ ପ୍ରସ୍ତୁତ', textbookCount: '{0}ଟି ବହି', noSubjectMatch: 'ଏହି ଖୋଜରେ କୌଣସି ବିଷୟ ମିଳିଲା ନାହିଁ।', overviewKicker: 'ତୁମ ପଢ଼ା ଜାଗା', chatHistory: 'ପୁରୁଣା କଥାବାର୍ତ୍ତା', newChat: 'ନୂଆ କଥାବାର୍ତ୍ତା', noChatHistory: 'ତୁମର ପୁରୁଣା କଥାବାର୍ତ୍ତା ଏଠାରେ ଦେଖାଯିବ।', startPrompt: 'ଆଜି କ’ଣ ପଢ଼ୁଛ?', fromSetu: 'ସେତୁ କହୁଛି', classShort: 'ଶ୍ରେଣୀ' },
+  en: { home: 'Home', assessment: 'Assessment', collapseNavigation: 'Hide subjects', expandNavigation: 'Show subjects', changeLanguage: 'Change language', signOut: 'Sign out', signIn: 'Sign in', learningAs: 'Learning as', account: 'Account', dark: 'Dark', light: 'Light', overview: 'What shall we learn today?', overviewNote: 'Pick a subject and your textbook tutor is ready to help.', recentChat: 'Continue learning', open: 'Open', learning: 'Learning', searchSubjects: 'Search your subjects', subjectCount: '{0} subjects ready', textbookCount: '{0} textbook(s)', noSubjectMatch: 'No subject matches that search.', overviewKicker: 'Your learning space', chatHistory: 'Chat history', newChat: 'New chat', noChatHistory: 'Your earlier chats will appear here.', startPrompt: 'What are you learning today?', fromSetu: 'Setu says', classShort: 'Class' },
+  hi: { home: 'होम', assessment: 'मूल्यांकन', collapseNavigation: 'विषय छिपाएँ', expandNavigation: 'विषय दिखाएँ', changeLanguage: 'भाषा बदलें', signOut: 'लॉग आउट', signIn: 'लॉग इन', learningAs: 'अभी पढ़ रहे हैं', account: 'खाता', dark: 'डार्क', light: 'लाइट', overview: 'आज क्या सीखें?', overviewNote: 'कोई विषय चुनो, तुम्हारी किताब वाला ट्यूटर मदद के लिए तैयार है।', recentChat: 'पढ़ाई जारी रखें', open: 'खोलें', learning: 'पढ़ाई', searchSubjects: 'अपने विषय खोजें', subjectCount: '{0} विषय तैयार', textbookCount: '{0} किताबें', noSubjectMatch: 'इस खोज से कोई विषय नहीं मिला।', overviewKicker: 'तुम्हारी पढ़ाई की जगह', chatHistory: 'पुरानी बातचीत', newChat: 'नई बातचीत', noChatHistory: 'तुम्हारी पुरानी बातचीत यहाँ दिखेगी।', startPrompt: 'आज क्या पढ़ रहे हो?', fromSetu: 'सेतु कहता है', classShort: 'कक्षा' },
+  or: { home: 'ମୂଳ ପୃଷ୍ଠା', assessment: 'ମୂଲ୍ୟାୟନ', collapseNavigation: 'ବିଷୟ ଲୁଚାଅ', expandNavigation: 'ବିଷୟ ଦେଖାଅ', changeLanguage: 'ଭାଷା ବଦଳାଅ', signOut: 'ଲଗ୍‌ଆଉଟ୍‌', signIn: 'ଲଗ୍‌ଇନ୍', learningAs: 'ଏବେ ପଢ଼ୁଛନ୍ତି', account: 'ଖାତା', dark: 'ଅନ୍ଧାର', light: 'ଆଲୁଅ', overview: 'ଆଜି କ’ଣ ଶିଖିବା?', overviewNote: 'ଗୋଟିଏ ବିଷୟ ବାଛ, ତୁମ ବହିର ଟ୍ୟୁଟର୍ ସାହାଯ୍ୟ ପାଇଁ ପ୍ରସ୍ତୁତ।', recentChat: 'ପଢ଼ା ଜାରି ରଖ', open: 'ଖୋଲ', learning: 'ପଢ଼ା', searchSubjects: 'ତୁମ ବିଷୟ ଖୋଜ', subjectCount: '{0}ଟି ବିଷୟ ପ୍ରସ୍ତୁତ', textbookCount: '{0}ଟି ବହି', noSubjectMatch: 'ଏହି ଖୋଜରେ କୌଣସି ବିଷୟ ମିଳିଲା ନାହିଁ।', overviewKicker: 'ତୁମ ପଢ଼ା ଜାଗା', chatHistory: 'ପୁରୁଣା କଥାବାର୍ତ୍ତା', newChat: 'ନୂଆ କଥାବାର୍ତ୍ତା', noChatHistory: 'ତୁମର ପୁରୁଣା କଥାବାର୍ତ୍ତା ଏଠାରେ ଦେଖାଯିବ।', startPrompt: 'ଆଜି କ’ଣ ପଢ଼ୁଛ?', fromSetu: 'ସେତୁ କହୁଛି', classShort: 'ଶ୍ରେଣୀ' },
 };
-const D = (lang: string, k: string) => DASH[lang]?.[k] ?? DASH[LANGUAGES[lang]?.school ?? '']?.[k] ?? DASH.en![k] ?? k;
+const CHAPTER_UI: Record<string, Record<string, string>> = {
+  en: { studyWithSetu: 'Study with Setu', studyWithSetuNote: 'Ask questions, learn step by step, and check what you understand.', backToChapters: 'Back to chapters', backToChapterChoices: 'Back to chapter choices', revisionCards: 'Get revision cards', revisionCardsNote: 'Colorful, bite-sized notes and textbook formulas for a quick recap.', revisionCardsTitle: 'Your chapter revision cards', revisionCardsLoading: 'Setu is making cards from your textbook…', revisionCardsError: 'Setu could not prepare enough verified cards from this textbook. Please try again.', revisionRefresh: 'Make a fresh set', revisionRefreshError: 'Could not make a fresh set.', revisionDismissHint: 'Dismiss any card you do not need.', revisionDismiss: 'Dismiss note', revisionAllDismissed: 'All cards are hidden. Make a fresh set when you are ready.', savedRevision: 'Saved sticky notes', savedRevisionNote: '{0} notes saved for this chapter', savedRevisionTitle: 'Your saved notes', noSavedRevision: 'There are no saved notes for this chapter yet.', saveCard: 'Save note', saved: 'Saved', tryAgain: 'Try again', noteType_idea: 'Big idea', noteType_steps: 'Steps', noteType_formula: 'Formula', noteType_remember: 'Remember' },
+  hi: { studyWithSetu: 'सेतु के साथ पढ़ो', studyWithSetuNote: 'सवाल पूछो, धीरे-धीरे सीखो और समझ को परखो।', backToChapters: 'अध्यायों पर वापस जाएँ', backToChapterChoices: 'अध्याय के विकल्पों पर जाएँ', revisionCards: 'दोहराने के कार्ड', revisionCardsNote: 'जल्दी दोहराने के लिए रंगीन छोटे नोट्स और किताब के सूत्र।', revisionCardsTitle: 'इस पाठ के दोहराने वाले कार्ड', revisionCardsLoading: 'सेतु तुम्हारी किताब से कार्ड बना रहा है…', revisionCardsError: 'सेतु किताब से पर्याप्त जाँचे हुए कार्ड नहीं बना पाया। फिर कोशिश करो।', revisionRefresh: 'नए कार्ड बनाओ', revisionRefreshError: 'नए कार्ड नहीं बन पाए।', revisionDismissHint: 'जो कार्ड काम का न हो, उसे हटाएँ।', revisionDismiss: 'नोट हटाएँ', revisionAllDismissed: 'सभी कार्ड छिपे हैं। जब चाहो नए कार्ड बनाओ।', savedRevision: 'सेव किए नोट्स', savedRevisionNote: 'इस पाठ के {0} नोट्स सेव हैं', savedRevisionTitle: 'तुम्हारे सेव किए नोट्स', noSavedRevision: 'इस पाठ के लिए अभी कोई नोट नहीं है।', saveCard: 'नोट सेव करो', saved: 'सेव है', tryAgain: 'फिर कोशिश करो', noteType_idea: 'मुख्य बात', noteType_steps: 'कदम', noteType_formula: 'सूत्र', noteType_remember: 'याद रखो' },
+  or: { studyWithSetu: 'ସେତୁ ସହ ପଢ଼', studyWithSetuNote: 'ପ୍ରଶ୍ନ ପଚାର, ଧୀରେ ଧୀରେ ଶିଖ ଏବଂ ବୁଝିଲ କି ନାହିଁ ଯାଞ୍ଚ କର।', backToChapters: 'ଅଧ୍ୟାୟକୁ ଫେରନ୍ତୁ', backToChapterChoices: 'ଅଧ୍ୟାୟ ବିକଳ୍ପକୁ ଫେରନ୍ତୁ', revisionCards: 'ପୁନରାବୃତ୍ତି କାର୍ଡ ନିଅ', revisionCardsNote: 'ଶୀଘ୍ର ପଢ଼ିବା ପାଇଁ ରଙ୍ଗିନ ଛୋଟ ନୋଟ୍ ଓ ବହିର ସୂତ୍ର।', revisionCardsTitle: 'ଏହି ଅଧ୍ୟାୟର ପୁନରାବୃତ୍ତି କାର୍ଡ', revisionCardsLoading: 'ସେତୁ ତୁମ ବହିରୁ କାର୍ଡ ପ୍ରସ୍ତୁତ କରୁଛି…', revisionCardsError: 'ସେତୁ ବହିରୁ ଯଥେଷ୍ଟ ଯାଞ୍ଚ ହୋଇଥିବା କାର୍ଡ ପ୍ରସ୍ତୁତ କରିପାରିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କର।', revisionRefresh: 'ନୂଆ କାର୍ଡ ତିଆରି କରନ୍ତୁ', revisionRefreshError: 'ନୂଆ କାର୍ଡ ତିଆରି ହୋଇପାରିଲା ନାହିଁ।', revisionDismissHint: 'ଦରକାର ନଥିବା କାର୍ଡକୁ ହଟାନ୍ତୁ।', revisionDismiss: 'ନୋଟ୍ ହଟାନ୍ତୁ', revisionAllDismissed: 'ସମସ୍ତ କାର୍ଡ ଲୁଚାଯାଇଛି। ପ୍ରସ୍ତୁତ ହେଲେ ନୂଆ କାର୍ଡ କରନ୍ତୁ।', savedRevision: 'ସେଭ୍ ହୋଇଥିବା ନୋଟ୍', savedRevisionNote: 'ଏହି ଅଧ୍ୟାୟର {0}ଟି ନୋଟ୍ ସେଭ୍ ଅଛି', savedRevisionTitle: 'ତୁମ ସେଭ୍ ନୋଟ୍', noSavedRevision: 'ଏହି ଅଧ୍ୟାୟ ପାଇଁ ଏଯାଏଁ କୌଣସି ନୋଟ୍ ସେଭ୍ ହୋଇନାହିଁ।', saveCard: 'ନୋଟ୍ ସେଭ୍ କର', saved: 'ସେଭ୍ ହୋଇଛି', tryAgain: 'ପୁଣି ଚେଷ୍ଟା କର', noteType_idea: 'ମୁଖ୍ୟ କଥା', noteType_steps: 'ପଦକ୍ଷେପ', noteType_formula: 'ସୂତ୍ର', noteType_remember: 'ମନେ ରଖ' },
+};
+const D = (lang: string, k: string) => CHAPTER_UI[lang]?.[k] ?? CHAPTER_UI[LANGUAGES[lang]?.school ?? '']?.[k] ?? CHAPTER_UI.en![k] ?? DASH[lang]?.[k] ?? DASH[LANGUAGES[lang]?.school ?? '']?.[k] ?? DASH.en![k] ?? k;
 /** a small per-browser setting (sidebar, theme): may be unavailable (private mode), then the default stays */
 function store(k: string, v?: string): string | null {
   try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { /* not kept */ }
@@ -657,7 +777,7 @@ function HomeSay({ name, say, lang }: { name: string; say: string; lang: string 
   );
 }
 
-function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, onAnswer }: { m: TMsg; lang: string; why?: string; showWhy: boolean; toggleWhy: () => void; openSrc: string | null; setOpenSrc: (id: string | null) => void; onChip: (c: NonNullable<TMsg['chips']>[number]) => void; /** the open check: write the answer (false), say she does not know (true), or tap a choice */ onAnswer?: (x: boolean | string) => void }) {
+function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, savedRevision, onSaveRevision, onDismissRevision, onRefreshRevision, onBackToChapterChoices, onAnswer }: { m: TMsg; lang: string; why?: string; showWhy: boolean; toggleWhy: () => void; openSrc: string | null; setOpenSrc: (id: string | null) => void; onChip: (c: NonNullable<TMsg['chips']>[number]) => void; savedRevision: Record<string, RevisionCard[]>; onSaveRevision: (topic: string, card: RevisionCard) => void; onDismissRevision: (card: RevisionCard) => void; onRefreshRevision: () => void; onBackToChapterChoices: (topic: string) => void; /** the open check: write the answer (false), say she does not know, or tap a choice */ onAnswer?: (x: boolean | string) => void }) {
   const [full, setFull] = useState(false);
   const spoken = m.text + (m.check ? ' ' + m.check : '');
   const care = m.tone === 'care';
@@ -699,6 +819,26 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, 
             </div>
           );
         })}
+        {m.chapterOptions?.length ? <div class="chapter-options">{m.chapterOptions.map((option) => <button class={'chapter-option ' + option.action} onClick={() => onChip({ label: option.title, ...(option.action === 'tutor' ? { learn: option.chapter } : { notes: option.chapter }) })}>
+          <span class="chapter-option-icon"><Icon name={option.action === 'tutor' ? 'spark' : 'book'} size={22} /></span><span class="chapter-option-copy"><strong>{option.title}</strong><small>{option.detail}</small></span><Icon name="chevron" size={19} />
+        </button>)}{m.chapterOptions[0] && savedRevision[m.chapterOptions[0].chapter]?.length ? <button class="chapter-option saved" onClick={() => onChip({ label: D(lang, 'savedRevision'), saved: m.chapterOptions![0]!.chapter })}>
+          <span class="chapter-option-icon"><Icon name="book" size={22} /></span><span class="chapter-option-copy"><strong>{D(lang, 'savedRevision')}</strong><small>{D(lang, 'savedRevisionNote').replace('{0}', String(savedRevision[m.chapterOptions[0].chapter]!.length))}</small></span><Icon name="chevron" size={19} />
+        </button> : null}</div> : null}
+        {m.savedOnly && m.revisionTopic && !(savedRevision[m.revisionTopic]?.length) && <p class="saved-notes-empty">{D(lang, 'noSavedRevision')}</p>}
+        {m.revisionTopic && <button type="button" class="revision-back" onClick={() => onBackToChapterChoices(m.revisionTopic!)}><Icon name="back" size={16} />{D(lang, 'backToChapterChoices')}</button>}
+        {m.revisionCards?.length && !m.savedOnly && <div class="revision-tools"><span>{D(lang, 'revisionDismissHint')}</span><button type="button" class="revision-refresh" onClick={onRefreshRevision}><span aria-hidden="true">↻</span>{D(lang, 'revisionRefresh')}</button></div>}
+        {m.refreshError && <p class="revision-refresh-error" role="status">{m.refreshError}</p>}
+        {(m.savedOnly && m.revisionTopic ? savedRevision[m.revisionTopic] ?? [] : m.revisionCards ?? []).filter((card) => m.savedOnly || !m.dismissedRevision?.includes(`${card.type}|${card.title.trim().toLocaleLowerCase()}|${card.body.trim().toLocaleLowerCase()}`)).length ? <div class="revision-board">{(m.savedOnly && m.revisionTopic ? savedRevision[m.revisionTopic] ?? [] : m.revisionCards ?? []).filter((card) => m.savedOnly || !m.dismissedRevision?.includes(`${card.type}|${card.title.trim().toLocaleLowerCase()}|${card.body.trim().toLocaleLowerCase()}`)).map((card, i) => {
+          const saved = !!m.revisionTopic && (savedRevision[m.revisionTopic] ?? []).some((item) => `${item.type}|${item.title.trim().toLocaleLowerCase()}|${item.body.trim().toLocaleLowerCase()}` === `${card.type}|${card.title.trim().toLocaleLowerCase()}|${card.body.trim().toLocaleLowerCase()}`);
+          return <article class={'revision-note note-' + (i % 6)}>
+          <span class="revision-paperclip" aria-hidden="true" /><span class="revision-kind">{D(lang, `noteType_${card.type}`)}</span><h3>{card.title}</h3><p>{card.body}</p>
+          {card.formula && <div class="revision-formula">{card.formula}</div>}
+          {card.keywords.length > 0 && <div class="revision-keywords">{card.keywords.map((keyword) => <span>{keyword}</span>)}</div>}
+          <small class="revision-source"><Icon name="book" size={14} />{U(lang, 'fromBook')} · {card.sources.map((source) => source.page).filter((page, j, pages) => pages.indexOf(page) === j).join(', ')}</small>
+          {!m.savedOnly && <button type="button" class="revision-dismiss" aria-label={D(lang, 'revisionDismiss')} title={D(lang, 'revisionDismiss')} onClick={() => onDismissRevision(card)}>×</button>}
+          {m.revisionTopic && <button type="button" class={'revision-save' + (saved ? ' is-saved' : '')} aria-pressed={saved} onClick={() => onSaveRevision(m.revisionTopic!, card)}><Icon name={saved ? 'check' : 'plus'} size={15} />{D(lang, saved ? 'saved' : 'saveCard')}</button>}
+        </article>;
+        })}</div> : m.revisionCards?.length && m.dismissedRevision?.length ? <p class="saved-notes-empty">{D(lang, 'revisionAllDismissed')}</p> : null}
         {m.chips?.length ? <div class="chips">{m.chips.map((c) => <button class="chip" onClick={() => onChip(c)}>{c.label}</button>)}</div> : null}
         <div class="actions">
           <button class="mini" aria-label={t(lang, 'speak')} onClick={() => speak(spoken, lang)}><Icon name="volume" size={16} />{t(lang, 'speak')}</button>

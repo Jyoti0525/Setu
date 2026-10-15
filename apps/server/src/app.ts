@@ -6,7 +6,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Push } from './push.ts';
-import { LANGUAGES, PackMatcher, packDiff, bridgeLanguages, isUnsafe, textIn, nameIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
+import { LANGUAGES, PackMatcher, packDiff, bridgeLanguages, gradeAssessment, isUnsafe, textIn, nameIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
 import { runTutor, openTutor, memoryOf, type TutorDeps, type TutorRequest } from './tutor/run.ts';
 import { Store } from './db.ts';
 import { tokenMeter, buildModels, canCall, type ModelSet } from './llm.ts';
@@ -23,6 +23,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { compress } from 'hono/compress';
 import type { FirebaseIdentity, FirebaseTokenVerifier } from './firebase_auth.ts';
+import { generateAssessment } from './assessment.ts';
+import { generateRevisionCards } from './revision.ts';
 
 export interface AppOptions {
   store: Store;
@@ -169,6 +171,42 @@ export function createApp(o: AppOptions) {
   // textbooks for offline (~200 KB of Odia text each) shrink to about a quarter: it matters on a 3G data pack
   app.use('/api/book/*', compress());
   app.get('/api/book/:id', (c) => { const b = shelf.books.get(c.req.param('id')); return b ? c.json(b) : c.json({ error: 'no such book' }, 404); });
+  // Assessment questions stay addressable for server-side scoring for two hours; student text is never logged.
+  const assessmentRuns = new Map<string, { profileId: string; deviceId: string; questions: Awaited<ReturnType<typeof generateAssessment>>['questions']; at: number; result?: ReturnType<typeof gradeAssessment> }>();
+  // Assessment questions are generated only from passages in the learner's selected board/class chapter.
+  app.post('/api/assessment/generate', async (c) => {
+    const deviceId = c.get('deviceId' as never) as string;
+    const body = await c.req.json() as { profileId?: unknown; board?: unknown; classLevel?: unknown; lang?: unknown; bookId?: unknown; chapter?: unknown };
+    if (typeof body.profileId !== 'string' || !store.canUse(body.profileId, deviceId)) return c.json({ error: 'not your profile' }, 403);
+    if (typeof body.board !== 'string' || typeof body.classLevel !== 'number' || typeof body.lang !== 'string' || typeof body.bookId !== 'string' || typeof body.chapter !== 'number' || !Number.isInteger(body.chapter)) return c.json({ error: 'Choose a class, board, subject and chapter first.' }, 400);
+    store.grant(body.profileId, deviceId);
+    try {
+      const generated = await generateAssessment({ shelf, rag, models, board: body.board, classLevel: body.classLevel, lang: body.lang, bookId: body.bookId, chapterNumber: body.chapter });
+      const id = randomUUID();
+      const now = Date.now();
+      for (const [key, run] of assessmentRuns) if (now - run.at > 2 * 60 * 60_000) assessmentRuns.delete(key);
+      assessmentRuns.set(id, { profileId: body.profileId, deviceId, questions: generated.questions, at: now });
+      return c.json({ id, ...generated });
+    } catch (e) {
+      const message = String((e as Error)?.message ?? e).slice(0, 220);
+      const status = /not part|not in the selected|not enough readable/i.test(message) ? 400 : /no writing model/i.test(message) ? 503 : 502;
+      return c.json({ error: message }, status);
+    }
+  });
+  app.post('/api/assessment/submit', async (c) => {
+    const deviceId = c.get('deviceId' as never) as string;
+    const body = await c.req.json() as { profileId?: unknown; assessmentId?: unknown; answers?: unknown };
+    if (typeof body.profileId !== 'string' || !store.canUse(body.profileId, deviceId)) return c.json({ error: 'not your profile' }, 403);
+    if (typeof body.assessmentId !== 'string' || !body.answers || typeof body.answers !== 'object' || Array.isArray(body.answers)) return c.json({ error: 'Assessment submission is incomplete.' }, 400);
+    const run = assessmentRuns.get(body.assessmentId);
+    if (!run || run.profileId !== body.profileId || run.deviceId !== deviceId || Date.now() - run.at > 2 * 60 * 60_000) return c.json({ error: 'This assessment is no longer available for submission.' }, 404);
+    const raw = body.answers as Record<string, unknown>;
+    const allowed = new Set(run.questions.map((q) => q.id));
+    const answers = Object.fromEntries(Object.entries(raw).filter(([id, value]) => allowed.has(id) && typeof value === 'string').map(([id, value]) => [id, (value as string).slice(0, 2000)]));
+    const result = run.result ?? gradeAssessment(run.questions, answers);
+    run.result = result;
+    return c.json(result);
+  });
   app.post('/api/tutor/open', async (c) => {
     const deviceId = c.get('deviceId' as never) as string;
     const body = (await c.req.json()) as { profileId: string; lang: string; bookIds?: string[]; board?: string; memoryScope?: string };
@@ -176,6 +214,22 @@ export function createApp(o: AppOptions) {
     // the chat may come before her first synced event: this phone keeps access after the tutor writes events for her
     store.grant(body.profileId, deviceId);
     return c.json(openTutor(tutor, { ...body, memoryScope: typeof body.memoryScope === 'string' && /^(?:pilot|subject):/.test(body.memoryScope) ? body.memoryScope.slice(0, 240) : undefined }));
+  });
+  app.post('/api/tutor/revision-cards', async (c) => {
+    const deviceId = c.get('deviceId' as never) as string;
+    const body = await c.req.json() as { profileId?: unknown; board?: unknown; classLevel?: unknown; lang?: unknown; bookId?: unknown; chapter?: unknown; avoidTitles?: unknown };
+    if (typeof body.profileId !== 'string' || !store.canUse(body.profileId, deviceId)) return c.json({ error: 'not your profile' }, 403);
+    if (typeof body.board !== 'string' || typeof body.classLevel !== 'number' || typeof body.lang !== 'string' || typeof body.bookId !== 'string' || typeof body.chapter !== 'number' || !Number.isInteger(body.chapter)) return c.json({ error: 'Choose a class, board, subject and chapter first.' }, 400);
+    store.grant(body.profileId, deviceId);
+    try {
+      const avoidTitles = Array.isArray(body.avoidTitles) ? body.avoidTitles.filter((x): x is string => typeof x === 'string').slice(0, 30) : undefined;
+      const generated = await generateRevisionCards({ shelf, rag, models, board: body.board, classLevel: body.classLevel, lang: body.lang, bookId: body.bookId, chapterNumber: body.chapter, avoidTitles });
+      return c.json(generated);
+    } catch (e) {
+      const message = String((e as Error)?.message ?? e).slice(0, 220);
+      const status = /not part|not in the selected|not enough readable/i.test(message) ? 400 : /no writing model/i.test(message) ? 503 : 502;
+      return c.json({ error: message }, status);
+    }
   });
   // a retry of the same message (same device + turnId) gets the same reply, never a second run (as /api/turn)
   const tutorTurns = new Map<string, { at: number; res: Promise<Awaited<ReturnType<typeof runTutor>>> }>();
@@ -193,9 +247,9 @@ export function createApp(o: AppOptions) {
     const running = runTutor(tutor, { ...body, memoryScope: typeof body.memoryScope === 'string' && /^(?:pilot|subject):/.test(body.memoryScope) ? body.memoryScope.slice(0, 240) : undefined, deviceId });
     if (key) { tutorTurns.set(key, { at: now, res: running }); running.catch(() => tutorTurns.delete(key)); }
     const res = await running;
-    // AI-written replies get a recorded voice too (Odia phones have none)
+    // AI-written replies get a recorded voice too (Odia phones have none; English and Hindi sound better too)
     for (const m of res.messages) if (m.by === 'model') o.voice?.say(m.text + (m.check ? ' ' + m.check : ''));
-    // her home language (Ho, Kuvi, Munda have MMS voices): the sentence in the 🏠 card
+    // her home language (Ho, Kuvi, Munda: read by the Odia voice): the sentence in the 🏠 card
     for (const m of res.messages) if (m.home?.say) o.voice?.say(m.home.say, body.home);
     c.header('x-server-ms', String(Date.now() - now));
     return c.json(res);
