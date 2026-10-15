@@ -255,6 +255,8 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
 
   async function onChip(c: Chip) {
     if (c.join) return setJoining(true);
+    // "Another subject": this chat is kept in Chat history and she goes back to the subject cards, where a new chat starts
+    if (c.subject && !c.subject.length) { await shelve(); await setChapter(undefined); await pick(undefined); setNudge(null); setView('overview'); return; }
     setView('chat'); setNudge(null);
     const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
     // one chat, one subject: from a subject's chat another subject opens its own new chat (her question goes with it)
@@ -266,7 +268,6 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (ids) {
       add([{ role: 'student', text: c.label, at: Date.now() }]);
       await setChapter(undefined);
-      if (!ids.length) { await pick(undefined); return say(TL(lang, 'ask_subject'), subjectChips(), 'she wants another subject → list her subjects'); }
       await pick(ids);
       const s = subjectsOf(books).find((x) => x.ids.some((id) => ids.includes(id)));
       return say(TL(lang, 'ask_chapter', s?.name[lang] ?? s?.name.en ?? c.label), chapterChips(ids), 'subject picked → list its chapters');
