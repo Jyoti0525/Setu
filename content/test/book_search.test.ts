@@ -35,8 +35,12 @@ describe('offline textbook search (eval/book_search.json)', () => {
     for (const q of ['rakta kanika kete prakara', 'rakto konika kete prokar', 'mausumi bayu kana', 'mousumi vayu', 'bima kana', 'sadaka durghatana', 'nian lagile kana kariba', 'jakshma roga', 'bega o druti'])
       expect(cases.find((c) => c.q === q)!.want, q).toContain(shown(q));
   });
-  it('her subject has nothing on it → the subject that does', () => {
-    expect(shown('mausumi bayu', ['life-science-9'])).toBe('geography-economics-9#5');
+  it('her subject has nothing on it → not answered here: she is sent to the subject that does (one chat, one subject)', () => {
+    const q = 'mausumi bayu';
+    const plan = planTurn(emptyMemory(), { safety: screen(q, true), text: q, hits: shelf.search(q, { limit: 4, picked: ['life-science-9'] }), bookIds: ['life-science-9'], online: false, now: 0 });
+    expect(plan.action).toBe('other_subject');
+    expect(plan.otherBook).toBe('geography-economics-9');
+    expect(plan.grounding).toEqual([]);
   });
   it('chit-chat mostly shows no page (≥ 9 of 12)', () => {
     const chat = cases.filter((c) => !c.want.length);

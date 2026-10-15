@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildBook, type BookIndex, type BookMeta } from '@setu/core';
 import { motionPack } from '../src/index.ts';
+import { correct } from './corrections.ts';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../books');
 const out = resolve(root, 'out');
@@ -13,7 +14,8 @@ mkdirSync(out, { recursive: true });
 
 const metas = JSON.parse(readFileSync(resolve(root, 'books.json'), 'utf8')) as BookMeta[];
 const written: { id: string; passages: number; glossary: number; kb: number }[] = [];
-const save = (b: BookIndex) => {
+const save = (raw: BookIndex) => {
+  const b = correct(raw).book; // native-speaker fixes to the OCR (books/corrections.json)
   const body = JSON.stringify(b);
   writeFileSync(resolve(out, `${b.meta.id}.json`), body);
   written.push({ id: b.meta.id, passages: b.passages.length, glossary: b.glossary.length, kb: Math.round(body.length / 1024) });

@@ -6,13 +6,13 @@
 export const LEXICON: Record<string, string[]> = {
   // life science
   blood: ['ରକ୍ତ'], cell: ['କୋଷ', 'ଜୀବକୋଷ'], cells: ['କୋଷ'], tissue: ['ଟିସୁ'], disease: ['ରୋଗ'], diseases: ['ରୋଗ'],
-  vaccine: ['ଟୀକା'], vaccination: ['ଟୀକା'], virus: ['ଭୂତାଣୁ'], bacteria: ['ଜୀବାଣୁ'], tuberculosis: ['ଯକ୍ଷ୍ମା'], malaria: ['ମ୍ୟାଲେରିଆ'],
+  vaccine: ['ଟୀକା'], vaccination: ['ଟୀକାକରଣ', 'ଟୀକା'], virus: ['ଭୂତାଣୁ'], bacteria: ['ଜୀବାଣୁ'], tuberculosis: ['ଯକ୍ଷ୍ମା'], malaria: ['ମ୍ୟାଲେରିଆ'],
   pollution: ['ପ୍ରଦୂଷଣ'], soil: ['ମୃତ୍ତିକା', 'ମାଟି'], air: ['ବାୟୁ'], water: ['ଜଳ', 'ପାଣି'], fish: ['ମାଛ'], farming: ['ଚାଷ'],
   crop: ['ଫସଲ'], crops: ['ଫସଲ'], pesticide: ['କୀଟନାଶକ'], pesticides: ['କୀଟନାଶକ'], fertilizer: ['ସାର'], fertilizers: ['ସାର'],
-  irrigation: ['ଜଳସେଚନ'], protein: ['ପ୍ରୋଟିନ'], plant: ['ଉଦ୍ଭିଦ'], plants: ['ଉଦ୍ଭିଦ'], animal: ['ପ୍ରାଣୀ'], animals: ['ପ୍ରାଣୀ'],
+  irrigation: ['ଜଳସେଚନ'], protein: ['ପ୍ରୋଟିନ୍', 'ପ୍ରୋଟିନ', 'ପୁଷ୍ଟିସାର'], plant: ['ଉଦ୍ଭିଦ'], plants: ['ଉଦ୍ଭିଦ'], animal: ['ପ୍ରାଣୀ'], animals: ['ପ୍ରାଣୀ'],
   biodiversity: ['ଜୈବ ବିବିଧତା'], health: ['ସ୍ୱାସ୍ଥ୍ୟ'], food: ['ଖାଦ୍ୟ'], milk: ['କ୍ଷୀର'], resources: ['ସମ୍ପଦ'], resource: ['ସମ୍ପଦ'],
   // geography & economics
-  monsoon: ['ମୌସୁମୀ'], weather: ['ପାଣିପାଗ'], rain: ['ବର୍ଷା'], rainfall: ['ବର୍ଷା'], climate: ['ଜଳବାୟୁ'], drought: ['ମରୁଡ଼ି'], flood: ['ବନ୍ୟା'], floods: ['ବନ୍ୟା'],
+  monsoon: ['ମୌସୁମୀ ବାୟୁ', 'ମୌସୁମୀ'], weather: ['ପାଣିପାଗ'], rain: ['ବର୍ଷା'], rainfall: ['ବୃଷ୍ଟିପାତ', 'ବର୍ଷା'], climate: ['ଜଳବାୟୁ'], drought: ['ମରୁଡ଼ି'], flood: ['ବନ୍ୟା'], floods: ['ବନ୍ୟା'],
   cyclone: ['ବାତ୍ୟା'], earthquake: ['ଭୂମିକମ୍ପ'], tsunami: ['ସୁନାମି'], river: ['ନଦୀ'], rivers: ['ନଦୀ'], mountain: ['ପର୍ବତ'], mountains: ['ପର୍ବତ'],
   forest: ['ଅରଣ୍ୟ', 'ଜଙ୍ଗଲ'], forests: ['ଅରଣ୍ୟ', 'ଜଙ୍ଗଲ'], vegetation: ['ଉଦ୍ଭିଦ'], wildlife: ['ବନ୍ୟପ୍ରାଣୀ'], population: ['ଜନସଂଖ୍ୟା'],
   growth: ['ବୃଦ୍ଧି'], literacy: ['ସାକ୍ଷରତା'], poverty: ['ଦାରିଦ୍ର୍ୟ'], money: ['ଟଙ୍କା'], bank: ['ବ୍ୟାଙ୍କ'], banks: ['ବ୍ୟାଙ୍କ'], insurance: ['ବୀମା'],
