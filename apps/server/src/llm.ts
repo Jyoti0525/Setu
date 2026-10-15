@@ -15,8 +15,10 @@ export class Breakers {
   isOpen(key: string) { return (this.openUntil.get(key) ?? 0) > this.now(); }
   trip(key: string, error: unknown) {
     const msg = String((error as Error)?.message ?? error);
-    // quota errors stay open longer
-    const ms = /429|RESOURCE_EXHAUSTED|quota/i.test(msg) ? this.openMs * 5 : this.openMs;
+    // a rate limit that says when it resets (Groq's per-minute token limit: "retry-after 7s") opens only that long;
+    // other quota errors (a day's quota) stay open longer
+    const after = /per day|daily/i.test(msg) ? undefined : /retry-after ([\d.]+)s/.exec(msg)?.[1] ?? /try again in (?:(\d+)m)?([\d.]+)s/.exec(msg)?.slice(1).reduce((a, x, i) => a + Number(x ?? 0) * (i ? 1 : 60), 0);
+    const ms = after !== undefined && Number(after) <= 300 ? Number(after) * 1000 + 1_000 : /429|RESOURCE_EXHAUSTED|quota/i.test(msg) ? this.openMs * 5 : this.openMs;
     this.openUntil.set(key, this.now() + ms);
     this.failures.push({ key, at: this.now(), error: msg.slice(0, 200) });
   }
@@ -94,6 +96,8 @@ export interface ModelSet {
   generateFor(lang: string): BaseLlm | null;
   /** provider keys allowed to write `lang` */
   genKeysFor(lang: string): string[];
+  /** one provider alone (its breaker and timeout still apply): for hedged calls that race providers */
+  one?(job: Job, key: string): BaseLlm | null;
 }
 
 // Defaults checked live on 2026-10-13, Flash moved to 3.5 on 2026-10-14 (2.5 Flash is closed to new keys) (spikes/RESULTS.md P0.a): older names (gemini-2.5-flash-lite for new keys,
@@ -103,6 +107,8 @@ const DEFAULTS = {
   GEMINI_GENERATE_MODEL: 'gemini-3.5-flash',
   GEMMA_MODEL: 'gemma-4-26b-a4b-it',
   GROQ_MODEL: 'openai/gpt-oss-120b',
+  GROQ_SMALL_MODEL: 'openai/gpt-oss-20b',
+  GROQ_QWEN_MODEL: 'qwen/qwen3.8-27b',
   /** languages each provider may WRITE for learners; decisions (JSON) are language-neutral */
   GEMINI_GEN_LANGS: '*',
   GEMMA_GEN_LANGS: '*',
@@ -137,10 +143,15 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
     add('generate', 'gemma', conf('GEMMA_MODEL'), conf('GEMMA_GEN_LANGS'));
   }
   if (env.GROQ_API_KEY) {
-    const groq = new OpenAICompatLlm({ model: conf('GROQ_MODEL'), baseUrl: 'https://api.groq.com/openai/v1', apiKey: env.GROQ_API_KEY, timeoutMs: 15_000 });
-    chains.decide.push(['groq', groq]);
-    chains.generate.push(['groq', groq]);
-    genLangs.set('groq', conf('GROQ_GEN_LANGS').split(','));
+    // each Groq model has its own free per-minute limit (8k tokens): the writer, the reviewer and the query rewrite go
+    // to different models, so one answer's four calls do not use up one model's minute
+    const groqModel = (model: string) => new OpenAICompatLlm({ model, baseUrl: 'https://api.groq.com/openai/v1', apiKey: env.GROQ_API_KEY!, timeoutMs: 15_000 });
+    const groq = groqModel(conf('GROQ_MODEL'));
+    const small = groqModel(conf('GROQ_SMALL_MODEL'));
+    const qwen = groqModel(conf('GROQ_QWEN_MODEL'));
+    chains.decide.push(['groq-qwen', qwen], ['groq-small', small], ['groq', groq]);
+    chains.generate.push(['groq', groq], ['groq-qwen', qwen], ['groq-small', small]);
+    for (const k of ['groq', 'groq-qwen', 'groq-small']) genLangs.set(k, conf('GROQ_GEN_LANGS').split(','));
   }
   if (geminiKeys.length) {
     const gen = (k: string) => chains.generate.find(([x]) => x === k)![1];
@@ -179,12 +190,15 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
   // was timing out one model after another (22 s before a reply)
   const genKeysFor = (lang: string) => {
     const ok = allKeys('generate').filter((k) => { const l = genLangs.get(k) ?? ['*']; return l.includes('*') || l.includes(lang); });
-    return [...ok.filter((k) => k === 'groq'), ...ok.filter((k) => k !== 'groq')];
+    const g = ['groq', 'groq-qwen', 'groq-small'];
+    // the big Groq model writes first; Gemini next (it writes Odia too); the smaller Groq models before Gemma (slow)
+    return [...ok.filter((k) => k === 'groq'), ...ok.filter((k) => !g.includes(k) && !k.startsWith('gemma')), ...ok.filter((k) => g.includes(k) && k !== 'groq'), ...ok.filter((k) => k.startsWith('gemma'))];
   };
   const perLang = new Map<string, BaseLlm | null>();
+  const single = new Map<string, BaseLlm | null>();
   return {
     // the quick jobs (review, rewrite) also go to Groq first: they wait on a 4 s clock
-    decide: router('decide', [...allKeys('decide').filter((k) => k === 'groq'), ...allKeys('decide').filter((k) => k !== 'groq')]),
+    decide: router('decide', [...allKeys('decide').filter((k) => k.startsWith('groq-')), ...allKeys('decide').filter((k) => !k.startsWith('groq') && !k.startsWith('gemma')), 'groq', ...allKeys('decide').filter((k) => k.startsWith('gemma'))].filter((k) => allKeys('decide').includes(k))),
     generate: router('generate', allKeys('generate')),
     vision: router('vision', allKeys('vision')),
     listen: router('listen', allKeys('listen')),
@@ -193,6 +207,7 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
     lastUsed,
     genKeysFor,
     generateFor: (lang) => { if (!perLang.has(lang)) perLang.set(lang, router('generate', genKeysFor(lang))); return perLang.get(lang)!; },
+    one: (job, key) => { const k = `${job}:${key}`; if (!single.has(k)) single.set(k, router(job, [key])); return single.get(k)!; },
   };
 }
 

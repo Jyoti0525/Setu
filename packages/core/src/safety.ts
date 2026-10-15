@@ -2,7 +2,7 @@
 // offline. Word lists cover Odia script, Hindi, English and romanized Odia/Hindi. A list is a floor, not a ceiling:
 // online the decide LLM's `understood.intent` can raise a question to wellbeing / off-topic too (cycle.ts).
 
-export type SafetyKind = 'ok' | 'distress' | 'unsafe' | 'personal' | 'off_topic';
+export type SafetyKind = 'ok' | 'distress' | 'unsafe' | 'personal' | 'worried' | 'off_topic';
 
 const any = (...res: RegExp[]) => (t: string) => res.some((r) => r.test(t));
 
@@ -13,6 +13,16 @@ const DISTRESS = any(
   /\b(mari ?jibi|mori ?jibi|mari ?jaibi|mariba ?ku ?(chahe|chahun)|atma ?hatya|banchiba ?ku ?ichha ?nahi|mote ?(mada|maada) ?mar|mar ?jaun?ga|marna ?chaht|khud ?ko ?(maar|chot))/i,
   /ଆତ୍ମହତ୍ୟା|ମରିଯିବି|ମରିଯାଆନ୍ତି|ମରିବାକୁ ଚାହେଁ|ମରିଯିବାକୁ|ବଞ୍ଚିବାକୁ ଇଚ୍ଛା ନାହିଁ|ମୋତେ ମାଡ଼ ମାରେ|ମୋତେ ମାଡ଼ ମାରୁଛି|ମୋ ଦେହରେ ହାତ ଦିଏ|ନିଜକୁ କାଟି/,
   /आत्महत्या|मर जाना चाह|मरना चाहत|मैं मर जाऊँ|खुद को (चोट|मार)|मुझे मारत|मुझे छूता/,
+);
+
+/** Worried, stressed, scared or low (exams, studies): calm words and a small next step; not the at-risk reply, no alert. */
+const WORRIED = any(
+  /\b(i am|i'm|im|i feel|i felt|i get|i got|i'm getting|feeling|i keep)\b[^.?!]{0,30}\b(stress(ed)?|tensed?|tension|anxious|anxiety|nervous|scared|afraid|frightened|worried|panic(king)?|depressed|sad|lonely|hopeless|overwhelmed|upset)\b/i,
+  /\b(exam|exams|test|board|result|results)\b[^.?!]{0,25}\b(stress|tension|fear|scared|afraid|worried|nervous|anxiety|panic)\b|\b(stress|tension|fear|scared|afraid|worried|nervous|anxiety|panic)\b[^.?!]{0,25}\b(exam|exams|test|board|result|results)\b/i,
+  /\b(can'?t|cannot|couldn'?t) (sleep|stop crying|focus at all)\b|\bi (cry|am crying|cried)\b/i,
+  /\b(dara (laguchi|lagu?che)|bhaya (laguchi|lagu?che)|chinta (laguchi|heuchi)|tension (heuchi|laguchi|ho rahi|ho raha)|mana kharap|dar lag raha|ghabrahat|ghabra (raha|rahi)|udaas)\b/i,
+  /ଡର ଲାଗୁଛି|ଭୟ ଲାଗୁଛି|ଚିନ୍ତା ଲାଗୁଛି|ଚିନ୍ତା ହେଉଛି|ଟେନସନ୍|ଟେନ୍ସନ|ମନ ଖରାପ|ଦୁଃଖ ଲାଗୁଛି|ପରୀକ୍ଷା ଭୟ/,
+  /डर लग रहा|डर लगता|तनाव|टेंशन|घबराहट|घबरा रहा|घबरा रही|चिंता हो रही|उदास|परीक्षा का डर/,
 );
 
 /** Not for a tutor at all: no engagement, calm message. (Physics words like bullet, gun, bomb-from-a-plane stay allowed.) */
@@ -47,6 +57,7 @@ export function screen(text: string, unmatched = true): SafetyKind {
   if (DISTRESS(t)) return 'distress';
   if (UNSAFE(t)) return 'unsafe';
   if (PERSONAL(t) || hasPii(t)) return 'personal';
+  if (WORRIED(t)) return 'worried';
   if (unmatched && OFF_TOPIC(t)) return 'off_topic';
   return 'ok';
 }

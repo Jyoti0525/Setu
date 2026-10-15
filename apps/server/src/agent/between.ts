@@ -106,7 +106,7 @@ async function run(deps: CycleDeps, profileId: string, trigger: BetweenTrigger):
         out.add({ type: 'ESCALATED', payload: { kind: 'wellbeing', reason: 'a queued question needs a caring adult, not the tutor' } });
         tools.push({ tool: 'notify_teacher', args: { doubtId: d.doubtId, kind: 'wellbeing' }, status: 'ok' });
       }
-      const reply = T(lang, ({ distress: 'care', unsafe: 'decline', personal: 'privacy', off_topic: 'redirect' } as const)[kind]);
+      const reply = T(lang, ({ distress: 'care', unsafe: 'decline', personal: 'privacy', worried: 'calm', off_topic: 'redirect' } as const)[kind]);
       out.add({ type: 'DOUBT_ANSWERED', payload: { doubtId: d.doubtId, answer: reply } });
       if (s.commitments.some((c) => c.id === `answer:${d.doubtId}` && !c.kept)) out.add({ type: 'COMMITMENT_KEPT', payload: { commitmentId: `answer:${d.doubtId}` } });
       tools.push({ tool: 'safety', args: { doubtId: d.doubtId, input: kind }, status: 'ok', note: 'fixed reply, nothing generated' });

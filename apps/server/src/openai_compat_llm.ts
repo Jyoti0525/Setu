@@ -44,7 +44,8 @@ export class OpenAICompatLlm extends BaseLlm {
         body: JSON.stringify(body),
         signal: ctrl.signal,
       });
-      if (!res.ok) throw new Error(`${this.opts.model} HTTP ${res.status}`);
+      // a rate limit says when it resets (Groq: per-minute token limits reset in seconds): the breaker opens just that long
+      if (!res.ok) throw new Error(`${this.opts.model} HTTP ${res.status}${res.headers.get('retry-after') ? ` retry-after ${res.headers.get('retry-after')}s` : ''} ${(await res.text().catch(() => '')).slice(0, 200)}`);
       const json: any = await res.json();
       const msg = json.choices?.[0]?.message ?? {};
       const parts: Part[] = [];

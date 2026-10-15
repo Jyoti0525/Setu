@@ -1,126 +1,122 @@
-# Setu — evaluation report
+# Agent evaluation — 50 student questions
 
-Measured on 2026-10-14 on the Motion chapter (6 concepts, Odia). Every number below comes from a script in this repo, so it can be run again. The offline numbers are checked in CI on every push, and the live numbers come from `apps/server/eval/live.ts` (results in `docs/eval/live.json`).
+_Run 2026-10-15 03:34 UTC · asked in the app (Playwright, real sign-in) · writer: Groq gpt-oss-120b (Gemini fallback) · reviewer: the decide model · grader: gemini-3.1-flash-lite (42) — Gemini grades, Groq writes most answers · questions: `content/eval/agent_eval.json` · raw results: `content/eval/results/agent-2026-10-15-03-34.json`_
 
-**What is not measured yet:** learning gains of real students (field test, P6.9, needs a school, D7), a native reader's rating of Odia quality (P6.5, D6), unguided first-time users (P6.11, D7), and the real low-end phone.
+Every question was asked in the **Physical Science** chat of a BSE Odisha Class 9 student: 40 about Physical Science (core ideas, numericals, common misconceptions, Odia script and romanized Odia), 7 from other subjects, 3 not about studies.
 
-## 1. Does the agent teach better than a plain tutor? (P6.1, P6.2)
+## Headline numbers
 
-**Student simulator** (`content/eval/simulator.ts`, in CI). There are 5 personas, each with knowledge and misconceptions hidden from the tutor. A persona answers a check right only if it knows the concept, and a misconception makes it pick that misconception's trap option. Each persona reaches its goal (velocity) after learning from the explanation(s) it needs.
-- **Agent arm:** the real engine (placement, policy, diagnosis, strategy switch, prerequisites).
-- **Plain-tutor arm:** teaches the chapter in book order and re-explains after a wrong answer, rotating explanation styles.
-
-| Persona | Agent: answers to mastery | Plain tutor |
-|---|---|---|
-| Sunita (speed = velocity) | 17 | 16 |
-| Ravi (distance = displacement) | 12 | 16 |
-| Mina (weak start, slow) | 22 | 20 |
-| Lipi (knows it all) | 5 | 15 |
-| Arjun (two mix-ups) | 19 | 17 |
-| **Total** | **75** | **84** |
-
-Both arms bring every persona to mastery and resolve 100% of misconceptions. The agent saves 11% of the learner's answers overall. The saving comes from placement, which skips what she already knows (Lipi: 5 answers against 15). For a learner with one misconception the two arms are about even.
-
-> **Bugs the simulator found:**
-> - The agent kept re-teaching a concept that had no checks.
-> - A possible (unconfirmed) misconception was never resolved.
-> - After acceleration was added, placement started above the learner's goal.
->
-> All three are fixed and guarded by tests.
-
-**Live comparison with the same model** (`live.ts baseline`). The model is Gemini, and each arm gets 10 Odia doubts (script and romanized).
-- **Chatbot:** the textbook passage is in its context, and it is asked to answer the doubt.
-- **Setu:** one full turn of the agent.
-
-| | Plain chatbot | Setu |
-|---|---|---|
-| Gives away the answer to the next check | 20% | **0%** |
-| Every number traceable to the textbook | 70% | **100%** |
-| Answer in Odia script | 100% | 100% |
-| Typical length | 740–1160 characters, over her reading level in 10/10 | 80–220 characters, within level |
-
-Note: Setu answered all 10 from reviewed pack texts or FAQ answers, because its matcher found each doubt in the book. That is how the agent is designed: model-written text is used only when the book has no reviewed answer.
-
-## 2. Does it understand her doubt? (P6.4)
-
-The set has 50 doubts, each labelled with a concept and an intent (`content/eval/understanding.json`). They cover six forms: Odia script, romanized Odia, code-mixed, English, Hindi, and speech-to-text transcripts.
-
-| Path | Concept right | Intent right |
-|---|---|---|
-| Offline (phone, no network: matcher + solver + safety screen), in CI | **88%** | **100%** |
-| Online (the decide model's own reading, with the matcher's evidence), 44 of 50 answered | **91%** | 89% |
-
-Offline accuracy by form:
-
-| Form | Concept right |
+| What | Result |
 |---|---|
-| Odia script | 82% |
-| Romanized | 90% |
-| Code-mixed | 88% |
-| English | 82% |
-| Hindi | 100% |
-| Voice transcripts | 100% |
+| Routed right (answered here / sent to the right subject / care / declined) | **86%** (43 of 50) |
+| Physical Science questions answered from her own book | 88% |
+| …citing a page from the right chapter | **95%** |
+| Answers graded factually correct | **83%** |
+| Answers supported by the cited book pages | **93%** |
+| Answers that actually answer the question | 83% |
+| At Class 9 level | 93% |
+| Other-subject questions sent to the right subject's chat | **71%** |
+| Time to answer | median 4.5 s · 90th percentile 17.8 s |
 
-All six offline misses are *no match*; none is a wrong concept. With no network the phone asks her to say it again, and online the model reads the doubt.
+## What the reviewer did (before the student saw anything)
 
-Online, the model read 44 of the 50 doubts. The other 6 got no reply from the free tier even after 3 tries; the run made 13 retries in all.
-- It missed one concept: "can distance be zero?" was read as displacement.
-- Its intent misses were off-topic doubts (IPL, a phone game, Newton's laws) that it filed under a concept. This reading does not choose the action. When the safety screen calls a doubt off-topic, the model may teach only a concept that her words actually match, and §3 tests that rule.
-
-## 3. Is it safe? (P6.8)
-
-The red-team set has 30 prompts (`apps/server/eval/redteam.json`): distress, unsafe requests, personal data, off-topic, prompt injection, and injection hidden in a photographed page.
-
-| Where | Handled as required |
+| Outcome | Turns |
 |---|---|
-| Phone, offline (core screen) | **30/30** |
-| Server, with a model scripted to *obey every attack* | **30/30** |
+| Passed on the first read | 32 |
+| Failed → rewritten → passed on the second read | 4 |
+| Failed twice → the student got the book page instead | 5 |
+| Saw the question belongs to another subject → sent there | 0 |
+| Reviewer unavailable → local book-overlap check only | 0 |
+| Not reviewed (redirected or answered by policy before any model) | 9 |
 
-Every provider request is also scrubbed of personal data (phone numbers, e-mail addresses, Aadhaar-like numbers and her name) before it is stored or sent to a model.
+## By kind of question
 
-## 4. Does it stay correct? (P6.6, P6.7)
+| Kind | Questions | Routed right |
+|---|---|---|
+| core | 31 | 90% |
+| numerical | 2 | 100% |
+| misconception | 3 | 100% |
+| odia | 2 | 100% |
+| romanized | 2 | 50% |
+| other_subject | 7 | 71% |
+| off_topic | 2 | 100% |
+| wellbeing | 1 | 0% |
 
-- **Golden replay** (`apps/server/test/golden/hero.json`): real model replies recorded on 2026-10-14 and replayed in CI.
-  - The 4-step hero flow runs: doubt → FAQ answer, trap answer → contrast re-teach, right answer → next check, then review of a weak prerequisite.
-  - Each step must make the same decision, show the same kinds of messages and make the same model calls.
-- **Sync properties** (`packages/core/test/core.test.ts`): any interleaving or duplication of phone and server events folds to the same learner state. A turn the phone ran itself is never counted twice.
+## Every question
 
-## 5. Can she use it? (P6.10, P6.12)
+| # | Question | Expected | Agent did | Route | Chapter | Correct | Supported | Review | Time |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | What is evaporation and why does it cause cooling? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.6 s |
+| 2 | Why do we feel cool after sweating on a hot day? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.2 s |
+| 3 | What is latent heat of fusion? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.4 s |
+| 4 | Why does the temperature stay the same while ice is melting? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.9 s |
+| 5 | What is the difference between a solution, a suspension and a colloid? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.1 s |
+| 6 | What is the Tyndall effect? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.1 s |
+| 7 | How can we separate a mixture of salt and sand? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 7.5 s |
+| 8 | How is a compound different from a mixture? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.1 s |
+| 9 | State the law of conservation of mass. | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.5 s |
+| 10 | What is the law of constant proportions? | answer | fallback | ✗ | ✓ | ✗ | ✗ | none | 26.2 s |
+| 11 | What is a mole in chemistry? | answer | answer | ✓ | ✓ | ✓ | ✓ | fixed | 8.4 s |
+| 12 | What is the valency of an element? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.8 s |
+| 13 | What did Rutherford's gold foil experiment show? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.8 s |
+| 14 | What are isotopes? Give an example. | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 9.6 s |
+| 15 | What is the difference between distance and displacement? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.0 s |
+| 16 | What is uniform circular motion? | answer | answer | ✓ | ✓ | ✓ | ✓ | fixed | 12.7 s |
+| 17 | What is acceleration? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.6 s |
+| 18 | A car goes from 0 to 20 m/s in 5 seconds. What is its acceleration? | answer | answer | ✓ | ✓ | ✓ | ✓ | blocked | 20.4 s |
+| 19 | What is inertia? | answer | answer | ✓ | ✓ | ✓ | ✓ | fixed | 5.3 s |
+| 20 | State Newton's third law of motion with an example. | answer | fallback | ✗ | ✓ | ✓ | ✓ | blocked | 7.9 s |
+| 21 | Why does a gun recoil when it is fired? | answer | answer | ✓ | ✓ | ✗ | ✓ | passed | 4.5 s |
+| 22 | What is momentum? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.4 s |
+| 23 | What is the universal law of gravitation? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.7 s |
+| 24 | Why is our weight on the moon less than on the earth? | answer | answer | ✓ | ✓ | ✓ | ✓ | blocked | 17.8 s |
+| 25 | What is Archimedes' principle? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.6 s |
+| 26 | What is the difference between mass and weight? | answer | answer | ✓ | ✗ | ✓ | ✓ | fixed | 12.7 s |
+| 27 | What is kinetic energy? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.3 s |
+| 28 | When do we say that work is done? | answer | answer | ✓ | ✓ | ✗ | ✓ | passed | 4.4 s |
+| 29 | What is power and what is its unit? | answer | fallback | ✗ | ✓ | ✗ | ✗ | none | 26.6 s |
+| 30 | How does sound travel through air? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.2 s |
+| 31 | What is an echo? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.4 s |
+| 32 | What is ultrasound and where is it used? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 5.3 s |
+| 33 | A body of mass 2 kg moves with a velocity of 3 m/s. What is its kinetic energy? | answer | answer | ✓ | ✓ | ✗ | ✓ | passed | 8.2 s |
+| 34 | Does a heavy stone fall faster than a light stone? | answer | answer | ✓ | ✓ | ✗ | ✓ | passed | 3.3 s |
+| 35 | If no force acts on a moving ball, will it slow down and stop? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.6 s |
+| 36 | Is a book lying on a table free of all forces? | answer | not_in_book | ✓ | ✗ | ✓ | ✓ | passed | 2.6 s |
+| 37 | ବାଷ୍ପୀଭବନ କ'ଣ? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 3.0 s |
+| 38 | ଗତି କାହାକୁ କହନ୍ତି? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 4.5 s |
+| 39 | newton ra pratham niyama kana? | answer | answer | ✓ | ✓ | ✓ | ✓ | passed | 9.7 s |
+| 40 | dhwani kipari gati kare? | answer | fallback | ✗ | ✓ | ✗ | ✗ | blocked | 26.0 s |
+| 41 | What is photosynthesis? | redirect → Life Science | redirect → Life Science | ✓ |  |  |  | none | 0.7 s |
+| 42 | Explain the structure of a cell. | redirect → Life Science | redirect → Life Science | ✓ |  |  |  | none | 0.4 s |
+| 43 | What causes the monsoon in India? | redirect → Geography & Economics | answer | ✗ |  |  |  | passed | 2.4 s |
+| 44 | What were the causes of the First World War? | redirect → History & Political Science | redirect → History & Political Science | ✓ |  |  |  | none | 0.6 s |
+| 45 | Find the area of a triangle with base 6 cm and height 4 cm. | redirect → Mathematics | fallback | ✗ |  |  |  | blocked | 4.3 s |
+| 46 | What are fundamental rights? | redirect → History & Political Science | redirect → History & Political Science | ✓ |  |  |  | none | 0.7 s |
+| 47 | What is a set in mathematics? Give an example. | redirect → Mathematics | redirect → Mathematics | ✓ |  |  |  | none | 1.2 s |
+| 48 | Tell me a joke about cricket. | decline | decline | ✓ |  |  |  | none | 0.9 s |
+| 49 | I feel very stressed and scared about my exams. | care | answer | ✗ |  |  |  | passed | 2.9 s |
+| 50 | Who won the last IPL final? | decline | decline | ✓ |  |  |  | none | 0.4 s |
 
-- **Accessibility:**
-  - axe-core finds 0 violations in the light and dark themes.
-  - There is no horizontal overflow at 200% text size.
-  - Every tap target is at least 48 dp.
-  - Every card has 🔊 and its text.
-  - Nothing she does is timed. A session left untouched for 30 minutes is closed quietly, and her next tap opens a new one.
-  - Right and wrong are shown by words and icons as well as colour.
-- **Hindi:** the language picker switches the same learner to Hindi on the spot, and the state stays the same.
-  - The Hindi pack is a model draft (157 texts) and has not been reviewed.
-  - Browser-verified end to end.
+## Problems the grader noted
 
-## 6. Cost, data and speed (P6.13, P7.1–P7.7)
+- **#10** What is the law of constant proportions? — The tutor failed to provide an explanation or answer the student's question.
+- **#11** What is a mole in chemistry? — The reply explains the concept well but fails to provide the numerical value (Avogadro's number).
+- **#20** State Newton's third law of motion with an example. — The tutor failed to answer the student's question about Newton's third law.
+- **#21** Why does a gun recoil when it is fired? — Incorrectly states the bullet exerts force on the air; it exerts force on the gun.
+- **#23** What is the universal law of gravitation? — The reply is accurate, well-explained, and correctly addresses the student's question.
+- **#24** Why is our weight on the moon less than on the earth? — The tutor failed to provide the numerical answer to the follow-up question asked in the reply.
+- **#28** When do we say that work is done? — Incorrectly states displacement must be in the direction of force for work to occur.
+- **#29** What is power and what is its unit? — The tutor failed to provide a definition or unit for power, offering no actual educational content.
+- **#30** How does sound travel through air? — The reply is accurate and well-suited for a Class 9 student.
+- **#33** A body of mass 2 kg moves with a velocity of 3 m/s. What is its kinetic energy? — Calculation error: 0.5 * 2 * 3^2 = 9, but the tutor incorrectly calculated 0.5 * 2 * 9 as 9.
+- **#34** Does a heavy stone fall faster than a light stone? — Incorrectly claims a mango hits before a pea due to air resistance; they are both heavy objects.
+- **#38** ଗତି କାହାକୁ କହନ୍ତି? — The explanation is accurate and appropriate for a Class 9 student.
+- **#40** dhwani kipari gati kare? — The tutor failed to provide an explanation and did not answer the student's question.
+- **#48** Tell me a joke about cricket. — The tutor correctly identified the request as off-topic and redirected the student to academic content.
+- **#50** Who won the last IPL final? — The tutor correctly identified the question as off-topic and redirected the student to academic content.
 
-Measured from the providers' own token counts on 16 real turns (`live.ts cost`), at list prices:
+## How to read this
 
-| | |
-|---|---|
-| Model cost per learner-day (≈ 2 sessions) | **₹0.63** ($0.0075) |
-| Per learner per month (22 school days) | **₹13.9** |
-| Data per session (turns + sync, without audio) | **73 KB** |
-| Data per online turn | ~6.5 KB (budget 30 KB) |
-| Learner app JavaScript, gzipped | 91 KB (budget 250 KB) |
-| First load (JS + CSS + Odia font) | ≈ 210 KB (budget 1.5 MB) |
-| Chapter pack + 124 Odia voice clips | ≈ 2.2 MB (budget 6 MB) |
-| JS heap after load (desktop Chrome) | ≈ 6 MB |
-| Turn latency, no model call | p50 26 ms |
-| Turn latency, with a model call | p50 3.1 s, p95 8.0 s (8 s budget; broadband, not 3G) |
-| Speech to text (self-hosted IndicConformer) | ≈ 2 s |
-
-Most turns need no model call: the matcher, policy, grading and pack texts run on the phone or the server without one. The free tier was congested during these runs, with 4 s timeouts, 503s and 429s. The circuit breakers moved each call to the next provider, which is why the cost figures mix Gemini and Groq.
-
-## 7. How to run
-
-```
-pnpm test                                   # simulator, understanding (offline), red team, golden, sync — all of CI
-cd apps/server && npx tsx eval/live.ts      # live: understand, baseline, cost (needs keys in apps/server/.env; ~15 min on the free tier)
-```
+- **Routing** and **chapter** come from the agent's own trace and the book index: no model is involved in scoring them.
+- **Correct / supported / answers / level** are graded by Gemini, a different model family from Groq, which wrote most answers, reading the reply next to the book pages it cites. Model grading is not a teacher's grading: treat these as estimates and read the notes.
+- 50 questions are a small sample: one question is 2–2.5 points. The question set is fixed in `content/eval/agent_eval.json`, so later runs are comparable.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyTurn, buildBook, cleanOcr, emptyMemory, fixOdiaOcr, focusQuote, extractGlossary, looksLikeAnswer, openerFor, planTurn, Shelf, topicKey, type BookMeta, type TutorMemory } from '../src/index.ts';
+import { applyTurn, screen, buildBook, cleanOcr, emptyMemory, fixOdiaOcr, focusQuote, extractGlossary, looksLikeAnswer, openerFor, planTurn, Shelf, topicKey, type BookMeta, type TutorMemory } from '../src/index.ts';
 
 const meta: BookMeta = {
   id: 'bio', subject: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, title: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, classLevel: 9, board: 'BSE Odisha', source: 'test', pageOffset: 2,
@@ -181,5 +181,32 @@ describe('guided lesson: subject → chapter → part by part (P8.19)', () => {
     const hits = [...shelf.search('କୋଷ ଟିସୁ ରକ୍ତ', { limit: 6 })].map((h) => ({ ...h, coverage: 1 }));
     const p = planTurn(emptyMemory(), { safety: 'ok', text: 'କୋଷ ଟିସୁ ରକ୍ତ କ\'ଣ?', hits, online: true, now: 1, chapter: topicKey('bio', 2) });
     expect(p.grounding[0]!.passage.ch).toBe(2);
+  });
+});
+
+describe('found by the 50-question evaluation (docs/EVAL.md)', () => {
+  const check = { topic: topicKey('bio', 1), question: 'What does the cell wall do?', keyIdeas: ['support'], askedAt: 1 };
+  it('a task or a yes/no question is a new question, not her answer to the open check', () => {
+    expect(looksLikeAnswer("State Newton's third law of motion with an example.", check)).toBe(false);
+    expect(looksLikeAnswer('Find the area of a triangle with base 6 cm and height 4 cm.', check)).toBe(false);
+    expect(looksLikeAnswer('Does a heavy stone fall faster than a light stone', check)).toBe(false);
+    expect(looksLikeAnswer('it gives the cell support and shape', check)).toBe(true);
+  });
+  it('worried about exams → calm words, not a science answer; real distress stays the at-risk reply', () => {
+    expect(screen('I feel very stressed and scared about my exams.')).toBe('worried');
+    expect(screen('exam tension heuchi')).toBe('worried');
+    expect(screen('ମୋତେ ପରୀକ୍ଷା ପାଇଁ ଡର ଲାଗୁଛି')).toBe('worried');
+    expect(screen('I want to die')).toBe('distress');
+    expect(screen('Why are animals afraid of fire?')).toBe('ok');
+    expect(planTurn(emptyMemory(), { safety: 'worried', text: 'x', hits: [], online: true, now: 1 }).action).toBe('care');
+  });
+  it('another subject wins only on a much higher score, not on a few common words', () => {
+    const [p1, p2] = book.passages;
+    const at = (bookId: string, passage: typeof p1, coverage: number, score: number) => ({ bookId, passage: passage!, coverage, score });
+    const plan = (here: ReturnType<typeof at>, away: ReturnType<typeof at>) => planTurn(emptyMemory(), { safety: 'ok', text: 'two words or more', hits: [here], bookIds: ['bio'], online: true, now: 1, elsewhere: [away] });
+    // "monsoon in India" in a science chat: 2 of 3 words on a page about matter, 18× the score in Geography
+    expect(plan(at('bio', p1, 0.67, 83), at('geo', p2, 0.67, 1491)).action).toBe('other_subject');
+    // "what is power": more words match elsewhere, but only twice the score → answered here
+    expect(plan(at('bio', p1, 0.67, 119), at('geo', p2, 0.67, 242)).action).not.toBe('other_subject');
   });
 });

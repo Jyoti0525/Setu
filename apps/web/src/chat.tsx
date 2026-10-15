@@ -302,7 +302,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     const plan = planTurn(emptyMemory(), { safety, text: msg, hits, bookIds: subj, online: false, now: Date.now() });
     if (plan.action === 'care' || plan.action === 'decline' || plan.action === 'redirect') {
       // the safety replies need no signal; a distress message is never kept or sent later
-      add([{ role: 'tutor', msg: { text: T(lang, plan.action === 'care' ? 'care' : plan.action === 'decline' ? 'decline' : safety === 'personal' ? 'privacy' : 'redirect'), tone: plan.action === 'care' ? 'care' : 'info', by: 'policy' }, at: Date.now(), why: plan.reason }]);
+      add([{ role: 'tutor', msg: { text: T(lang, plan.action === 'care' ? (safety === 'worried' ? 'calm' : 'care') : plan.action === 'decline' ? 'decline' : safety === 'personal' ? 'privacy' : 'redirect'), tone: plan.action === 'care' ? 'care' : 'info', by: 'policy' }, at: Date.now(), why: plan.reason }]);
       return;
     }
     // one chat, one subject: a question from another subject's book is sent to that subject (offline too)

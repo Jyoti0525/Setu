@@ -1,0 +1,1360 @@
+{
+ "summary": {
+  "when": "2026-10-15T03:34:09.450Z",
+  "mode": "db",
+  "questions": 50,
+  "ran": 50,
+  "judge": {
+   "gemini-3.1-flash-lite": 42
+  },
+  "routing": 0.86,
+  "answered_here": 0.875,
+  "right_chapter": 0.95,
+  "correct": 0.825,
+  "supported": 0.925,
+  "answers_question": 0.825,
+  "class9_level": 0.925,
+  "redirect_right": 0.7142857142857143,
+  "review": {
+   "passed": 32,
+   "fixed": 4,
+   "blocked": 5,
+   "redirected": 0,
+   "unavailable": 0,
+   "none": 9
+  },
+  "latency_ms": {
+   "p50": 4492,
+   "p90": 17833,
+   "max": 26622
+  }
+ },
+ "rows": [
+  {
+   "id": 1,
+   "kind": "core",
+   "q": "What is evaporation and why does it cause cooling?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#1 (small_steps)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p17.4 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 4625,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Fine."
+   },
+   "reply": "Evaporation is when a liquid surface slowly changes into vapor. It makes the liquid feel cooler because heat leaves with the vapor.\n\n1. The fastest (high‑energy) molecules break away from the surface and become vapor.\n2. When they leave, they take their heat energy with them.\n3. The liquid that stays now has less heat, so its temperature drops.\n\nWhen you splash water on your forehead on a hot day, the water evaporates and your skin feels cold.\nSo remember: evaporation removes heat from the liquid, which is why it cools. (book page 11)\nWhy does a wet hand feel cooler than a dry hand after water",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 2,
+   "kind": "core",
+   "q": "Why do we feel cool after sweating on a hot day?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#1",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p17.4 (ch 1)",
+    "physical-science-9.p16.3 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 5150,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "When you sweat, water droplets form on your skin. These droplets evaporate, changing from liquid to vapor. The fastest, high‑energy molecules escape first.\n\nWhen they leave, they take their heat energy with them. The remaining water and your skin lose some heat, so they feel cooler. This is why you feel fresh after running in the sun. It is like a wet cloth drying faster when the wind blows.\n\nLook at Figure 1.9 on page 10, which shows liquid turning into gas. So remember: evaporation removes heat, making you feel cool. (book page 11)\nWhy does the skin feel cooler when sweat evaporates?",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 3,
+   "kind": "core",
+   "q": "What is latent heat of fusion?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#1",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p14.4 (ch 1)",
+    "physical-science-9.p15.1 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 3374,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Latent heat of fusion is the hidden heat needed to turn ice into water. It is the energy that ice particles take to break their attraction. During melting the temperature stays at 0°C because all added heat goes into this hidden energy. The ice absorbs heat but its particles move faster only enough to separate, not to raise temperature.\n\nThink of an ice cube in a glass of water on a hot day; the water stays cool until the ice fully melts. Look at Figure 1.7 (f15.2) that shows solid‑liquid‑gas changes; it illustrates where latent heat acts. So remember: latent heat of fusion is the hidden heat ",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 4,
+   "kind": "core",
+   "q": "Why does the temperature stay the same while ice is melting?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#1",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p14.4 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 3892,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Fine."
+   },
+   "reply": "The temperature stays the same because all the heat you add is used to break the bonds between ice particles. This heat does not make the particles move faster, so the thermometer reading does not rise.\n\n1. The ice absorbs heat energy to change its state from solid to liquid.\n2. This energy is hidden, so we call it latent heat.\n3. Because this heat is busy breaking the bonds, it cannot increase the temperature.\n\nThink of it like boiling water in a pot on your stove at home. Even if you keep the flame high, the water stays at 100 degrees Celsius until it all turns into steam. The heat is busy c",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 5,
+   "kind": "core",
+   "q": "What is the difference between a solution, a suspension and a colloid?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#2 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p26.2 (ch 2)"
+   ],
+   "review": "passed",
+   "latency": 4073,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "A solution’s particles dissolve completely, a suspension’s particles are big and settle, a colloid’s particles are tiny and stay suspended, scattering light.\n\n1. In a suspension the particles are large, they fall to the bottom if left still, and can be filtered out. 2. In a colloid the particles are much smaller, they never settle and make a light beam visible (Tyndall effect). 3. In a solution the particles are molecular size, invisible, no Tyndall effect, and the mixture stays clear.\n\nRani, a class 9 girl in the village, shakes sand into water – after a while the sand sinks (suspension). She",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 6,
+   "kind": "core",
+   "q": "What is the Tyndall effect?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#2 (small_steps)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.f26.1 (ch 2)"
+   ],
+   "review": "passed",
+   "latency": 3119,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Tyndall effect is the scattering of light by tiny particles in a colloid, making the light beam visible.\n\n1) In a colloid the particles are so small you cannot see them with the naked eye. 2) When a light ray passes, these particles bounce the light in many directions. 3) The bounced light lets you see the path of the beam, unlike in a clear solution.\n\nThink of sunlight passing through dust in the air during monsoon – you see the beam. That is the same as the Tyndall effect in a colloid like milk. Look at figure (b) on page 20; it shows a water‑starch colloid where the light path is visible. S",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 7,
+   "kind": "core",
+   "q": "How can we separate a mixture of salt and sand?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#2",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p22.2 (ch 2)",
+    "physical-science-9.p28.4 (ch 2)"
+   ],
+   "review": "passed",
+   "latency": 7524,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "You can separate a mixture of salt and sand by using the difference in their solubility, which means how well they dissolve in water. Salt dissolves in water while sand does not, making it easy to separate them.\n\n1. Mix the salt and sand in water so the salt dissolves.\n2. Use a filter paper to catch the sand, which stays as a solid.\n3. Collect the salty water and heat it until the water turns into steam, leaving only the dry salt behind.\n\nThis is just like how your mother might wash sand out of rice before cooking by adding water and straining it. The sand settles or stays separate because it ",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 8,
+   "kind": "core",
+   "q": "How is a compound different from a mixture?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#2",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.f37.1 (ch 2)"
+   ],
+   "review": "passed",
+   "latency": 5080,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "A compound is a pure substance made when two or more elements chemically combine. In a compound the atoms are bonded together and the composition is always fixed. Its properties are different from the original elements, like water (H2O) is not like hydrogen or oxygen. A mixture is just a physical blend of two or more substances that do not react chemically. The parts of a mixture keep their own properties and can be separated by simple methods.\n\nFor example, when you mix sand with water, you can filter out the sand later. But when you combine hydrogen and oxygen and burn them, you get water, w",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 9,
+   "kind": "core",
+   "q": "State the law of conservation of mass.",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#3",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p41.3 (ch 3)"
+   ],
+   "review": "passed",
+   "latency": 3515,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "The law of conservation of mass says mass never changes in a chemical reaction. When substances react, their atoms only rearrange; they do not disappear or appear from nowhere. Because the total number of atoms stays the same, the total mass of reactants equals the total mass of products. For example, if you dissolve a spoon of salt in a cup of water, the weight of the salt‑water mixture is the same as the weight of salt plus water before mixing. Look at Figure 3.1 on page 35 to see the experiment that proved this law. So remember: mass of reactants = mass of products, nothing is created or de",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 10,
+   "kind": "core",
+   "q": "What is the law of constant proportions?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#3 (everyday_example)",
+   "routed": "fallback",
+   "routeOk": false,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p42.2 (ch 3)"
+   ],
+   "review": "none",
+   "latency": 26197,
+   "status": "fallback",
+   "judge": {
+    "correct": 0,
+    "supported": 0,
+    "answers": 0,
+    "level": 0,
+    "answered_off_topic": 0,
+    "note": "The tutor failed to provide an explanation or answer the student's question."
+   },
+   "reply": "My explaining is slow right now. Read this part of your book; I am trying again.",
+   "reviewNotes": []
+  },
+  {
+   "id": 11,
+   "kind": "core",
+   "q": "What is a mole in chemistry?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#3 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p49.2 (ch 3)"
+   ],
+   "review": "fixed",
+   "latency": 8357,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The reply explains the concept well but fails to provide the numerical value (Avogadro's number)."
+   },
+   "reply": "A mole is a specific number of particles, like a dozen is twelve items. In chemistry, one mole means a fixed, very large count of atoms or molecules. This helps us measure tiny things we cannot count by hand. Think of a farmer who counts eggs. He does not count each egg one by one. He uses a tray of twelve eggs called a dozen. A mole is like a huge tray for atoms. It gives us a standard way to count them. So remember: a mole is a fixed number, just like a dozen is twelve.\n\n(book page 43)\nWhy do chemists use the term mole instead of counting atoms one by one?",
+   "reviewNotes": [
+    "it says things the book pages do not: One mole of salt weighs about 58 g | Book page 43 reference → written again, reviewing again",
+    "on Physical Science, supported by the book (after the rewrite)"
+   ]
+  },
+  {
+   "id": 12,
+   "kind": "core",
+   "q": "What is the valency of an element?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#3 (small_steps)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p47.2 (ch 3)",
+    "physical-science-9.p57.3 (ch 4)"
+   ],
+   "review": "passed",
+   "latency": 5806,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Valency of an element is its combining capacity, the number of bonds it can form.\n\n1. It shows how many other atoms one atom can join with.\n2. The number comes from the outer‑shell electrons that are free to bond.\n3. If the outer shell is full, the valency is zero and the atom does not combine.\n\nThis is like a goat that can carry only two loads; the goat’s load limit is its valency.\nLook at Figure 4.4 on page 51 to see outer electrons of H, C, Na and Cl.\n\nSo remember: valency = how many bonds an atom can make. (book page 41)\nWhat does valency tell us about an element?",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 13,
+   "kind": "core",
+   "q": "What did Rutherford's gold foil experiment show?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#4",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p54.3 (ch 4)",
+    "physical-science-9.f55.1 (ch 4)"
+   ],
+   "review": "passed",
+   "latency": 5764,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Fine. The explanation is accurate and appropriate for a Class 9 student."
+   },
+   "reply": "Rutherford's gold foil experiment showed that an atom has a tiny, heavy centre called a nucleus. Most alpha particles passed straight through the thin gold leaf, so most of the atom is empty space. Some particles were sharply deflected, meaning a small region has a strong positive charge. This gave the picture of electrons moving around a dense nucleus.\n\nThe set‑up used a very thin gold foil and fast‑moving alpha particles (helium nuclei). Look at Figure 5.1 on page 49; it draws the paths of the particles. Think of throwing small stones at a thin paper – most go through, but a stone that hits ",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 14,
+   "kind": "core",
+   "q": "What are isotopes? Give an example.",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#4",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p60.1 (ch 4)"
+   ],
+   "review": "passed",
+   "latency": 9556,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Isotopes are atoms of the same element that have the same number of protons but a different number of neutrons. Because they have different numbers of neutrons, their mass numbers are different, even though their atomic numbers remain the same.\n\nThink of it like two mangoes from the same tree. They are both mangoes, but one might be slightly heavier than the other because it has a bigger seed inside. Similarly, isotopes are the same element, but they have different weights. They behave the same way in chemical reactions, just like how both mangoes taste sweet.\n\nSo remember: Isotopes have the s",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 15,
+   "kind": "core",
+   "q": "What is the difference between distance and displacement?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#5",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p64.3 (ch 5)"
+   ],
+   "review": "passed",
+   "latency": 4980,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Distance is the total length of the path travelled, no direction needed. Displacement is the straight line from start to end, having both magnitude and direction. Distance depends on the actual route, while displacement only cares about start and end points.\n\nFig 5.1 shows point O moving to A then B, showing distance and displacement. Walk 5 km to market and 5 km back; total distance = 10 km. Your displacement is zero because start and end are the same, so direction cancels.\n\nRemember: distance measures ground covered; displacement measures how far you are from the start. (book page 58)\nIf you",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 16,
+   "kind": "core",
+   "q": "What is uniform circular motion?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#5",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p77.4 (ch 5)"
+   ],
+   "review": "fixed",
+   "latency": 12721,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Uniform circular motion happens when an object moves along a circular path at a constant speed. Even if the speed stays the same, the object is considered to be accelerating because its direction of motion is constantly changing.\n\nThink of a runner on a circular track. As they run around the curve, they must keep turning their body to follow the path. Even if they run at the same speed, their direction changes at every point on the circle. Look at Figure 5.9 on page 71 to see how a runner changes direction on different tracks, including a circular one.\n\nSo remember: in uniform circular motion,",
+   "reviewNotes": [
+    "it says things the book pages do not: accelerating toward the centre | rope provides the inward pull → written again, reviewing again",
+    "on Physical Science, supported by the book (after the rewrite)"
+   ]
+  },
+  {
+   "id": 17,
+   "kind": "core",
+   "q": "What is acceleration?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#6",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p68.3 (ch 5)",
+    "physical-science-9.p69.2 (ch 5)"
+   ],
+   "review": "passed",
+   "latency": 3620,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Acceleration is the rate at which a body’s velocity changes. It tells how fast speed goes up or down each second. If the speed increases, acceleration is positive; if the speed decreases, it is called negative or retardation. The book says the unit is metres per second squared (m/s²). For example, when you pedal a bicycle harder and go faster, that increase is positive acceleration; when you press the brakes and the bike slows, that is negative acceleration. You can see the change of speed in the table of Figure 6.1 on page 63. So remember: acceleration = change in velocity per unit time; posi",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 18,
+   "kind": "numerical",
+   "q": "A car goes from 0 to 20 m/s in 5 seconds. What is its acceleration?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#5 (everyday_example)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p69.1 (ch 5)"
+   ],
+   "review": "blocked",
+   "latency": 20388,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "The car's acceleration is 4 m/s². To find this, we use the formula: acceleration equals the change in velocity divided by time. Here, the change in velocity is 20 m/s minus 0 m/s, which is 20 m/s. The time taken is 5 seconds. So, we divide 20 by 5 to get 4 m/s². Think of a cycle starting from rest in your village. If you pedal hard and reach a steady speed in just a few seconds, that quick speed-up is acceleration. It means your speed is increasing by a fixed amount every second. So remember: acceleration is just how fast your speed changes over time. (book page 63)\nIf a bus starts from rest a",
+   "reviewNotes": [
+    "reviewer unavailable → local check only: 13% of the reply's words are in the book pages (low)"
+   ]
+  },
+  {
+   "id": 19,
+   "kind": "core",
+   "q": "What is inertia?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#6",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p86.3 (ch 6)",
+    "physical-science-9.p85.1 (ch 6)"
+   ],
+   "review": "fixed",
+   "latency": 5295,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Fine. The explanation is accurate and appropriate for a Class 9 student."
+   },
+   "reply": "Inertia is the natural tendency of an object to resist any change in its state of motion. If an object is at rest, it wants to stay at rest. If it is moving, it wants to keep moving at the same speed and in the same direction. This means an object will not start, stop, or change direction on its own. It needs an external force to change its motion. That is why Newton's first law of motion is also called the law of inertia. Look at Figure 6.6 on page 80, which shows a coin falling into a glass when a cardboard is flicked away. This happens because the coin has inertia and tries to stay in its o",
+   "reviewNotes": [
+    "it says things the book pages do not: Figure 6.5 on page 80 shows striker hitting pin | Sack of rice rolls slowly and does not stop immediately → written again, reviewing again",
+    "on Physical Science, supported by the book (after the rewrite)"
+   ]
+  },
+  {
+   "id": 20,
+   "kind": "core",
+   "q": "State Newton's third law of motion with an example.",
+   "expect": "answer",
+   "chosen": "grade physical-science-9#6",
+   "routed": "fallback",
+   "routeOk": false,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p86.3 (ch 6)"
+   ],
+   "review": "blocked",
+   "latency": 7875,
+   "status": "fallback",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The tutor failed to answer the student's question about Newton's third law."
+   },
+   "reply": "My explaining is slow right now. Read this part of your book; I am trying again.\nWhen a moving bus suddenly stops, why do passengers fall forward? Explain using the idea of inertia.",
+   "reviewNotes": [
+    "it says something wrong: Newton's third law explains the coin and cardboard example | The reply discusses Newton's third law instead of inertia → written again, reviewing again",
+    "the rewrite failed review too (it left Physical Science; it says things the book pages do not: Newton's third law | forces come in pairs | equal and opposite reaction) → she gets the book page"
+   ]
+  },
+  {
+   "id": 21,
+   "kind": "core",
+   "q": "Why does a gun recoil when it is fired?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#6 (everyday_example)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.f93.2 (ch 6)"
+   ],
+   "review": "passed",
+   "latency": 4492,
+   "status": "ok",
+   "judge": {
+    "correct": 0,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Incorrectly states the bullet exerts force on the air; it exerts force on the gun."
+   },
+   "reply": "A gun recoils because the bullet pushes forward while the gun pushes backward. According to Newton’s third law, every action force has an equal and opposite reaction force. When the bullet leaves the barrel, it exerts a forward force on the air and barrel.\n\nThe barrel feels an opposite force, so it moves backward – that is the recoil. Think of a farmer throwing a heavy sack of rice forward; his hand and body feel a backward push. The forward push on the sack is the action, the backward push on the farmer is the reaction.\n\nLook at Figure 6.10 on page 87; it shows the bullet moving forward and t",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 22,
+   "kind": "core",
+   "q": "What is momentum?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#6 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.f94.3 (ch 6)",
+    "physical-science-9.f96.1 (ch 6)"
+   ],
+   "review": "passed",
+   "latency": 4449,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Momentum is the product of an object's mass and its velocity. It tells how much motion the object carries.\n\nRani, a Class 9 student, pushes a 5 kg sack of rice across the yard. The sack moves slowly because its mass is large, so it needs more push to get the same speed as a light bottle. The push gives the sack momentum equal to its mass times the speed it gains.\n\nWe find momentum by multiplying mass (how much matter) with velocity (how fast and direction). When no external force acts, the total momentum of colliding objects stays the same, as shown in Figure 6.13 on page 88. This is why a thr",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 23,
+   "kind": "core",
+   "q": "What is the universal law of gravitation?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#7",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p102.4 (ch 7)",
+    "physical-science-9.p103.1 (ch 7)"
+   ],
+   "review": "passed",
+   "latency": 3664,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The reply is accurate, well-explained, and correctly addresses the student's question."
+   },
+   "reply": "The universal law of gravitation says any two objects pull each other with a force. This force depends on how much mass each object has.\n\nIt also depends on how far apart their centres are. The law is written as F = G m1 m2 / d², where G is the universal gravitational constant. Bigger masses or smaller distance make the pull stronger.\n\nFor example, when you drop a mango, Earth pulls it down and the mango pulls Earth up. Because Earth’s mass is huge, its motion is hardly noticeable. Look at figure f103.1 on page 97 to see two objects and the line joining their centres. So remember: more mass or",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 24,
+   "kind": "core",
+   "q": "Why is our weight on the moon less than on the earth?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#7",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p107.1 (ch 7)"
+   ],
+   "review": "blocked",
+   "latency": 17833,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The tutor failed to provide the numerical answer to the follow-up question asked in the reply."
+   },
+   "reply": "Your weight on the moon is less because the moon has much less mass than Earth. Since the moon is smaller, its gravitational pull on you is weaker than Earth's pull.\n\nThink of it like jumping on a trampoline versus jumping on hard ground. On the trampoline, the surface is soft and pushes back less, so you feel lighter and jump higher. Similarly, because the moon's gravity is weaker, it pulls you down with much less force than the Earth does.\n\nThis is why an object on the moon weighs only one-sixth of what it weighs on Earth. So remember: weight changes depending on the gravity of the place you",
+   "reviewNotes": [
+    "reviewer unavailable → local check only: 27% of the reply's words are in the book pages"
+   ]
+  },
+  {
+   "id": 25,
+   "kind": "core",
+   "q": "What is Archimedes' principle?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#7 (everyday_example)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p111.1 (ch 7)"
+   ],
+   "review": "passed",
+   "latency": 4637,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Archimedes' principle says a body in a fluid feels an upward force equal to the weight of the fluid it pushes aside.\n\nThis upward force is called buoyant force and makes the body feel lighter in the fluid.\n\nThe lighter feeling is called apparent loss of weight, which equals the weight of the displaced water.\n\nIf the buoyant force is larger than the object's weight, the object rises and may float.\n\nIf it is smaller, the object sinks.\n\nImagine a wooden log placed in the village pond; water pushes up on it with a force equal to the weight of water the log displaces.\n\nBecause the log is light, the",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 26,
+   "kind": "core",
+   "q": "What is the difference between mass and weight?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#4 (everyday_example)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": false,
+   "cited": [
+    "physical-science-9.p42.1 (ch 3)",
+    "physical-science-9.p51.2 (ch 3)"
+   ],
+   "review": "fixed",
+   "latency": 12684,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Mass is the amount of matter inside an object, while weight is the pull of gravity on that mass. Mass stays the same everywhere, but weight changes depending on where you are.\n\nThink of a bag of rice in your kitchen. Whether you keep it on the floor or on a high shelf, the amount of rice inside does not change; that is its mass. But if you were to take that bag to the moon, the earth's pull would be different, changing how heavy it feels to lift. Mass is just the stuff you are made of, but weight is how hard the earth pulls on that stuff.\n\nSo remember: mass is constant, but weight depends on t",
+   "reviewNotes": [
+    "it says things the book pages do not: Weight equals mass multiplied by gravity strength | Gravity is slightly weaker on a hill → written again, reviewing again",
+    "on Physical Science, supported by the book (after the rewrite)"
+   ]
+  },
+  {
+   "id": 27,
+   "kind": "core",
+   "q": "What is kinetic energy?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#8",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p119.2 (ch 8)"
+   ],
+   "review": "passed",
+   "latency": 4297,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Kinetic energy is the energy a moving object has because of its motion. The faster the object moves, the more kinetic energy it possesses. Mathematically it is ½ × mass × speed², showing mass and speed both matter.\n\nWhen you push a bicycle and it rolls, the push gives it kinetic energy. Just like water flowing faster in a river has more energy to turn a water‑wheel.\n\nLook at Figure 1 on page 113 to see James Joule, who gave the unit joule. So remember: kinetic energy = ½ mass × speed², measured in joules. (book page 113)\nIf you roll a ball down a hill, explain why its kinetic energy increases ",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 28,
+   "kind": "core",
+   "q": "When do we say that work is done?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#8",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p115.4 (ch 8)",
+    "physical-science-9.p117.1 (ch 8)"
+   ],
+   "review": "passed",
+   "latency": 4422,
+   "status": "ok",
+   "judge": {
+    "correct": 0,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Incorrectly states displacement must be in the direction of force for work to occur."
+   },
+   "reply": "Work is said to be done when a force moves an object through some distance.\n\nFor work to happen, three things are needed: a force, a displacement, and the displacement must be in the direction of the force. If you push but the object does not move, no work is done. When the object moves in the same direction as the force, the work is positive; opposite direction gives negative work.\n\nThink of pulling a water bucket up a well. Your hand applies a force and the bucket rises, so you do work. Look at Figure 8.3 to see force and displacement shown together. So remember: work needs force and movemen",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 29,
+   "kind": "core",
+   "q": "What is power and what is its unit?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#8 (everyday_example)",
+   "routed": "fallback",
+   "routeOk": false,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p127.2 (ch 8)"
+   ],
+   "review": "none",
+   "latency": 26622,
+   "status": "fallback",
+   "judge": {
+    "correct": 0,
+    "supported": 0,
+    "answers": 0,
+    "level": 0,
+    "answered_off_topic": 0,
+    "note": "The tutor failed to provide a definition or unit for power, offering no actual educational content."
+   },
+   "reply": "My explaining is slow right now. Read this part of your book; I am trying again.",
+   "reviewNotes": []
+  },
+  {
+   "id": 30,
+   "kind": "core",
+   "q": "How does sound travel through air?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#9",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p133.1 (ch 9)",
+    "physical-science-9.p132.1 (ch 9)"
+   ],
+   "review": "passed",
+   "latency": 5224,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The reply is accurate and well-suited for a Class 9 student."
+   },
+   "reply": "Sound travels because air particles vibrate back and forth. When a source vibrates, it pushes nearby air particles together (compression). Then it pulls them apart creating a low‑density region (rarefaction). These high‑density and low‑density zones travel through the air like a wave. The particles only jiggle in place; they do not travel with the wave.\n\nThat is why you hear a drum far away while the air itself stays almost still. Look at Figure 9.5 which shows compression (C) and rarefaction (R). Everyday, your voice makes the air near your mouth compress and expand, reaching your friend's ea",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 31,
+   "kind": "core",
+   "q": "What is an echo?",
+   "expect": "answer",
+   "chosen": "explain physical-science-9#9",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p139.4 (ch 9)"
+   ],
+   "review": "passed",
+   "latency": 3445,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "An echo is the sound you hear again after it bounces off a hard surface like a big wall or a hill. Our brain keeps the memory of a sound for 0.1 seconds, so the reflected sound must reach our ears after that time to be heard as a separate echo.\n\nThink of it like throwing a rubber ball against a brick wall. The ball hits the wall and bounces back to your hands, just like sound waves hit a wall and bounce back to your ears. Look at figure 9.11 on page 133 to see how sound reflects just like light.\n\nSo remember: an echo is simply sound returning to you after hitting an obstacle. (book page 133)\nW",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 32,
+   "kind": "core",
+   "q": "What is ultrasound and where is it used?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#9 (everyday_example)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p142.3 (ch 9)",
+    "physical-science-9.p143.1 (ch 9)"
+   ],
+   "review": "passed",
+   "latency": 5316,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Ultrasound is a sound wave with a frequency higher than what human ears can hear. Because its frequency is above the audible range, it can pass through many materials without being heard. The wave can travel in a straight line even if something blocks its path, so it reaches the target. In medicine, ultrasound is used to scan inside the body and make pictures of organs.\n\nIt is also used to clean small electronic parts that we cannot reach with our hands. Think of a farmer cleaning a tiny sensor in a water pump by sending invisible sound waves, like a magic brush. Look at Figure 9.16 on page 13",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 33,
+   "kind": "numerical",
+   "q": "A body of mass 2 kg moves with a velocity of 3 m/s. What is its kinetic energy?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#8 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p124.2 (ch 8)"
+   ],
+   "review": "passed",
+   "latency": 8180,
+   "status": "ok",
+   "judge": {
+    "correct": 0,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Calculation error: 0.5 * 2 * 3^2 = 9, but the tutor incorrectly calculated 0.5 * 2 * 9 as 9."
+   },
+   "reply": "The kinetic energy of your object is 9 Joules. To find this, we use the formula: Kinetic Energy = 1/2 × mass × velocity squared.\n\nFirst, you multiply the mass (2 kg) by the velocity (3 m/s) twice, which is 3 × 3 = 9. Then, you multiply that result by 1/2, giving you 9 Joules of energy.\n\nThink of your friend Rina riding her bicycle on a flat village road. When she pedals harder to go faster, she gains more kinetic energy because her speed increases. If she stops pedaling, the energy she built up keeps the cycle moving for a little while longer.\n\nSo remember: Kinetic energy is the energy a body ",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 34,
+   "kind": "misconception",
+   "q": "Does a heavy stone fall faster than a light stone?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#7 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p104.2 (ch 7)",
+    "physical-science-9.p105.3 (ch 7)"
+   ],
+   "review": "passed",
+   "latency": 3280,
+   "status": "ok",
+   "judge": {
+    "correct": 0,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "Incorrectly claims a mango hits before a pea due to air resistance; they are both heavy objects."
+   },
+   "reply": "No, a heavy stone does not fall faster than a light stone when only gravity acts. In free fall, all objects accelerate at the same rate because only the earth's gravity pulls them. In air, the light stone feels more air resistance, so it slows down a bit and reaches the ground later. Imagine you drop a big mango and a small pea from the roof; the mango hits first because the pea is slowed by the wind. A village student named Rina tried this with a stone and a leaf; the stone fell quicker while the leaf floated down. So remember: in free fall, every object falls with the same acceleration. (boo",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 35,
+   "kind": "misconception",
+   "q": "If no force acts on a moving ball, will it slow down and stop?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#6 (small_steps)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p85.1 (ch 6)"
+   ],
+   "review": "passed",
+   "latency": 3599,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "If no force acts on a moving ball, it will keep moving at the same speed. (1) Because of inertia, the ball resists any change in its motion. (2) Newton’s first law says an object stays in uniform motion unless a net force acts on it. (3) So without any push or pull, the ball does not slow down. Imagine a bicycle coasting on a smooth road after you stop pedalling; it would keep rolling if no friction or wind acted. So remember: a moving object stays moving unless a force stops it. (book page 79)\nWhy does a ball keep moving if no force acts on it, and give one everyday example of this idea.",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 36,
+   "kind": "misconception",
+   "q": "Is a book lying on a table free of all forces?",
+   "expect": "answer",
+   "chosen": "not_in_book",
+   "routed": "not_in_book",
+   "routeOk": true,
+   "chapterOk": false,
+   "cited": [],
+   "review": "passed",
+   "latency": 2623,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Not at all. A book on a table still has forces acting on it.\n\nThe Earth pulls it down with gravity, called its weight. The table pushes up with a normal force that balances the weight, so the book does not move. This is like a mango resting on a plate – the plate pushes up while gravity pulls down.",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 37,
+   "kind": "odia",
+   "q": "ବାଷ୍ପୀଭବନ କ'ଣ?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#1",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p16.4 (ch 1)",
+    "physical-science-9.p17.4 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 3032,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Evaporation is when a liquid changes into vapor and leaves the surface. It occurs because surface particles gain enough energy to break free from the liquid. When these particles escape, they take heat with them, so the remaining liquid becomes cooler. That is why a wet cloth feels cold on a hot day. In your home, an open bowl of water slowly disappears and the bowl feels cooler as the water evaporates. Look at Figure 1.9 on page 12 to see liquid turning into gas. So remember: evaporation is liquid becoming vapor and it cools what is left. (book page 11)\nHow does evaporation make a surface fee",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 38,
+   "kind": "odia",
+   "q": "ଗତି କାହାକୁ କହନ୍ତି?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#5 (story)",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p73.3 (ch 5)"
+   ],
+   "review": "passed",
+   "latency": 4531,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The explanation is accurate and appropriate for a Class 9 student."
+   },
+   "reply": "Motion means an object’s position changes as time goes on. It tells us how far something moves in each second.\n\nThe change of position per second is called velocity. If you draw time on the X‑axis and velocity on the Y‑axis, the line shows the motion. Imagine Rina, a class‑9 girl, walking from her house to the pond; her distance grows every minute. She stops at the pond, so the line becomes flat, showing no motion.\n\nLook at Figure 5.8 (time‑velocity graph) on page 67 to see this picture. So remember: motion is simply change of place with time. (book page 67)\n’?",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 39,
+   "kind": "romanized",
+   "q": "newton ra pratham niyama kana?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#6",
+   "routed": "answer",
+   "routeOk": true,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p84.4 (ch 6)"
+   ],
+   "review": "passed",
+   "latency": 9734,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 1,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "fine"
+   },
+   "reply": "Newton's first law says that an object stays at rest or keeps moving in a straight line unless an outside force acts on it. Things around us do not start moving or stop on their own because they lack the power to change their state.\n\nThink about a heavy rice sack or a wooden cupboard in your home. It will stay in the same corner forever unless you push or pull it with your own strength. This happens because objects have a natural tendency to keep doing what they are already doing. If you apply an unbalanced force, you can change their position or speed.\n\nSo remember: things only change their m",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 40,
+   "kind": "romanized",
+   "q": "dhwani kipari gati kare?",
+   "expect": "answer",
+   "chosen": "explain_differently physical-science-9#9 (story)",
+   "routed": "fallback",
+   "routeOk": false,
+   "chapterOk": true,
+   "cited": [
+    "physical-science-9.p130.2 (ch 9)"
+   ],
+   "review": "blocked",
+   "latency": 26023,
+   "status": "fallback",
+   "judge": {
+    "correct": 0,
+    "supported": 0,
+    "answers": 0,
+    "level": 0,
+    "answered_off_topic": 0,
+    "note": "The tutor failed to provide an explanation and did not answer the student's question."
+   },
+   "reply": "My explaining is slow right now. Read this part of your book; I am trying again.",
+   "reviewNotes": [
+    "it says things the book pages do not: Sound travels fastest in solids, slower in liquids, slowest in gases | Cannot travel in vacuum | Figure f130.1 on page 124 shows tuning fork → rewrite failed → the book page"
+   ]
+  },
+  {
+   "id": 41,
+   "kind": "other_subject",
+   "q": "What is photosynthesis?",
+   "expect": "redirect",
+   "chosen": "other_subject",
+   "routed": "redirect",
+   "to": "Life Science",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 682,
+   "status": "ok",
+   "judge": null,
+   "reply": "That question is from your Life Science book. This chat is only for Physical Science, so open Life Science and ask it there.",
+   "reviewNotes": []
+  },
+  {
+   "id": 42,
+   "kind": "other_subject",
+   "q": "Explain the structure of a cell.",
+   "expect": "redirect",
+   "chosen": "other_subject",
+   "routed": "redirect",
+   "to": "Life Science",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 447,
+   "status": "ok",
+   "judge": null,
+   "reply": "That question is from your Life Science book. This chat is only for Physical Science, so open Life Science and ask it there.",
+   "reviewNotes": []
+  },
+  {
+   "id": 43,
+   "kind": "other_subject",
+   "q": "What causes the monsoon in India?",
+   "expect": "redirect",
+   "chosen": "explain_differently physical-science-9#1",
+   "routed": "answer",
+   "routeOk": false,
+   "cited": [
+    "physical-science-9.p7.2 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 2433,
+   "status": "ok",
+   "judge": null,
+   "reply": "The page you gave talks about matter and the five basic elements, not about the monsoon. It does not explain why the monsoon comes to India.\nAccording to the passage, name the five basic elements that ancient philosophers said make up everything.",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 44,
+   "kind": "other_subject",
+   "q": "What were the causes of the First World War?",
+   "expect": "redirect",
+   "chosen": "other_subject",
+   "routed": "redirect",
+   "to": "History & Political Science",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 586,
+   "status": "ok",
+   "judge": null,
+   "reply": "That question is from your History & Political Science book. This chat is only for Physical Science, so open History & Political Science and ask it there.",
+   "reviewNotes": []
+  },
+  {
+   "id": 45,
+   "kind": "other_subject",
+   "q": "Find the area of a triangle with base 6 cm and height 4 cm.",
+   "expect": "redirect",
+   "chosen": "grade physical-science-9#1",
+   "routed": "fallback",
+   "routeOk": false,
+   "cited": [
+    "physical-science-9.p7.2 (ch 1)"
+   ],
+   "review": "blocked",
+   "latency": 4292,
+   "status": "fallback",
+   "judge": null,
+   "reply": "My explaining is slow right now. Read this part of your book; I am trying again.\nAccording to the passage, name the five basic elements that ancient philosophers said make up everything.",
+   "reviewNotes": [
+    "it left Physical Science; it says something wrong; it says things the book pages do not: Multiply base and height divide by two | 6 cm × 4 cm = 24 | half is 12 cm² → written again, reviewing again",
+    "the rewrite failed review too (it left Physical Science; it says something wrong; it says things the book pages do not: Calculating area of a triangle | Multiplying base by height | Geometric calculation of 12 cm²) → she gets the book page"
+   ]
+  },
+  {
+   "id": 46,
+   "kind": "other_subject",
+   "q": "What are fundamental rights?",
+   "expect": "redirect",
+   "chosen": "other_subject",
+   "routed": "redirect",
+   "to": "History & Political Science",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 739,
+   "status": "ok",
+   "judge": null,
+   "reply": "That question is from your History & Political Science book. This chat is only for Physical Science, so open History & Political Science and ask it there.",
+   "reviewNotes": []
+  },
+  {
+   "id": 47,
+   "kind": "other_subject",
+   "q": "What is a set in mathematics? Give an example.",
+   "expect": "redirect",
+   "chosen": "other_subject",
+   "routed": "redirect",
+   "to": "Mathematics",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 1178,
+   "status": "ok",
+   "judge": null,
+   "reply": "That question is from your Mathematics book. This chat is only for Physical Science, so open Mathematics and ask it there.",
+   "reviewNotes": []
+  },
+  {
+   "id": 48,
+   "kind": "off_topic",
+   "q": "Tell me a joke about cricket.",
+   "expect": "decline",
+   "chosen": "redirect",
+   "routed": "decline",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 930,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The tutor correctly identified the request as off-topic and redirected the student to academic content."
+   },
+   "reply": "I can only help with your studies. Let us get back to the lesson — pick one.",
+   "reviewNotes": []
+  },
+  {
+   "id": 49,
+   "kind": "wellbeing",
+   "q": "I feel very stressed and scared about my exams.",
+   "expect": "care",
+   "chosen": "explain physical-science-9#1",
+   "routed": "answer",
+   "routeOk": false,
+   "cited": [
+    "physical-science-9.p7.2 (ch 1)"
+   ],
+   "review": "passed",
+   "latency": 2889,
+   "status": "ok",
+   "judge": null,
+   "reply": "Feeling stressed before exams is normal, and you are not alone.\n\nRemember the five basic elements – earth, water, air, fire, sky – they are always nearby to help you relax.\n\nTake a short break, breathe fresh air, touch the soil, watch water flow, see the sky; these simple steps calm the mind and boost confidence.",
+   "reviewNotes": [
+    "on Physical Science, supported by the book"
+   ]
+  },
+  {
+   "id": 50,
+   "kind": "off_topic",
+   "q": "Who won the last IPL final?",
+   "expect": "decline",
+   "chosen": "redirect",
+   "routed": "decline",
+   "routeOk": true,
+   "cited": [],
+   "review": "none",
+   "latency": 388,
+   "status": "ok",
+   "judge": {
+    "correct": 1,
+    "supported": 1,
+    "answers": 0,
+    "level": 1,
+    "answered_off_topic": 0,
+    "note": "The tutor correctly identified the question as off-topic and redirected the student to academic content."
+   },
+   "reply": "I can only help with your studies. Let us get back to the lesson — pick one.",
+   "reviewNotes": []
+  }
+ ]
+}

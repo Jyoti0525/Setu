@@ -66,6 +66,9 @@ export const emptyMemory = (): TutorMemory => ({ topics: {}, turns: 0 });
 
 const QUESTION_WORDS = /[?？]|\b(what|why|how|when|where|which|who|explain|tell me|kana|kan|kemiti|kahinki|kouthi|kie|kete|keteta|keun|keunthi|kau|kauta|kipari|kya|kyun|kaise|kab|kahan)\b|କଣ|କ'ଣ|କ’ଣ|କିପରି|କେମିତି|କାହିଁକି|କେଉଁ|କିଏ|କେବେ|କେତେ|କାହାର|କୁଆଡ଼େ|ବୁଝାଅ|ବୁଝାଇ|क्या|क्यों|कैसे|कब|कहाँ|कौन|समझाओ/i;
 
+/** A study task or a yes/no question, by its first word: "State…", "Find…", "Define…", "Does…", "Is…" */
+const TASK_START = /^(state|define|find|calculate|compute|give|list|describe|differentiate|distinguish|compare|name|write|derive|prove|solve|show|does|do|is|are|can|will|would|should|could)\b/i;
+
 /** "I don't know / I didn't understand / explain again": with a check open this is her answer (not yet), never a new
  *  question to search the shelf for (that is how a science lesson jumped to a maths page) */
 export const DONT_KNOW = /\b(i\s*(do\s*n[o']?t|dont|did\s*n[o']?t|didnt)\s*(know|understand|get( it)?)|no idea|not sure|explain (it )?again|again please|samajh nahi|samjh nahi|nahi pata|pata nahi|jani ni|janini|bujhi parili ni|bujhilini)\b|नहीं पता|पता नहीं|समझ नहीं|फिर से समझा|ଜାଣିନି|ଜାଣେନା|ବୁଝିପାରିଲି ନାହିଁ|ବୁଝିଲିନି|ଆଉ ଥରେ ବୁଝା/i;
@@ -80,6 +83,8 @@ export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit
   if (check.options?.some((o) => o.trim().toLowerCase() === t.toLowerCase())) return true;
   // a question word in a message of two words or more is a new question ("କୋଷ ପ୍ରାଚୀର କ'ଣ"), even a short one
   if (QUESTION_WORDS.test(t) && t.split(/\s+/).length >= 2) return false;
+  // so is a task ("State Newton's third law…", "Find the area of…"): an answer to her check never starts that way
+  if (TASK_START.test(t) && t.split(/\s+/).length >= 3) return false;
   // her words clearly belong to another chapter and nothing near the top is the check's: a new question asked
   // without a question word ("rakto konika" while a monsoon check is open)
   const top = hits?.slice(0, 3) ?? [];
@@ -94,6 +99,7 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   if (x.safety === 'distress') return { ...base, action: 'care', reason: 'words of distress → caring message, trusted adult + helpline; nothing she wrote is kept or sent to a model' };
   if (x.safety === 'unsafe') return { ...base, action: 'decline', reason: 'unsafe topic → calm no, nothing generated' };
   if (x.safety === 'personal') return { ...base, action: 'redirect', reason: 'personal details → not needed for learning, not kept' };
+  if (x.safety === 'worried') return { ...base, action: 'care', reason: 'worried or stressed (exams, studies) → calm words and one small next step; not the at-risk reply, no teacher alert' };
 
   // the agent's own follow-up (she tapped "yes" on a review it offered)
   if (x.review) {
@@ -130,10 +136,19 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   // a chat is one subject: a question another subject's book answers is sent to that subject's chat, not answered
   // here (one word — "no", "yes" — is never enough to call it another subject: it matches some page somewhere)
   const away = good(x.elsewhere ?? (picked ? x.hits.filter((h) => !picked.includes(h.bookId)) : []));
-  // also when her subject only matches weakly and another subject's book matches clearly better ("structure of a
-  // cell" in Physical Science: "Structure of the atom" half matches, Life Science's cell chapter fully)
-  const weak = !!grounding.length && !!away[0] && away[0].coverage >= 0.67 && away[0].coverage - grounding[0]!.coverage >= 0.3;
-  if ((!grounding.length || weak) && picked && away.length && x.text.trim().split(/\s+/).length >= 2) {
+  // also when her subject only matches weakly and another subject's book matches clearly better: at least as many of
+  // her words AND a much higher search score — the score weighs rare words, so "monsoon" counts and "India" does not
+  // ("monsoon in India" in Physical Science: 2 of 3 words on a page about matter, score 83; Geography 1491. "Structure
+  // of a cell": the atom chapter half matches, Life Science's cell chapter fully, 5× the score. "What is power" stays:
+  // Life Science matches more words, but only 2× the score)
+  const hereBest = grounding.length ? Math.max(...grounding.map((h) => h.score)) : 0;
+  const weak = !!grounding.length && !!away[0] && away[0].coverage >= 0.5 && away[0].coverage >= grounding[0]!.coverage
+    && away[0].score >= 3 * hereBest && (away[0].coverage - grounding[0]!.coverage >= 0.3 || away[0].score >= 6 * hereBest);
+  // nothing good here: sent away only when the other subject's page clearly beats even her subject's weak matches
+  // (her Odia-medium book matches an English word only through its bracketed terms: "power" is weak everywhere)
+  const rawBest = Math.max(0, ...x.hits.filter((h) => picked?.includes(h.bookId)).map((h) => h.score));
+  const nothing = !grounding.length && !!away[0] && (away[0].coverage >= 0.67 || !rawBest) && away[0].score >= 3 * rawBest;
+  if ((nothing || weak) && picked && away.length && x.text.trim().split(/\s+/).length >= 2) {
     return { ...base, action: 'other_subject', otherBook: away[0]!.bookId, reason: `not in the subject she picked; ${away[0]!.bookId} p. ${away[0]!.passage.page} has it (coverage ${away[0]!.coverage}) → this chat stays on its subject: send her to that subject's chat`, candidates: [{ action: 'other_subject', score: 0.8 }, { action: 'not_in_book', score: 0.2 }] };
   }
   const switchedBook: string | undefined = undefined;
@@ -235,6 +250,7 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     offline_none: 'ଏବେ ନେଟ୍ ନାହିଁ, ଆଉ ତୁମ ବହିରେ ଏହା ମୁଁ ପାଇଲି ନାହିଁ। ପ୍ରଶ୍ନଟି ମୁଁ ରଖିଲି — ନେଟ୍ ଆସିଲେ ଉତ୍ତର ଦେବି।',
     offline_answer: 'ତୁମ ଉତ୍ତର ମୁଁ ରଖିଲି। ନେଟ୍ ଆସିଲେ ଦେଖିବି। ସେତେବେଳ ଯାଏଁ ବହିର ଏହି ଅଂଶ ପଢ଼ି ଦେଖ।',
     kept_answered: 'ତୁମେ ନେଟ୍ ନଥିବା ବେଳେ ପଚାରିଥିବା ପ୍ରଶ୍ନର ଉତ୍ତର:',
+    checked_out: 'ମୁଁ ମୋ ଉତ୍ତରକୁ ତୁମ ବହି ସହ ମିଳାଇ ଦେଖିଲି, ଏବଂ ତାହା ଯଥେଷ୍ଟ ଠିକ୍ ନଥିଲା। ତେଣୁ ଏହି ବିଷୟରେ ତୁମ ବହିର ନିଜ ପୃଷ୍ଠା ଏଠାରେ ଅଛି — ପଢ଼ି ଦେଖ।',
     model_down: 'ଏବେ ମୋର ବୁଝାଇବା ଯନ୍ତ୍ର ଧୀର ଚାଲିଛି। ତୁମ ବହିର ଏହି ଅଂଶ ପଢ଼ି ଦେଖ; ମୁଁ ପୁଣି ଚେଷ୍ଟା କରୁଛି।',
     teacher_told: 'ଏହି ଅଧ୍ୟାୟ ବିଷୟରେ ମୁଁ ତୁମ ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଦେଇଛି — ସେ ତୁମକୁ ସାହାଯ୍ୟ କରିବେ।',
     join_class: 'ଏହା କଷ୍ଟ ଲାଗୁଛି — ଜଣେ ଶିକ୍ଷକ ସାହାଯ୍ୟ କରିପାରିବେ। ତୁମ ଶିକ୍ଷକଙ୍କ କୋଡ୍ ଦେଇ ତୁମ ଶ୍ରେଣୀରେ ଯୋଗ ଦିଅ, ତାହେଲେ ସେ ଜାଣିପାରିବେ।',
@@ -278,6 +294,7 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     offline_none: 'No signal right now, and I could not find this in your books. I have kept the question — I will answer when the signal is back.',
     offline_answer: 'I have kept your answer and will check it when the signal is back. Meanwhile, read this part of your book.',
     kept_answered: 'The answer to what you asked while offline:',
+    checked_out: 'I checked my answer against your book and it was not right enough, so here is your book\'s own page on this — read it.',
     model_down: 'My explaining is slow right now. Read this part of your book; I am trying again.',
     teacher_told: 'I have let your teacher know about this chapter — they will help you.',
     join_class: 'This one is hard — a teacher can help. Join your class with your teacher’s code so they can help you.',
@@ -321,6 +338,7 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     offline_none: 'अभी नेटवर्क नहीं है, और यह मुझे तुम्हारी किताबों में नहीं मिला। सवाल मैंने रख लिया है — नेटवर्क आने पर जवाब दूँगा।',
     offline_answer: 'तुम्हारा उत्तर मैंने रख लिया है, नेटवर्क आने पर जाँचूँगा। तब तक किताब का यह हिस्सा पढ़ो।',
     kept_answered: 'नेटवर्क न होने पर पूछे गए सवाल का जवाब:',
+    checked_out: 'मैंने अपना उत्तर तुम्हारी किताब से मिलाकर देखा, और वह पूरी तरह सही नहीं था। इसलिए इस पर तुम्हारी किताब का अपना पन्ना यहाँ है — पढ़कर देखो।',
     model_down: 'अभी मेरा समझाना धीमा चल रहा है। किताब का यह हिस्सा पढ़ो; मैं फिर कोशिश कर रहा हूँ।',
     teacher_told: 'इस अध्याय के बारे में मैंने तुम्हारे शिक्षक को बता दिया है — वे मदद करेंगे।',
     join_class: 'यह मुश्किल लग रहा है — शिक्षक मदद कर सकते हैं। अपने शिक्षक के कोड से अपनी कक्षा में जुड़ो, ताकि वे मदद कर सकें।',

@@ -3,7 +3,7 @@ import { buildBook, Shelf, type BookMeta } from '@setu/core';
 import { Store } from '../src/db.ts';
 import { buildModels, ScriptedLlm } from '../src/llm.ts';
 import { Push } from '../src/push.ts';
-import { openTutor, runTutor, type TutorDeps } from '../src/tutor/run.ts';
+import { bookOverlap, openTutor, runTutor, type TutorDeps } from '../src/tutor/run.ts';
 
 const meta: BookMeta = {
   id: 'bio', subject: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, title: { or: 'ଜୀବ ବିଜ୍ଞାନ', en: 'Life Science' }, classLevel: 9, board: 'BSE Odisha', source: 'test', pageOffset: 0,
@@ -169,7 +169,7 @@ describe('one chat, one subject', () => {
     let writes = 0;
     const good = JSON.stringify({ reply: 'A plant cell has a cell wall made of cellulose. It gives the cell strength. (book page 5)', used: [pid], terms: [], check: null });
     const poem = JSON.stringify({ reply: 'The poet says no man is a foreigner.', used: [pid], terms: [], check: null });
-    const { say } = two(() => (++writes === 1 ? poem : good), (p) => JSON.stringify(p.includes('poet') ? { ok: false, why: 'talks about a poem' } : { ok: true }));
+    const { say } = two(() => (++writes === 1 ? poem : good), (p) => JSON.stringify(p.includes('poet') ? { off_subject: true, unsupported: false, wrong: false, claims: ['no man is a foreigner'], why: 'talks about a poem' } : { off_subject: false, unsupported: false, wrong: false, claims: [] }));
     const r = await say('koshika prachira kana');
     expect(writes).toBe(2);
     expect(r.messages[0]!.text).toContain('cellulose');
@@ -177,7 +177,7 @@ describe('one chat, one subject', () => {
   });
   it('the reviewer sees her question is another subject (a stray page matched here) → sent to that subject, not answered', async () => {
     const reply = JSON.stringify({ reply: 'Monsoon winds bring rain. (book page 5)', used: [pid], terms: [], check: null });
-    const { say } = two(() => reply, () => JSON.stringify({ ok: false, why: 'monsoon is geography', asked_about: 'Geography' }));
+    const { say } = two(() => reply, () => JSON.stringify({ off_subject: true, unsupported: false, wrong: false, claims: [], why: 'monsoon is geography', asked_about: 'Geography' }));
     const r = await say('koshika prachira kana');
     expect(r.trace.chosen).toContain('other_subject');
     expect(r.messages).toHaveLength(1);
@@ -187,9 +187,40 @@ describe('one chat, one subject', () => {
   it('the reviewer passes an on-subject reply untouched', async () => {
     let writes = 0;
     const good = JSON.stringify({ reply: 'A plant cell has a cell wall made of cellulose. (book page 5)', used: [pid], terms: [], check: null });
-    const { say } = two(() => (++writes, good), () => JSON.stringify({ ok: true }));
+    const { say } = two(() => (++writes, good), () => JSON.stringify({ off_subject: false, unsupported: false, wrong: false, claims: [] }));
     const r = await say('koshika prachira kana');
     expect(writes).toBe(1);
     expect(r.trace.tools.find((t) => t.tool === 'critic.review')).toMatchObject({ status: 'ok' });
+  });
+  it('the reviewer reads the reply next to the book pages: a fact the page does not support → written again, reviewed again', async () => {
+    let writes = 0; const seen: string[] = [];
+    const bad = JSON.stringify({ reply: 'The cell wall is made of protein and fat. (book page 5)', used: [pid], terms: [], check: null });
+    const good = JSON.stringify({ reply: 'The cell wall is made of cellulose. (book page 5)', used: [pid], terms: [], check: null });
+    const { say } = two(() => (++writes === 1 ? bad : good), (p) => { seen.push(p); return JSON.stringify(p.includes('protein and fat') ? { off_subject: false, unsupported: true, wrong: true, claims: ['cell wall is made of protein and fat'], why: 'page says cellulose' } : { off_subject: false, unsupported: false, wrong: false, claims: [] }); });
+    const r = await say('koshika prachira kana');
+    expect(seen[0]).toContain('BOOK PAGES');
+    expect(seen[0]).toContain('ଜୀବର ମୌଳିକ ଏକକ'); // the page itself went to the reviewer
+    expect(writes).toBe(2);
+    expect(r.messages[0]!.text).toContain('cellulose');
+    const steps = r.trace.tools.filter((t) => t.tool === 'critic.review');
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toMatchObject({ status: 'failed' });
+    expect(steps[0]!.note).toContain('protein and fat');
+    expect(steps[1]).toMatchObject({ status: 'ok' });
+  });
+  it('a rewrite that fails its review again is never shown: she gets the book page', async () => {
+    const bad = JSON.stringify({ reply: 'The cell wall is made of protein and fat. (book page 5)', used: [pid], terms: [], check: null });
+    const { say } = two(() => bad, () => JSON.stringify({ off_subject: false, unsupported: true, wrong: true, claims: ['protein and fat'], why: 'page says cellulose' }));
+    const r = await say('koshika prachira kana');
+    expect(r.messages[0]!.text).not.toContain('protein and fat');
+    expect(r.messages[0]!.sources?.length).toBeGreaterThan(0);
+    expect(r.trace.tools.filter((t) => t.tool === 'critic.review').at(-1)!.note).toContain('book page');
+  });
+});
+
+describe('local support check (no model)', () => {
+  it('counts the share of the reply\'s words that are in the book pages', () => {
+    expect(bookOverlap('The cell wall is made of cellulose', ['A plant cell has a cell wall made of cellulose'])).toBeGreaterThan(0.7);
+    expect(bookOverlap('Volcanoes erupt molten magma violently', ['A plant cell has a cell wall made of cellulose'])).toBe(0);
   });
 });
