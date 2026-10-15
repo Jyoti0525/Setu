@@ -60,6 +60,8 @@ describe('tutor policy (P8.4–P8.8)', () => {
     // no question word, but her words are clearly another chapter's → a new question, not her answer
     const other = { passage: { id: 'x.p1.1', page: 1, ch: 9, text: '' }, bookId: 'geo', score: 50, coverage: 1 };
     expect(looksLikeAnswer('mausumi bayu', m.check, [other])).toBe(false);
+    // a one-word reply ("no") is her answer even when that word fills a page of another book (a poem)
+    expect(looksLikeAnswer('no', m.check, [other])).toBe(true);
     expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check, [{ ...other, coverage: 0.33 }])).toBe(true);
     expect(looksLikeAnswer('ଏହା ଦୃଢ଼ତା ଦିଏ', m.check, [other, { ...other, bookId: 'bio', passage: { ...other.passage, ch: 1 } }])).toBe(true);
     expect(planTurn(m, { safety: 'ok', text: 'ଏହା ଦୃଢ଼ତା ଦିଏ', hits: [], online: true, now }).action).toBe('grade');

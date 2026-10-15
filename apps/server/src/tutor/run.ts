@@ -142,6 +142,8 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
   const lang = req.lang || 'or';
   const text = scrubPii(req.text ?? '').slice(0, 1200);
   let m = memoryOf(d.store, req.profileId, req.memoryScope);
+  // a question from another subject's book is never graded here (an old one left open before this was fixed)
+  if (m.check && req.bookIds?.length && !req.bookIds.includes(m.check.topic.split('#')[0]!)) m = { ...m, check: undefined };
 
   // 1. safety: on the raw words, before anything is stored or sent to a model
   const safety = screen(text, true);
@@ -164,6 +166,8 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     // her board's books only (a CBSE student is never answered from the Odisha books, and the other way round)
     const only = req.board ? d.shelf.booksOf(req.board) : undefined;
     const picked = req.bookIds?.length ? req.bookIds.filter((id) => !only || only.includes(id)) : undefined;
+    // a subject she picked is the only place searched: a Physical Science chat never answers from a poem
+    const within = picked?.length ? picked : only;
     const pickedFirst = (hs: BookHit[]) => (picked ? [...hs.filter((h) => picked.includes(h.bookId)), ...hs.filter((h) => !picked.includes(h.bookId))] : hs);
     const q = req.review ? reviewQuery(d.shelf, req.review) : text;
     // 2a. her question in English (AI4Bharat IndicTrans2, self-hosted): helps search and the model understand her;
@@ -179,9 +183,9 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     let searchNote: string | undefined;
     let base: BookHit[];
     if (d.rag && !req.review) {
-      const hy = await d.rag.search(q, { limit: 6, picked, en: english, only });
+      const hy = await d.rag.search(q, { limit: 6, picked, en: english, only: within });
       base = hy.hits; searchNote = hy.note;
-    } else base = d.shelf.search(q, { limit: 6, picked, only });
+    } else base = d.shelf.search(q, { limit: 6, picked, only: within });
     let found = pickedFirst(base);
     const last = m.lastTopic && (!picked || picked.includes(m.lastTopic.split('#')[0]!)) ? m.lastTopic : req.chapter;
     if (!req.review && !m.check && last && DONT_KNOW.test(text) && text.split(/\s+/).length <= 12) {
@@ -215,7 +219,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       llm.push({ job: 'rewrite_query', provider: d.models.lastUsed.decide, latency_ms: r.ms, outcome: r.q ? 'ok' : 'failed' });
       if (!r.q) tools.push({ tool: 'books.rewrite_query', args: {}, status: 'failed', latency_ms: r.ms, note: 'model unavailable → first search kept' });
       if (r.q) {
-        const again = d.shelf.search(r.q, { limit: 6, picked, only }).map((h) => ({ ...h, coverage: Math.max(h.coverage, 0) }));
+        const again = d.shelf.search(r.q, { limit: 6, picked, only: within }).map((h) => ({ ...h, coverage: Math.max(h.coverage, 0) }));
         const better = (again[0]?.coverage ?? 0) > (hits[0]?.coverage ?? 0) || ((again[0]?.coverage ?? 0) === (hits[0]?.coverage ?? 0) && (again[0]?.score ?? 0) > (hits[0]?.score ?? 0));
         tools.push({ tool: 'books.rewrite_query', args: { q: r.q.slice(0, 60) }, status: 'ok', latency_ms: r.ms, note: better ? `better: ${again[0]!.passage.id} coverage ${again[0]!.coverage}` : 'kept the first search' });
         if (better) hits = pickedFirst(again);
@@ -360,7 +364,10 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
 export function openTutor(d: TutorDeps, req: { profileId: string; lang: string; bookIds?: string[]; board?: string; memoryScope?: string }): { messages: TutorMsg[]; memory: TutorResponse['memory'] } {
   const now = d.now?.() ?? Date.now();
   const lang = req.lang || 'or';
-  const m = memoryOf(d.store, req.profileId, req.memoryScope);
+  let m = memoryOf(d.store, req.profileId, req.memoryScope);
+  // a question from another subject's book is not brought back in this one
+  const ids = req.bookIds?.map((id) => inMedium(d.shelf, id, req.lang || 'or'));
+  if (m.check && ids?.length && !ids.includes(m.check.topic.split('#')[0]!)) m = { ...m, check: undefined };
   const o = openerFor(m, now);
   const messages: TutorMsg[] = [];
   const going = m.lesson && m.lesson.part < m.lesson.parts ? m.lesson : undefined;

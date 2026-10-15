@@ -79,7 +79,8 @@ export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit
   // her words clearly belong to another chapter and nothing near the top is the check's: a new question asked
   // without a question word ("rakto konika" while a monsoon check is open)
   const top = hits?.slice(0, 3) ?? [];
-  if (top[0] && top[0].coverage >= 0.67 && !top.some((h) => topicKey(h.bookId, h.passage.ch) === check.topic)) return false;
+  // (a one-word reply — "no", "yes", "solid" — is her answer: one common word matches some page somewhere)
+  if (t.split(/\s+/).length >= 2 && top[0] && top[0].coverage >= 0.67 && !top.some((h) => topicKey(h.bookId, h.passage.ch) === check.topic)) return false;
   return t.split(/\s+/).length <= 60;
 }
 
