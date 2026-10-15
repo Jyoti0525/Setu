@@ -193,7 +193,7 @@ function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; ini
   const finish = (j: Joined | null) => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang: lang!, classLevel, board: board ?? boardFor(lang, home), ...(j ? { classCode: j.code, classTitle: j.name, showName: j.showName, ...(j.region ? { region: j.region } : {}) } : {}), ...(home ? { home } : {}) });
   return (
     <div class="onboard">
-      <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div><ThemeToggle lang={L} /></div>
+      <div class="head"><Logo size={52} /><div><h1>Setu</h1><p>{tagline[L] ?? tagline.en}</p></div><ThemeToggle lang={L} /></div>
       <p class="profile-note">{PROFILE_NOTE[L] ?? PROFILE_NOTE.en}</p>
       {step !== 'language' && <button class="link small setup-back" onClick={() => setStep(step === 'join' ? 'class' : step === 'class' ? 'avatar' : 'language')}>← {L === 'hi' ? 'वापस' : L === 'or' ? 'ପଛକୁ' : 'Back'}</button>}
       {step === 'language' && <>

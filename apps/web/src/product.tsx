@@ -62,7 +62,7 @@ export function ProductApp() {
   }, [page, signedIn, checked, local]);
 
   if (local && page === 'dashboard') return <LearnerApp accountId={LOCAL} />;
-  if (!checked) return <main class="auth-loading" aria-label="Setu"><Logo size={56} /><span>ସେତୁ · Setu</span></main>;
+  if (!checked) return <main class="auth-loading" aria-label="Setu"><Logo size={56} /><span>Setu</span></main>;
   if (page === 'dashboard') {
     // a teacher's account opens her classes
     if (user && role === 'teacher') { location.replace('/#teacher'); return <main class="auth-loading"><Logo size={56} /></main>; }
