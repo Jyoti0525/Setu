@@ -29,7 +29,7 @@ export interface TutorCheck { question: string; keyIdeas: string[]; topic: strin
 export interface TutorLesson { topic: string; part: number; parts: number }
 export interface TutorMemory { topics: Record<string, TutorTopic>; check?: TutorCheck; lastTopic?: string; turns: number; lesson?: TutorLesson }
 
-export type TutorAction = 'care' | 'decline' | 'redirect' | 'grade' | 'explain' | 'explain_differently' | 'review' | 'teach' | 'lesson_done' | 'not_in_book' | 'show_passage';
+export type TutorAction = 'care' | 'decline' | 'redirect' | 'grade' | 'explain' | 'explain_differently' | 'review' | 'teach' | 'lesson_done' | 'not_in_book' | 'show_passage' | 'other_subject';
 export interface TutorPlan {
   action: TutorAction;
   topic?: string;
@@ -43,6 +43,10 @@ export interface TutorPlan {
   candidates: { action: TutorAction; score: number }[];
   /** she picked a subject but the answer is in another book */
   switchedBook?: string;
+  /** other_subject: the book of another subject that has it (she is sent to that subject's own chat) */
+  otherBook?: string;
+  /** she picked a chapter, the answer is in another chapter of the same subject (allowed; she is told) */
+  chapterMoved?: boolean;
 }
 
 /** Strategy ladder: each time she is still stuck on a topic, the next rung (PLAN §6.2 — a different way, not louder). */
@@ -85,7 +89,7 @@ export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit
 }
 
 /** The agent's decision for one message. */
-export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; hits: BookHit[]; /** the subject she picked (one subject can be several books) */ bookIds?: string[]; online: boolean; now: number; review?: string; /** she is learning this chapter part by part (hits = the part's passages) */ learn?: TutorLesson; /** the chapter she picked: its passages come first */ chapter?: string }): TutorPlan {
+export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; hits: BookHit[]; /** the subject she picked (one subject can be several books) */ bookIds?: string[]; online: boolean; now: number; review?: string; /** she is learning this chapter part by part (hits = the part's passages) */ learn?: TutorLesson; /** the chapter she picked: its passages come first */ chapter?: string; /** the best pages OUTSIDE the subject she picked: only to notice a question from another subject, never to answer from */ elsewhere?: BookHit[] }): TutorPlan {
   const base = { grounding: [] as BookHit[], askCheck: false, escalate: false, candidates: [] as TutorPlan['candidates'] };
   if (x.safety === 'distress') return { ...base, action: 'care', reason: 'words of distress → caring message, trusted adult + helpline; nothing she wrote is kept or sent to a model' };
   if (x.safety === 'unsafe') return { ...base, action: 'decline', reason: 'unsafe topic → calm no, nothing generated' };
@@ -123,8 +127,16 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   let grounding = good(inBook);
   // she picked a chapter: its passages first (the answer may still come from elsewhere in her books)
   if (x.chapter) grounding = [...grounding.filter((h) => topicKey(h.bookId, h.passage.ch) === x.chapter), ...grounding.filter((h) => topicKey(h.bookId, h.passage.ch) !== x.chapter)];
-  let switchedBook: string | undefined;
-  if (!grounding.length && picked && good(x.hits).length) { grounding = good(x.hits); switchedBook = grounding[0]!.bookId; }
+  // a chat is one subject: a question another subject's book answers is sent to that subject's chat, not answered
+  // here (one word — "no", "yes" — is never enough to call it another subject: it matches some page somewhere)
+  const away = good(x.elsewhere ?? (picked ? x.hits.filter((h) => !picked.includes(h.bookId)) : []));
+  // also when her subject only matches weakly and another subject's book matches clearly better ("structure of a
+  // cell" in Physical Science: "Structure of the atom" half matches, Life Science's cell chapter fully)
+  const weak = !!grounding.length && !!away[0] && away[0].coverage >= 0.67 && away[0].coverage - grounding[0]!.coverage >= 0.3;
+  if ((!grounding.length || weak) && picked && away.length && x.text.trim().split(/\s+/).length >= 2) {
+    return { ...base, action: 'other_subject', otherBook: away[0]!.bookId, reason: `not in the subject she picked; ${away[0]!.bookId} p. ${away[0]!.passage.page} has it (coverage ${away[0]!.coverage}) → this chat stays on its subject: send her to that subject's chat`, candidates: [{ action: 'other_subject', score: 0.8 }, { action: 'not_in_book', score: 0.2 }] };
+  }
+  const switchedBook: string | undefined = undefined;
   if (!grounding.length) {
     if (x.safety === 'off_topic') return { ...base, action: 'redirect', reason: 'not a study question and nothing in her books matches → kind redirect' };
     // online the model may still use the near misses as context; offline a weak page would only mislead her
@@ -132,6 +144,8 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   }
   const h0 = grounding[0]!;
   const topic = topicKey(h0.bookId, h0.passage.ch);
+  // another chapter of the same subject is fine; she is told which one
+  const chapterMoved = !!x.chapter && topic !== x.chapter;
   const t = m.topics[topic];
   if (!x.online) return { ...base, action: 'show_passage', topic, grounding, switchedBook, reason: `no signal → read her the textbook passage (p. ${h0.passage.page}); the full explanation comes when online` };
   // a repeat doubt on a topic she already got wrong / asked before → a different way of explaining
@@ -142,11 +156,11 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
   return {
     ...base,
     action: stuck ? 'explain_differently' : 'explain',
-    topic, strategy, grounding, switchedBook, escalate,
+    topic, strategy, grounding, switchedBook, escalate, ...(chapterMoved ? { chapterMoved } : {}),
     // explain, then check she understood — unless she has shown mastery here already (a new check replaces an old one)
     askCheck: !mastered,
     reason: [
-      `found in ${h0.bookId} p. ${h0.passage.page} (coverage ${h0.coverage})`,
+      `found in ${h0.bookId} p. ${h0.passage.page} (coverage ${h0.coverage})${chapterMoved ? ` — another chapter than the one picked (${x.chapter})` : ''}`,
       t ? `${topic}: mastery ${pct(t.pKnown)}, ${t.wrongInARow} wrong in a row, ${t.doubts} doubts` : `${topic}: new topic for her`,
       stuck ? `still stuck → next strategy: ${strategy} (tried: ${t!.tried.join(', ') || 'none'})` : 'explain from the book',
       mastered ? 'already mastered → no check' : 'then one short check',
@@ -226,6 +240,9 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     join_class: 'ଏହା କଷ୍ଟ ଲାଗୁଛି — ଜଣେ ଶିକ୍ଷକ ସାହାଯ୍ୟ କରିପାରିବେ। ତୁମ ଶିକ୍ଷକଙ୍କ କୋଡ୍ ଦେଇ ତୁମ ଶ୍ରେଣୀରେ ଯୋଗ ଦିଅ, ତାହେଲେ ସେ ଜାଣିପାରିବେ।',
     join_btn: 'ଶ୍ରେଣୀରେ ଯୋଗ ଦିଅ',
     switched: '{0} ବହିରେ ଏହାର ଉତ୍ତର ଅଛି:',
+    wrong_subject: 'ଏହା ତୁମ {0} ବହିର ପ୍ରଶ୍ନ। ଏହି ଚାଟ୍ କେବଳ {1} ପାଇଁ — {0} ଖୋଲି ସେଠାରେ ପଚାର।',
+    open_subject: '{0} ଖୋଲ',
+    chapter_moved: 'ଏହା ଅନ୍ୟ ଏକ ଅଧ୍ୟାୟରେ ଅଛି: {0}',
     pick_subject: 'କେଉଁ ବିଷୟ?',
     all_subjects: 'ସବୁ ବିଷୟ',
     guided: 'ଗତି ଅଧ୍ୟାୟ ଅଭ୍ୟାସ',
@@ -266,6 +283,9 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     join_class: 'This one is hard — a teacher can help. Join your class with your teacher’s code so they can help you.',
     join_btn: 'Join your class',
     switched: 'The answer is in your {0} book:',
+    wrong_subject: 'That question is from your {0} book. This chat is only for {1}, so open {0} and ask it there.',
+    open_subject: 'Open {0}',
+    chapter_moved: 'This is in another chapter: {0}',
     pick_subject: 'Which subject?',
     all_subjects: 'All subjects',
     guided: 'Motion — guided practice',
@@ -306,6 +326,9 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     join_class: 'यह मुश्किल लग रहा है — शिक्षक मदद कर सकते हैं। अपने शिक्षक के कोड से अपनी कक्षा में जुड़ो, ताकि वे मदद कर सकें।',
     join_btn: 'कक्षा से जुड़ो',
     switched: 'इसका उत्तर तुम्हारी {0} की किताब में है:',
+    wrong_subject: 'यह तुम्हारी {0} की किताब का सवाल है। यह चैट सिर्फ़ {1} के लिए है — {0} खोलकर वहाँ पूछो।',
+    open_subject: '{0} खोलो',
+    chapter_moved: 'यह दूसरे अध्याय में है: {0}',
     pick_subject: 'कौन सा विषय?',
     all_subjects: 'सभी विषय',
     guided: 'गति — अभ्यास',
@@ -333,5 +356,5 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
 
 export function TL(lang: string, key: string, ...args: string[]): string {
   const s = TUTOR_LINES[lang]?.[key] ?? TUTOR_LINES.en![key] ?? key;
-  return args.reduce((acc, a, i) => acc.replace(`{${i}}`, a), s);
+  return args.reduce((acc, a, i) => acc.split(`{${i}}`).join(a), s);
 }

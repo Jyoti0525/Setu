@@ -143,3 +143,53 @@ describe('tutor chat agent (PLAN v4)', () => {
     expect(sent).toHaveLength(1);
   });
 });
+
+describe('one chat, one subject', () => {
+  const geo = buildBook({ ...meta, id: 'geo', subject: { or: 'ଭୂଗୋଳ', en: 'Geography' }, title: { or: 'ଭୂଗୋଳ', en: 'Geography' }, chapters: [{ n: 4, title: { or: 'ଜଳବାୟୁ', en: 'Climate' }, startPage: 1, endPage: 9 }] },
+    [{ page: 5, text: 'ମୌସୁମୀ ବାୟୁ ବର୍ଷର କେତେକ ମାସରେ ଦିଗ ବଦଳାଇ ପ୍ରବାହିତ ହୁଏ ଓ ବର୍ଷା ଆଣେ । ଭାରତର କୃଷି ଏହି ବର୍ଷା ଉପରେ ନିର୍ଭର କରେ ।' }]);
+  function two(writer: (p: string) => string, reviewer?: (p: string) => string) {
+    const store = new Store();
+    const gen = new ScriptedLlm((r) => writer(promptOf(r as never)));
+    const rev = reviewer ? new ScriptedLlm((r) => reviewer(promptOf(r as never))) : undefined;
+    const models = buildModels({}, { generate: { scripted: gen }, ...(rev ? { decide: { scripted: rev } } : {}) });
+    const d: TutorDeps = { store, shelf: new Shelf([book, geo]), models, now: () => 1_760_000_000_000 };
+    return { d, say: (text: string) => runTutor(d, { profileId: PID, deviceId: 'phone', text, lang: 'en', bookIds: ['bio'], board: 'BSE Odisha', memoryScope: 'subject:bio' }) };
+  }
+  it('a question from another subject is not answered here: she is sent to that subject, with a button', async () => {
+    const { say } = two(() => { throw new Error('the model must not be asked'); });
+    const r = await say('ମୌସୁମୀ ବାୟୁ କ\'ଣ');
+    expect(r.trace.chosen).toContain('other_subject');
+    expect(r.messages).toHaveLength(1);
+    expect(r.messages[0]!.text).toContain('Geography');
+    expect(r.messages[0]!.text).toContain('Life Science');
+    expect(r.messages[0]!.chips).toEqual([{ label: 'Open Geography', subject: ['geo'], text: "ମୌସୁମୀ ବାୟୁ କ'ଣ" }]);
+    expect(r.messages[0]!.sources).toBeUndefined();
+  });
+  it('the reviewer rejects a reply that left the subject → written again; with the reason', async () => {
+    let writes = 0;
+    const good = JSON.stringify({ reply: 'A plant cell has a cell wall made of cellulose. It gives the cell strength. (book page 5)', used: [pid], terms: [], check: null });
+    const poem = JSON.stringify({ reply: 'The poet says no man is a foreigner.', used: [pid], terms: [], check: null });
+    const { say } = two(() => (++writes === 1 ? poem : good), (p) => JSON.stringify(p.includes('poet') ? { ok: false, why: 'talks about a poem' } : { ok: true }));
+    const r = await say('koshika prachira kana');
+    expect(writes).toBe(2);
+    expect(r.messages[0]!.text).toContain('cellulose');
+    expect(r.trace.tools.find((t) => t.tool === 'critic.review')).toMatchObject({ status: 'failed' });
+  });
+  it('the reviewer sees her question is another subject (a stray page matched here) → sent to that subject, not answered', async () => {
+    const reply = JSON.stringify({ reply: 'Monsoon winds bring rain. (book page 5)', used: [pid], terms: [], check: null });
+    const { say } = two(() => reply, () => JSON.stringify({ ok: false, why: 'monsoon is geography', asked_about: 'Geography' }));
+    const r = await say('koshika prachira kana');
+    expect(r.trace.chosen).toContain('other_subject');
+    expect(r.messages).toHaveLength(1);
+    expect(r.messages[0]!.chips).toEqual([{ label: 'Open Geography', subject: ['geo'], text: 'koshika prachira kana' }]);
+    expect(r.messages[0]!.sources).toBeUndefined();
+  });
+  it('the reviewer passes an on-subject reply untouched', async () => {
+    let writes = 0;
+    const good = JSON.stringify({ reply: 'A plant cell has a cell wall made of cellulose. (book page 5)', used: [pid], terms: [], check: null });
+    const { say } = two(() => (++writes, good), () => JSON.stringify({ ok: true }));
+    const r = await say('koshika prachira kana');
+    expect(writes).toBe(1);
+    expect(r.trace.tools.find((t) => t.tool === 'critic.review')).toMatchObject({ status: 'ok' });
+  });
+});

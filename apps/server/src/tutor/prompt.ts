@@ -32,6 +32,8 @@ const STRATEGY: Record<string, string> = {
 
 export interface TutorPromptInput {
   lang: string;
+  /** the subject this chat is for (one chat, one subject) */
+  subject?: string;
   plan: TutorPlan;
   shelf: Shelf;
   text: string;
@@ -107,7 +109,9 @@ export function tutorPrompt(p: TutorPromptInput): { system: string; user: string
     );
     out.push('"intent": "answer" | "question"', '"grade": {"verdict": "right" | "partly" | "wrong", "gap": "<what she is missing, in English, max 12 words>"} | null');
   } else if (a === 'not_in_book') {
-    lines.push('TASK: Her books (passages above, if any) do not answer this well. If it is a school-study question, say first that this is not in her textbook, then give a short, correct general answer at her level (4–6 short sentences, with one everyday example), the way a kind tutor would. If it is not about studies at all, kindly say you only help with studies.');
+    lines.push(p.subject
+      ? `TASK: This chat is ONLY for ${p.subject}, and her ${p.subject} book (passages above, if any) does not answer this well. If her question is about ${p.subject}, say first that this is not in her textbook, then give a short, correct general answer at her level (4–6 short sentences, with one everyday example). If it is about ANOTHER school subject, do NOT answer it: kindly tell her this chat is only for ${p.subject} and she can open that subject from the menu and ask there. If it is not about studies at all, kindly say you only help with studies.`
+      : 'TASK: Her books (passages above, if any) do not answer this well. If it is a school-study question, say first that this is not in her textbook, then give a short, correct general answer at her level (4–6 short sentences, with one everyday example), the way a kind tutor would. If it is not about studies at all, kindly say you only help with studies.');
   } else {
     const strategy = STRATEGY[p.plan.strategy ?? 'textbook'];
     if (a === 'review') lines.push(`TASK: The tutor is starting a review of "${p.topicName}" that the student agreed to. In 2–3 friendly sentences remind her of the key idea from the passages (with a quick everyday example if it helps), then ask the check question.`);

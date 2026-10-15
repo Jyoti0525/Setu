@@ -111,11 +111,15 @@ describe('tutor policy (P8.4–P8.8)', () => {
     const q = 'ରକ୍ତ କଣିକା';
     expect(planTurn(emptyMemory(), { safety: 'ok', text: q, hits: hits(q), online: false, now })).toMatchObject({ action: 'show_passage', topic: 'bio#2' });
   });
-  it('picked subject has nothing → answers from the book that has it, and says so', () => {
+  it('picked subject has nothing → not answered from another subject: she is sent to that subject chat', () => {
     const other = buildBook({ ...meta, id: 'geo', subject: { or: 'ଭୂଗୋଳ', en: 'Geography' } }, [{ page: 3, text: 'ମୌସୁମୀ ବାୟୁ ବର୍ଷର କେତେକ ମାସରେ ଦିଗ ବଦଳାଇ ପ୍ରବାହିତ ହୁଏ ଓ ବର୍ଷା ଆଣେ । ଭାରତର କୃଷି ଏହି ବର୍ଷା ଉପରେ ନିର୍ଭର କରେ ।' }]);
     const sh = new Shelf([book, other]);
     const q = 'ମୌସୁମୀ ବାୟୁ';
-    expect(planTurn(emptyMemory(), { safety: 'ok', text: q, hits: sh.search(q), bookIds: ['bio'], online: true, now })).toMatchObject({ action: 'explain', switchedBook: 'geo' });
+    const p = planTurn(emptyMemory(), { safety: 'ok', text: q, hits: sh.search(q), bookIds: ['bio'], online: true, now });
+    expect(p).toMatchObject({ action: 'other_subject', otherBook: 'geo' });
+    expect(p.grounding).toEqual([]);
+    // one word is never enough to say it is another subject
+    expect(planTurn(emptyMemory(), { safety: 'ok', text: 'ମୌସୁମୀ', hits: sh.search('ମୌସୁମୀ'), bookIds: ['bio'], online: true, now }).action).not.toBe('other_subject');
   });
   it('the agent opens the next session itself: a weak topic not seen for 6 h → review offer', () => {
     const m: TutorMemory = { ...emptyMemory(), topics: { 'bio#1': { pKnown: 0.3, checks: 2, right: 0, wrongInARow: 2, doubts: 1, lastAt: now - 7 * 3600_000, tried: [] } } };

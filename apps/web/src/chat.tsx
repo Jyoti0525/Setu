@@ -207,7 +207,8 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   }
 
   /** One message to the agent: online the server; no signal (or it drops mid-way) the phone. */
-  async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; learn?: string; show?: string } = {}) {
+  async function ask(raw: string, opts: { mode?: 'text' | 'voice' | 'photo'; review?: string; learn?: string; show?: string; /** a new chat in another subject: its subject (the state is not updated yet) */ subject?: string[] } = {}) {
+    const subj = opts.subject ?? subject;
     setView('chat');
     const msg = scrubPii(raw, profile.name ? [profile.name] : []).trim();
     if (!msg && !opts.review && !opts.learn) return;
@@ -216,8 +217,8 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (online) {
       setBusy(t(lang, 'thinking'));
       try {
-        const chapter = opts.learn || opts.review ? undefined : focus;
-        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subject && books.length ? subject.filter((id) => books.some((b) => b.id === id)) : subject, memoryScope: scopeOf(subject), mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId, board, home: profile.home }) }, 30000);
+        const chapter = opts.learn || opts.review ? undefined : opts.subject ? undefined : focus;
+        const r = await fetchWithTimeout('/api/tutor/turn', { method: 'POST', headers: headers(), body: JSON.stringify({ profileId: pid, text: msg, lang, bookIds: subj && books.length ? subj.filter((id) => books.some((b) => b.id === id)) : subj, memoryScope: scopeOf(subj), mode: opts.mode ?? 'text', review: opts.review, learn: opts.learn, chapter, turnId, board, home: profile.home }) }, 30000);
         if (r.ok) {
           const j = (await r.json()) as { messages: TMsg[]; memory: Memory; trace: { chosen: string; reason: string; tools: { tool: string; note?: string }[] } };
           const why = `${j.trace.chosen} — ${j.trace.reason}\n${j.trace.tools.map((x) => x.tool + (x.note ? ` (${x.note})` : '')).join(' → ')}`;
@@ -228,7 +229,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
       } catch { /* signal dropped mid-turn → the phone answers below */ } finally { setBusy(null); }
     }
     if (opts.learn || opts.review) return void await offlineLesson((opts.learn ?? opts.review)!, !!opts.learn);
-    await offlineTurn(msg, turnId);
+    await offlineTurn(msg, turnId, subj);
   }
 
   /** No signal in a lesson: she reads the part from her book now; the explanation and the check come when online. */
@@ -256,6 +257,12 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (c.join) return setJoining(true);
     setView('chat'); setNudge(null);
     const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
+    // one chat, one subject: from a subject's chat another subject opens its own new chat (her question goes with it)
+    if (ids?.length && subject?.length && !ids.some((id) => subject.includes(id))) {
+      await openSubject(ids);
+      if (c.text) await ask(c.text, { subject: ids });
+      return;
+    }
     if (ids) {
       add([{ role: 'student', text: c.label, at: Date.now() }]);
       await setChapter(undefined);
@@ -280,21 +287,30 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
     if (c.text) void ask(c.text);
   }
 
-  async function offlineTurn(msg: string, id: string) {
+  async function offlineTurn(msg: string, id: string, subj = subject) {
     const sh = await localShelf();
     const safety = screen(msg, true);
     if (!sh.books.size && safety === 'ok') {
       // no book on this phone yet (never online long enough): say so, keep the question
       add([{ role: 'tutor', msg: { text: U(lang, 'noBooksYet'), tone: 'offline', by: 'policy' }, at: Date.now(), why: 'no textbook saved on this phone yet → question kept for when online' }]);
       const q = await getMeta<Queued[]>(`tutorQueue:${pid}`, []);
-      await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subject, at: Date.now() }]);
+      await setMeta(`tutorQueue:${pid}`, [...q, { id, text: msg, bookIds: subj, at: Date.now() }]);
       return;
     }
-    const hits = sh.search(msg, { limit: 4, picked: subject });
-    const plan = planTurn(emptyMemory(), { safety, text: msg, hits, bookIds: subject, online: false, now: Date.now() });
+    const hits = sh.search(msg, { limit: 4, picked: subj });
+    const plan = planTurn(emptyMemory(), { safety, text: msg, hits, bookIds: subj, online: false, now: Date.now() });
     if (plan.action === 'care' || plan.action === 'decline' || plan.action === 'redirect') {
       // the safety replies need no signal; a distress message is never kept or sent later
       add([{ role: 'tutor', msg: { text: T(lang, plan.action === 'care' ? 'care' : plan.action === 'decline' ? 'decline' : safety === 'personal' ? 'privacy' : 'redirect'), tone: plan.action === 'care' ? 'care' : 'info', by: 'policy' }, at: Date.now(), why: plan.reason }]);
+      return;
+    }
+    // one chat, one subject: a question from another subject's book is sent to that subject (offline too)
+    if (plan.action === 'other_subject' && plan.otherBook) {
+      const all = subjectsOf(books);
+      const there = all.find((x) => x.ids.includes(plan.otherBook!));
+      const here = all.find((x) => subj?.some((id) => x.ids.includes(id)));
+      const nm = (x?: { name: Record<string, string | undefined> }) => (x ? x.name[lang] ?? x.name.en ?? '' : '');
+      add([{ role: 'tutor', msg: { text: TL(lang, 'wrong_subject', nm(there) || plan.otherBook, nm(here)), tone: 'info', by: 'policy', ...(there ? { chips: [{ label: TL(lang, 'open_subject', nm(there)), subject: there.ids, text: msg }] } : {}) }, at: Date.now(), why: `${plan.action} — ${plan.reason}` }]);
       return;
     }
     const h = plan.grounding[0];

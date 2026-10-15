@@ -183,7 +183,8 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
   };
   const perLang = new Map<string, BaseLlm | null>();
   return {
-    decide: router('decide', allKeys('decide')),
+    // the quick jobs (review, rewrite) also go to Groq first: they wait on a 4 s clock
+    decide: router('decide', [...allKeys('decide').filter((k) => k === 'groq'), ...allKeys('decide').filter((k) => k !== 'groq')]),
     generate: router('generate', allKeys('generate')),
     vision: router('vision', allKeys('vision')),
     listen: router('listen', allKeys('listen')),
