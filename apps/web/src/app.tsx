@@ -5,6 +5,7 @@ import { Agent, ensureDevice, ensurePack, importPack } from './agent.ts';
 import { Chat } from './chat.tsx';
 import { Icon, Logo } from './icons.tsx';
 import { ThemeToggle } from './theme.tsx';
+import { ClassCode, J, type Joined } from './joinclass.tsx';
 import { AvatarPortrait } from './avatar.tsx';
 import { sharePack, readPackFile } from './packfile.ts';
 import { pushSupported, pushOn, enablePush, disablePush } from './push.ts';
@@ -15,7 +16,7 @@ import { t, speak, LANGS, loadLocale } from './i18n.ts';
 import { readOnline, readOffline, ocrReady, downloadOcr, keepSnap, queuedSnaps, dropSnap } from './snap.ts';
 import { canRecord, record, transcribe, serverListens, hasWebSpeech, webSpeech, keepVoice, queuedVoices, dropVoice, type Recording } from './listen.ts';
 
-interface Profile { id: string; avatar: string; name?: string; lang: string; classLevel?: number; classCode?: string; showName?: boolean; region?: string; /** tier-C home language (P3.26): taught in `lang`, with her teacher's words in this one */ home?: string; /** her board: only its books answer her ('BSE Odisha', 'CBSE') */ board?: string }
+interface Profile { id: string; avatar: string; name?: string; lang: string; classLevel?: number; classCode?: string; /** her class's name, as her teacher named it */ classTitle?: string; showName?: boolean; region?: string; /** tier-C home language (P3.26): taught in `lang`, with her teacher's words in this one */ home?: string; /** her board: only its books answer her ('BSE Odisha', 'CBSE') */ board?: string }
 type Item = { msg: OutMsg; why?: string; answered?: string };
 
 const KID: Record<string, [string, string]> = { or: ['ପୁଅ', 'ଝିଅ'], hi: ['लड़का', 'लड़की'], en: ['Boy', 'Girl'] };
@@ -130,6 +131,12 @@ export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, 
     setProfile(p); setAgent(a); setStatus('ready');
   }} />;
   const onLang = async (l: string) => { await loadLocale(l); try { localStorage.setItem('setu-auth-lang', l); } catch { /* private mode */ } const p = { ...profile!, lang: l }; await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p); };
+  // she joined (or changed) her class from the dashboard: the event syncs like any other (offline too)
+  const onJoinClass = async (j: Joined) => {
+    const p = { ...profile!, classCode: j.code, classTitle: j.name, showName: j.showName, ...(j.region ? { region: j.region } : {}) };
+    await agent!.record([{ type: 'CLASS_JOINED', payload: { classCode: j.code, ...(j.showName && p.name ? { displayName: p.name } : {}), ...(j.region ? { region: j.region } : {}) } }]);
+    await setMeta('profile', p); await setMeta('profiles', (await getMeta<Profile[]>('profiles', [p])).map((x) => (x.id === p.id ? p : x))); setProfile(p);
+  };
   const onSwitch = async () => {
     const ids = await getMeta<string[]>(`accountProfiles:${accountId}`, [profile!.id]);
     const all = await getMeta<Profile[]>('profiles', []);
@@ -137,7 +144,7 @@ export function App({ accountId, displayName, accountEmail, onLogout, onSignIn, 
     setStatus('who');
   };
   // PLAN v4: the tutor chat is the home screen; the hand-built Motion chapter is guided practice inside it
-  if (!guided) return <Chat key={profile!.id + profile!.lang + (profile!.board ?? '')} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} account={accountId === LOCAL ? undefined : { name: displayName, email: accountEmail }} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} onLogout={onLogout} onSignIn={onSignIn} />;
+  if (!guided) return <Chat key={profile!.id + profile!.lang + (profile!.board ?? '')} agent={agent!} lang={profile!.lang} tier={tier} profile={profile!} account={accountId === LOCAL ? undefined : { name: displayName, email: accountEmail }} onGuided={() => setGuided(true)} onSwitch={() => void onSwitch()} onLang={onLang} onLogout={onLogout} onSignIn={onSignIn} onJoinClass={onJoinClass} />;
   return <>
     <button class="link back" onClick={() => setGuided(false)}><Icon name="back" size={18} /> {profile!.lang === 'en' ? 'Back to chat' : profile!.lang === 'hi' ? 'चैट पर वापस' : 'ଚାଟ୍‌କୁ ଫେରିବା'}</button>
     <Home agent={agent!} profile={profile!} tier={tier} onLang={onLang} onSwitch={() => void onSwitch()} />
@@ -157,7 +164,7 @@ function signInLanguage(): { lang: string; home: string | null } | null {
 function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; initialName: string }) {
   // chosen already on the sign-in page: no need to ask again (Back still reaches the language step)
   const [picked] = useState(signInLanguage);
-  const [step, setStep] = useState<'language' | 'avatar' | 'class'>(picked ? 'avatar' : 'language');
+  const [step, setStep] = useState<'language' | 'avatar' | 'class' | 'join'>(picked ? 'avatar' : 'language');
   const [lang, setLang] = useState<string | null>(picked?.lang ?? null);
   const [home, setHome] = useState<string | null>(picked?.home ?? null);
   const [, setLocaleReady] = useState(0);
@@ -169,42 +176,26 @@ function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; ini
   // her board: Odisha's for Odia, Santali and the tribal languages; NCERT (CBSE) otherwise — she can change it
   const [board, setBoard] = useState<string | null>(null);
   const boardFor = (l: string | null, h: string | null) => (h || !l || l === 'or' || l === 'sat' ? 'BSE Odisha' : 'CBSE');
-  // a teacher's QR opens /#join=123456
-  const [code, setCode] = useState(() => /^#join=(\d{6})$/.exec(location.hash)?.[1] ?? '');
-  const [className, setClassName] = useState<string | null | undefined>(undefined); // undefined: not checked, null: not found
-  const [region, setRegion] = useState<string | undefined>();
-  const [showName, setShowName] = useState(true);
-  const [Scan, setScan] = useState<typeof import('./qr.tsx').QrScan | null>(null);
-  useEffect(() => {
-    if (!/^\d{6}$/.test(code)) { setClassName(undefined); return; }
-    let live = true;
-    void (async () => {
-      const dev = await ensureDevice();
-      if (!dev) return; // offline: the code is checked when it syncs
-      try {
-        const r = await fetchWithTimeout(`/api/class/${code}`, { headers: { 'x-device-token': dev.token } }, 6000);
-        const j = r.ok ? await r.json() : null;
-        if (live) { setClassName(j ? j.name : null); setRegion(j?.region); }
-      } catch { /* offline */ }
-    })();
-    return () => { live = false; };
-  }, [code]);
+  // a teacher's QR opens /#join=123456 (then the class step starts with that code)
+  const [joinCode] = useState(() => /^#join=(\d{6})$/.exec(location.hash)?.[1] ?? '');
+  const [joined, setJoined] = useState<Joined | null>(null);
+  const [badCode, setBadCode] = useState(false);
   const L = lang ?? 'or';
   const tagline: Record<string, string> = { or: 'ତୁମ ବହିର ପାଠ ସାଥୀ', hi: 'तुम्हारी किताब का पढ़ाई साथी', en: 'Your textbook study buddy' };
-  const ready = !!avatar && className !== null;
-  const canContinue = step === 'language' ? !!lang : step === 'avatar' ? !!avatar : ready;
+  const canContinue = step === 'language' ? !!lang : step === 'avatar' ? !!avatar : step === 'class' ? true : !!avatar && !badCode;
   const stepAction: Record<string, Record<string, string>> = {
-    en: { picture: 'Continue to choose a picture', class: 'Continue to choose a class', start: 'Start learning' },
-    hi: { picture: 'तस्वीर चुनने के लिए आगे बढ़ें', class: 'कक्षा चुनने के लिए आगे बढ़ें', start: 'पढ़ाई शुरू करें' },
-    or: { picture: 'ଛବି ବାଛିବାକୁ ଆଗକୁ ଯାଅ', class: 'ଶ୍ରେଣୀ ବାଛିବାକୁ ଆଗକୁ ଯାଅ', start: 'ପଢ଼ା ଆରମ୍ଭ କର' },
+    en: { picture: 'Continue to choose a picture', class: 'Continue to choose a class', join: 'Continue to join your class', start: 'Start learning' },
+    hi: { picture: 'तस्वीर चुनने के लिए आगे बढ़ें', class: 'कक्षा चुनने के लिए आगे बढ़ें', join: 'अपनी कक्षा से जुड़ने के लिए आगे बढ़ें', start: 'पढ़ाई शुरू करें' },
+    or: { picture: 'ଛବି ବାଛିବାକୁ ଆଗକୁ ଯାଅ', class: 'ଶ୍ରେଣୀ ବାଛିବାକୁ ଆଗକୁ ଯାଅ', join: 'ଶ୍ରେଣୀରେ ଯୋଗ ଦେବାକୁ ଆଗକୁ ଯାଅ', start: 'ପଢ଼ା ଆରମ୍ଭ କର' },
   };
   const stepLabel = stepAction[L] ?? stepAction.en!;
-  const nextStep = () => setStep(step === 'language' ? 'avatar' : 'class');
+  const nextStep = () => setStep(step === 'language' ? 'avatar' : step === 'avatar' ? 'class' : 'join');
+  const finish = (j: Joined | null) => onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang: lang!, classLevel, board: board ?? boardFor(lang, home), ...(j ? { classCode: j.code, classTitle: j.name, showName: j.showName, ...(j.region ? { region: j.region } : {}) } : {}), ...(home ? { home } : {}) });
   return (
     <div class="onboard">
       <div class="head"><Logo size={52} /><div><h1>ସେତୁ · Setu</h1><p>{tagline[L] ?? tagline.en}</p></div><ThemeToggle lang={L} /></div>
       <p class="profile-note">{PROFILE_NOTE[L] ?? PROFILE_NOTE.en}</p>
-      {step !== 'language' && <button class="link small setup-back" onClick={() => setStep(step === 'class' ? 'avatar' : 'language')}>← {L === 'hi' ? 'वापस' : L === 'or' ? 'ପଛକୁ' : 'Back'}</button>}
+      {step !== 'language' && <button class="link small setup-back" onClick={() => setStep(step === 'join' ? 'class' : step === 'class' ? 'avatar' : 'language')}>← {L === 'hi' ? 'वापस' : L === 'or' ? 'ପଛକୁ' : 'Back'}</button>}
       {step === 'language' && <>
         <h2><span class="n">1</span>{t(L, 'chooseLang')}</h2>
         <div class="grid langs">
@@ -235,21 +226,17 @@ function Onboarding({ onDone, initialName }: { onDone: (p: Profile) => void; ini
         <div class="classes">
           {BOARDS.map((b) => <button class={(board ?? boardFor(lang, home)) === b.id ? 'sel' : ''} aria-pressed={(board ?? boardFor(lang, home)) === b.id} onClick={() => setBoard(b.id)}>{(b.name as Record<string, string>)[lang] ?? b.name.en}</button>)}
         </div>
-        <details class="optional" open={!!code}>
-          <summary>{t(lang, 'classCode')}</summary>
-          <div class="row nowrap">
-            <input class="text" inputMode="numeric" maxLength={6} placeholder="123456" aria-label={t(lang, 'classCode')} value={code} onInput={(e) => setCode((e.target as HTMLInputElement).value.replace(/\D/g, '').slice(0, 6))} />
-            {'mediaDevices' in navigator && <button aria-label={t(lang, 'scanQr')} onClick={() => void import('./qr.tsx').then((m) => setScan(() => m.QrScan))}><Icon name="qr" /></button>}
-          </div>
-          {code.length === 6 && <p class={'small ' + (className ? 'status-ok' : className === null ? 'status-bad' : 'muted')} role="status">{className ? `✓ ${className}` : className === null ? `✗ ${t(lang, 'noClass')}` : t(lang, 'checkLater')}</p>}
-          {code.length === 6 && name.trim() && <label class="small row"><input type="checkbox" checked={showName} onChange={(e) => setShowName((e.target as HTMLInputElement).checked)} /> {t(lang, 'showName')}</label>}
-        </details>
-        {Scan && <Scan lang={lang} onCode={(c) => { setCode(c); setScan(null); }} onClose={() => setScan(null)} />}
       </>}
-      <div class="cta"><button class="primary" disabled={!canContinue} onClick={() => {
-        if (step !== 'class') return nextStep();
-        onDone({ id: `p-${crypto.randomUUID().slice(0, 8)}`, avatar: avatar!, name: name.trim() || undefined, lang: lang!, classLevel, board: board ?? boardFor(lang, home), classCode: code.length === 6 ? code : undefined, showName, ...(home ? { home } : {}), ...(region ? { region } : {}) });
-      }}>{step === 'language' ? stepLabel.picture : step === 'avatar' ? stepLabel.class : stepLabel.start} →</button></div>
+      {/* her teacher's class: its own step, so it is seen (and can still be skipped, and joined later) */}
+      {step === 'join' && lang && <>
+        <h2><span class="n">5</span>{J(lang, 'title')}</h2>
+        <p class="muted">{J(lang, 'why')}</p>
+        <ClassCode lang={lang} initial={joinCode} hasName={!!name.trim()} onChange={(j, bad) => { setJoined(j); setBadCode(bad); }} />
+      </>}
+      <div class="cta">
+        {step === 'join' && <button class="link" onClick={() => finish(null)}>{J(L, 'skip')}</button>}
+        <button class="primary" disabled={!canContinue} onClick={() => (step !== 'join' ? nextStep() : finish(joined))}>{step === 'language' ? stepLabel.picture : step === 'avatar' ? stepLabel.class : step === 'class' ? stepLabel.join : stepLabel.start} →</button>
+      </div>
     </div>
   );
 }

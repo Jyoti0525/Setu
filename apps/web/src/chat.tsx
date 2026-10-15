@@ -3,7 +3,7 @@
 // reply and remembers per chapter. Offline the same policy runs here on the downloaded books: it reads her the right
 // textbook passage and keeps the question; the full answer arrives when the signal is back.
 
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { BOARDS, boardKey, nameIn, toScriptDigits, emptyMemory, LANGUAGES, localeOf, focusQuote, planTurn, screen, scrubPii, Shelf, T, TL, type BookIndex, type BookMeta } from '@setu/core';
 import type { Agent } from './agent.ts';
 import { getMeta, setMeta } from './db.ts';
@@ -18,6 +18,7 @@ import { Icon, Logo } from './icons.tsx';
 import { AvatarPortrait } from './avatar.tsx';
 import { LangMenu } from './langmenu.tsx';
 import { ThemeToggle } from './theme.tsx';
+import { J, JoinClassDialog, type Joined } from './joinclass.tsx';
 
 /** quote: the sentences that answer her question; full: the whole passage (both cleaned scans of the printed book) */
 interface Source { bookId: string; subject: string; chapter: string; page: number; passageId: string; quote: string; full?: string; figures?: { src: string; text: string }[] }
@@ -26,11 +27,11 @@ const figs = (sh: Shelf, bookId: string, page: number) => {
   const f = sh.figuresOn(bookId, page).slice(0, 3).map((p) => ({ src: `/figure/${p.fig}`, text: p.text }));
   return f.length ? { figures: f } : {};
 };
-interface TMsg { text: string; sources?: Source[]; check?: string; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[]; say?: string }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
+interface TMsg { text: string; sources?: Source[]; check?: string; options?: string[]; terms?: { or: string; en: string }[]; home?: { name: string; words: { or: string; home: string }[]; say?: string }; tone?: string; chips?: Chip[]; by: 'model' | 'policy' }
 type Line = { role: 'student'; text: string; at: number; queued?: boolean } | { role: 'tutor'; msg: TMsg; at: number; why?: string };
 interface Memory { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: { topic: string; part: number; parts: number; chapter: string } }
 /** A button in a tutor message: send text, quiz a chapter, pick a subject ([] = all) or chapter, learn a chapter, ask in it. */
-interface Chip { label: string; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
+interface Chip { label: string; join?: boolean; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
 type BookInfo = BookMeta & { version: string; passages: number; kb: number };
 interface Queued { id: string; text: string; bookIds?: string[]; at: number }
 /** an earlier conversation, kept on the phone (Chat history); the open one is `chat:<profile>` */
@@ -66,8 +67,10 @@ function subjectsOf(books: BookInfo[]) {
   return [...m.values()];
 }
 
-export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, onLang, onLogout, onSignIn }: {
-  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; home?: string };
+export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, onLang, onLogout, onSignIn, onJoinClass }: {
+  agent: Agent; lang: string; tier: Tier; profile: { id: string; avatar: string; name?: string; board?: string; home?: string; classCode?: string; classTitle?: string };
+  /** join (or change) her teacher's class */
+  onJoinClass?: (j: Joined) => Promise<void>;
   /** the signed-in account (Firebase), when she signed in */
   account?: { name?: string | null; email?: string | null };
   onGuided: () => void; onSwitch: () => void; onLang: (l: string) => Promise<void>; onLogout?: () => void; onSignIn?: () => void;
@@ -78,7 +81,8 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
   const mine = (list: BookInfo[]) => { const m = list.filter((b) => boardKey(b.board) === boardKey(board)); return inMedium(m.length ? m : list, lang); };
   const online = tier !== 'device' && !!agent.device;
   const [lines, setLines] = useState<Line[]>([]);
-  const [books, setBooks] = useState<BookInfo[]>([]);
+  const [allBooks, setBooks] = useState<BookInfo[]>([]);
+  const books = useMemo(() => mine(allBooks), [allBooks, lang, board]);
   const [subject, setSubject] = useState<string[] | undefined>(undefined);
   /** the chapter she picked (topic key `bookId#n`): her doubts are searched there first */
   const [focus, setFocus] = useState<string | undefined>(undefined);
@@ -89,6 +93,7 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
   const [openSrc, setOpenSrc] = useState<string | null>(null);
   const [showWhy, setShowWhy] = useState<number | null>(null);
   const [sheet, setSheet] = useState<'progress' | 'lang' | null>(null);
+  const [joining, setJoining] = useState(false);
   const [mic, setMic] = useState<'idle' | 'rec' | 'live' | 'hearing'>('idle');
   // the dashboard (her subjects as cards) or the chat; the agent's own news (a check, a lesson to continue) shows on both
   const [view, setView] = useState<'overview' | 'chat'>('overview');
@@ -115,13 +120,13 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
       setSubject(await getMeta<string[] | undefined>(`subject:${pid}`, undefined));
       setFocus(await getMeta<string | undefined>(`chapter:${pid}`, undefined));
       setMemory(await getMeta<Memory>(`memory:${pid}`, { topics: [] }));
-      setBooks(mine(await getMeta<BookInfo[]>('books', [])));
+      setBooks(await getMeta<BookInfo[]>('books', []));
       if (online) {
         started.current = true;
         await agent.sync().catch(() => null); // her profile reaches the server before the tutor writes for her
         try {
           const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000);
-          if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(mine(list)); await setMeta('books', list); }
+          if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); }
         } catch { /* offline after all */ }
         if (!(await openSession())) greetLocally();
         await sendQueued();
@@ -136,7 +141,7 @@ export function Chat({ agent, lang, tier, profile, account, onGuided, onSwitch, 
     if (!online || started.current) return;
     started.current = true;
     void (async () => {
-      try { const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000); if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(mine(list)); await setMeta('books', list); } } catch { /* stays local */ }
+      try { const r = await fetchWithTimeout('/api/books', { headers: headers() }, 8000); if (r.ok) { const list = (await r.json()) as BookInfo[]; setBooks(list); await setMeta('books', list); } } catch { /* stays local */ }
       if (!(await openSession())) greetLocally();
     })();
   }, [online]);
@@ -248,6 +253,7 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   const setChapter = async (c: string | undefined) => { setFocus(c); await setMeta(`chapter:${pid}`, c); };
 
   async function onChip(c: Chip) {
+    if (c.join) return setJoining(true);
     setView('chat'); setNudge(null);
     const ids = c.subject ?? (c.bookId ? [c.bookId] : undefined);
     if (ids) {
@@ -376,8 +382,14 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
   async function openPast(c: PastChat) { await shelve(c); await pick(c.subject); await setChapter(undefined); setView('chat'); }
   const subjects = subjectsOf(books);
   const physics = books.find((b) => b.id === 'physical-science-9');
-  const openCheck = [...lines].reverse().find((l) => l.role === 'tutor' && l.msg.check);
-  const answering = !!(memory.check && openCheck);
+  // the open check is the one in the newest reply (a note after it, like "I told your teacher", does not close it;
+  // her next message does): not tied to the saved memory, which a slow, overlapping reply can leave behind
+  const lastStudent = lines.map((l) => l.role).lastIndexOf('student');
+  const lastAt = (f: (l: Line) => boolean) => { for (let i = lines.length - 1; i >= 0; i--) if (f(lines[i]!)) return i; return -1; };
+  const checkAt = lastAt((l) => l.role === 'tutor' && !!l.msg.check);
+  const replyAt = lastAt((l) => l.role === 'tutor' && l.msg.by === 'model');
+  const openCheck = checkAt > lastStudent && checkAt >= replyAt ? lines[checkAt] : undefined;
+  const answering = !!openCheck;
   const placeholder = answering ? U(lang, 'answerShort') : U(lang, 'askShort');
   const fresh = !lines.some((l) => l.role === 'student');
   const send = () => { if (!text.trim() || busy) return; const x = text; setText(''); void ask(x); };
@@ -404,10 +416,12 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
         {account && <div class="account-identity"><span class="account-kicker">{D(lang, 'account')}</span><strong class="account-name">{account.name?.trim() || account.email?.split('@')[0] || ''}</strong>{account.email && (account.name?.trim() || account.email.includes('@')) && <span class="account-email">{account.email}</span>}</div>}
         {canInstall && <button class="iconbtn" aria-label={U(lang, 'install')} title={U(lang, 'install')} onClick={onInstallTap}><Icon name="install" /></button>}
         <LangMenu value={lang} ids={LANGS.map((l) => l.id)} label={D(lang, 'changeLanguage')} onPick={(id) => { if (id !== lang) void onLang(id); }} />
+        {onJoinClass && <button class={'theme-toggle class-chip' + (profile.classCode ? ' in' : '')} title={profile.classCode ? J(lang, 'joined').replace('{0}', profile.classTitle ?? profile.classCode) : J(lang, 'title')} onClick={() => setJoining(true)}><Icon name="users" size={17} /><span class="theme-label">{profile.classCode ? profile.classTitle ?? profile.classCode : J(lang, 'title')}</span></button>}
         <ThemeToggle label={(k) => D(lang, k)} />
         {onLogout && <button class="theme-toggle topbar-logout" aria-label={D(lang, 'signOut')} title={D(lang, 'signOut')} onClick={onLogout}><Icon name="logout" size={18} /><span class="theme-label">{D(lang, 'signOut')}</span></button>}
         <button class="mobile-profile" aria-label={t(lang, 'switchLearner')} onClick={onSwitch}><AvatarPortrait avatar={profile.avatar} className="profile-pic" /><span class="profile-name">{who}</span></button>
       </header>
+      {joining && onJoinClass && <JoinClassDialog lang={lang} current={profile.classCode ? profile.classTitle ?? profile.classCode : undefined} hasName={!!profile.name} onJoin={onJoinClass} onClose={() => setJoining(false)} />}
       {iosHelp && <button class="installhelp" role="status" onClick={() => setIosHelp(false)}>{U(lang, 'installIos')} ✕</button>}
 
       <div class={'dashboard-body' + (collapsed ? ' sidebar-collapsed' : '')}>
@@ -460,13 +474,13 @@ ${TL(lang, 'ask_subject')}`, by: 'policy', chips: subjectChips(list) }, at: Date
             ? <div class="msg me"><div class="bubble">{l.text}</div></div>
             : <Tutor m={l.msg} lang={lang} why={l.why} showWhy={showWhy === i} toggleWhy={() => setShowWhy(showWhy === i ? null : i)} openSrc={openSrc} setOpenSrc={setOpenSrc}
                 onChip={(c) => { if (!busy) void onChip(c); }}
-                onAnswer={answering && l.msg.check === memory.check ? (dontKnow) => { if (busy) return; if (dontKnow) void ask(U(lang, 'dontKnow')); else field.current?.focus(); } : undefined} />)}
+                onAnswer={l === openCheck ? (x) => { if (busy) return; if (x === true) void ask(U(lang, 'dontKnow')); else if (typeof x === 'string') void ask(x); else field.current?.focus(); } : undefined} />)}
           {busy && <div class="msg tutor"><span class="mark"><Logo size={28} /></span><div class="bubble typing" role="status" aria-label={busy}><i /><i /><i /><span class="sr">{busy}</span></div></div>}
           <div ref={end} />
         </main>
 
         <footer class="composer">
-          {answering && <div class="answering"><Icon name="help" size={16} /><span><b>{U(lang, 'quickCheck')}:</b> {memory.check}</span></div>}
+          {answering && <div class="answering"><Icon name="help" size={16} /><span><b>{U(lang, 'quickCheck')}:</b> {openCheck!.role === 'tutor' && openCheck!.msg.check}</span></div>}
           {listening && <div class="listening" role="status"><i class="wave" />{t(lang, mic === 'rec' ? 'listening' : 'speakNow')}</div>}
           <form class={'inputrow' + (answering ? ' answering-row' : '')} onSubmit={(e) => { e.preventDefault(); send(); }}>
             <label class={'iconbtn ghost' + (busy ? ' disabled' : '')} aria-label={t(lang, 'snap')} title={t(lang, 'snap')}>
@@ -626,7 +640,7 @@ function HomeSay({ name, say, lang }: { name: string; say: string; lang: string 
   );
 }
 
-function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, onAnswer }: { m: TMsg; lang: string; why?: string; showWhy: boolean; toggleWhy: () => void; openSrc: string | null; setOpenSrc: (id: string | null) => void; onChip: (c: NonNullable<TMsg['chips']>[number]) => void; /** the open check: write the answer, or say she does not know */ onAnswer?: (dontKnow: boolean) => void }) {
+function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, onAnswer }: { m: TMsg; lang: string; why?: string; showWhy: boolean; toggleWhy: () => void; openSrc: string | null; setOpenSrc: (id: string | null) => void; onChip: (c: NonNullable<TMsg['chips']>[number]) => void; /** the open check: write the answer (false), say she does not know (true), or tap a choice */ onAnswer?: (x: boolean | string) => void }) {
   const [full, setFull] = useState(false);
   const spoken = m.text + (m.check ? ' ' + m.check : '');
   const care = m.tone === 'care';
@@ -642,7 +656,8 @@ function Tutor({ m, lang, why, showWhy, toggleWhy, openSrc, setOpenSrc, onChip, 
         {m.home?.say ? <HomeSay name={m.home.name} say={m.home.say} lang={lang} /> : null}
         {m.home?.words?.length ? <div class="terms homewords" aria-label={`${U(lang, 'homeWords')} · ${m.home.name}`}><span class="small muted">🏠 {m.home.name}</span>{m.home.words.map((x) => <span class="term"><b>{x.or}</b><i>{x.home}</i></span>)}</div> : null}
         {m.check && <div class="qcheck"><span class="label"><Icon name="help" size={15} />{U(lang, 'quickCheck')}</span><p>{m.check}</p>
-          {onAnswer && <div class="qcheck-actions"><button class="chip qcheck-answer" onClick={() => onAnswer(false)}>✍️ {U(lang, 'answerHere')}</button><button class="chip" onClick={() => onAnswer(true)}>🤷 {U(lang, 'dontKnow')}</button></div>}
+          {m.options && <div class="qcheck-options">{m.options.map((o, i) => <button class="qcheck-option" disabled={!onAnswer} onClick={() => onAnswer?.(o)}><b>{String.fromCharCode(65 + i)}</b>{o}</button>)}</div>}
+          {onAnswer && <div class="qcheck-actions">{!m.options && <button class="chip qcheck-answer" onClick={() => onAnswer(false)}>✍️ {U(lang, 'answerHere')}</button>}<button class="chip" onClick={() => onAnswer(true)}>🤷 {U(lang, 'dontKnow')}</button></div>}
         </div>}
         {m.sources?.map((s) => {
           const open = openSrc === s.passageId;

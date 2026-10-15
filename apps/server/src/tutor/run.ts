@@ -7,7 +7,7 @@
 
 import type { LlmRequest } from '@google/adk';
 import {
-  LANGUAGES, audioKey, nameIn, focusQuote, applyTurn, topicKey, normalizeForMatch, emptyMemory, isUnsafe, looksLikeAnswer, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan, type TutorLesson,
+  LANGUAGES, audioKey, nameIn, focusQuote, applyTurn, topicKey, normalizeForMatch, emptyMemory, isUnsafe, looksLikeAnswer, DONT_KNOW, openerFor, planTurn, screen, scrubPii, T, TL, type BookHit, type Shelf, type TraceStep, type TutorMemory, type TutorPlan, type TutorLesson,
 } from '@setu/core';
 import { canCall, type ModelSet } from '../llm.ts';
 import { parseJson, textOf } from '../agent/cycle.ts';
@@ -67,6 +67,8 @@ export interface TutorMsg {
   /** passages this reply stands on (what she can open and read) */
   sources?: TutorSource[];
   check?: string;
+  /** a tap-to-answer check: her choices */
+  options?: string[];
   terms?: { or: string; en: string }[];
   /** her home-language words in this reply (tier C), from the government dictionaries */
   home?: { name: string; words: { or: string; home: string }[]; say?: string };
@@ -76,11 +78,14 @@ export interface TutorMsg {
   by: 'model' | 'policy';
 }
 /** A button she can tap: send text, quiz a chapter, pick a subject or a chapter, learn a chapter, ask in a chapter. */
-export interface TutorChip { label: string; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
+export interface TutorChip { label: string; /** open "Join your class" */ join?: boolean; text?: string; review?: string; bookId?: string; subject?: string[]; chapter?: string; learn?: string; ask?: string }
 export interface TutorTrace extends TraceStep { latency_ms: number; status: 'ok' | 'fallback' | 'failed'; llm_calls: { job: string; provider?: string; latency_ms: number; outcome: string }[]; synced_in: number; kind: 'tutor' }
 export interface TutorResponse { messages: TutorMsg[]; trace: TutorTrace; memory: { topics: { key: string; subject: string; chapter: string; pKnown: number }[]; check?: string; lesson?: TutorLesson & { chapter: string } } }
 
-const BUDGET_MS = 20_000;
+// each model gets its own short timeout (llm.ts), so a slow one hands over to the next inside this budget
+const BUDGET_MS = 26_000;
+/** every other check is a tap-to-answer one (quick, and fine on a small phone); a "why" question in between */
+const mcqTurn = (m: TutorMemory, plan: TutorPlan) => plan.action !== 'grade' && m.turns % 2 === 0;
 
 const scopedMemoryId = (profileId: string, scope?: string) => scope ? `${profileId}::subject::${scope}` : profileId;
 export function memoryOf(store: Store, profileId: string, scope?: string): TutorMemory {
@@ -103,9 +108,34 @@ function saveMemory(store: Store, profileId: string, scope: string | undefined, 
 /** "explain the whole chapter / topic": too big for one answer — her chapter is then taught part by part */
 const WHOLE_CHAPTER = /\b(whole|entire|full|complete|all of the)\s+(chapter|lesson|topic)\b|\bexplain\s+(the\s+|this\s+)?(chapter|lesson)\b|\b(pura|poora|pure)\s+(chapter|adhyay|path|topic)\b|पूर(ा|े)\s*(अध्याय|पाठ|चैप्टर|टॉपिक)|ପୂରା\s*(ଅଧ୍ୟାୟ|ପାଠ|ଚାପ୍ଟର)/i;
 
+/** An NCERT subject has an English and a Hindi book with the same chapters: she is taught from the one in her
+ *  language (else her school language, else English). A subject or chapter saved earlier may name the other twin. */
+export function inMedium(shelf: Shelf, id: string, lang: string): string {
+  const b = shelf.books.get(id)?.meta;
+  if (!b) return id;
+  const twins = [...shelf.books.values()].map((x) => x.meta).filter((x) => x.subject.en === b.subject.en && x.classLevel === b.classLevel && x.board === b.board && !!x.kind === !!b.kind);
+  const langs = new Set(twins.map((x) => x.lang ?? 'or'));
+  if (langs.size < 2) return id;
+  const want = [lang, LANGUAGES[lang]?.school, 'en'].find((l) => l && langs.has(l)) ?? (b.lang ?? 'or');
+  if ((b.lang ?? 'or') === want) return id;
+  // the same book in her medium (a supplement stays a supplement: matched by its id's ending)
+  const others = twins.filter((x) => (x.lang ?? 'or') === want);
+  return (others.find((x) => x.id.replace(/-hi$/, '') === id.replace(/-hi$/, '')) ?? others[0])?.id ?? id;
+}
+const topicInMedium = (shelf: Shelf, topic: string | undefined, lang: string) => {
+  if (!topic) return topic;
+  const [id, ch] = topic.split('#');
+  const twin = inMedium(shelf, id!, lang);
+  return twin !== id && shelf.chapterOf(twin, Number(ch)) ? `${twin}#${ch}` : topic;
+};
+
 /** One message from her → the agent's reply. */
 export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorResponse> {
   const now = d.now?.() ?? Date.now();
+  {
+    const l = req.lang || 'or';
+    req = { ...req, ...(req.bookIds ? { bookIds: [...new Set(req.bookIds.map((id) => inMedium(d.shelf, id, l)))] } : {}), learn: topicInMedium(d.shelf, req.learn, l), chapter: topicInMedium(d.shelf, req.chapter, l), review: topicInMedium(d.shelf, req.review, l) };
+  }
   const t0 = Date.now();
   const tools: TraceStep['tools'] = [];
   const llm: TutorTrace['llm_calls'] = [];
@@ -153,6 +183,13 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       base = hy.hits; searchNote = hy.note;
     } else base = d.shelf.search(q, { limit: 6, picked, only });
     let found = pickedFirst(base);
+    const last = m.lastTopic && (!picked || picked.includes(m.lastTopic.split('#')[0]!)) ? m.lastTopic : req.chapter;
+    if (!req.review && !m.check && last && DONT_KNOW.test(text) && text.split(/\s+/).length <= 12) {
+      const [lb, lc] = last.split('#');
+      const own = found.filter((h) => topicKey(h.bookId, h.passage.ch) === last);
+      found = own.length ? own : (d.shelf.lessonParts(lb!, Number(lc))[0] ?? []).map((passage) => ({ passage, bookId: lb!, score: 1, coverage: 1 }));
+      tools.push({ tool: 'intent.again', args: { topic: last }, status: 'ok', note: 'she did not get it → the same topic again, another way' });
+    }
     // a quiz on a chapter is asked from that chapter's pages only
     if (req.review) {
       const [rb, rc] = req.review.split('#');
@@ -173,7 +210,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     //     "range" (ପରିସର) that belong to another chapter (Statistics) and would win on coverage.
     const ch0 = hits[0] && d.shelf.chapterOf(hits[0].bookId, hits[0].passage.ch);
     const named = !!ch0 && [ch0.title.or, ch0.title.en].some((t) => t.length >= 4 && normalizeForMatch(text).includes(normalizeForMatch(t)));
-    if (!req.review && !answering && !named && !req.chapter && (hits[0]?.coverage ?? 0) < 0.67 && canCall(d.models, 'decide')) {
+    if (!req.review && !answering && !named && !req.chapter && !DONT_KNOW.test(text) && (hits[0]?.coverage ?? 0) < 0.67 && canCall(d.models, 'decide')) {
       const r = await rewriteQuery(d.models, text, bookLang(d.shelf, only));
       llm.push({ job: 'rewrite_query', provider: d.models.lastUsed.decide, latency_ms: r.ms, outcome: r.q ? 'ok' : 'failed' });
       if (!r.q) tools.push({ tool: 'books.rewrite_query', args: {}, status: 'failed', latency_ms: r.ms, note: 'model unavailable → first search kept' });
@@ -213,12 +250,19 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     const hl = req.home ? d.homeWords?.get(req.home) : undefined;
     const home: HomeWords | undefined = hl ? homeWordsFor(hl, [text, ...plan.grounding.slice(0, 4).map((h) => h.passage.text)]) : undefined;
     if (hl) tools.push({ tool: 'home.words', args: { lang: req.home }, status: 'ok', note: `${home!.words.length} ${hl.name} words offered (Govt. of Odisha dictionary)` });
-    const p = tutorPrompt({ lang, plan, shelf: d.shelf, text: req.review ? '(she tapped: quiz me on this chapter)' : learn ? `(she is learning the lesson: part ${learn.part + 1} of ${learn.parts})` : text, history: d.store.tutorLog(req.profileId, 8), english, check: m.check, topic, topicName: topicName(d.shelf, plan.topic, 'en'), board: req.board, home });
+    const p = tutorPrompt({ lang, plan, shelf: d.shelf, text: req.review ? '(she tapped: quiz me on this chapter)' : learn ? `(she is learning the lesson: part ${learn.part + 1} of ${learn.parts})` : text, history: d.store.tutorLog(req.profileId, 40).filter((h) => (h.meta?.scope ?? undefined) === req.memoryScope).slice(-8), english, check: m.check, dontKnow: plan.action === 'grade' && DONT_KNOW.test(text), mcq: mcqTurn(m, plan), inLesson: m.lesson?.topic === plan.topic, topic, topicName: topicName(d.shelf, plan.topic, 'en'), board: req.board, home });
     const r = await write(d.models, lang, p, d.budgetMs ?? BUDGET_MS);
     llm.push({ job: 'tutor.write', provider: d.models.lastUsed.generate, latency_ms: r.ms, outcome: r.text ? 'ok' : r.error ?? 'failed' });
     out = r.text ? validateOut(parseJson(r.text), new Set(plan.grounding.map((h) => h.passage.id)), plan.askCheck || plan.action === 'review' || (plan.action === 'grade')) : null;
     // she chose English: nothing in another script reaches her, even if the model added it
-    if (out && lang === 'en') out = { ...out, reply: latinOnly(out.reply), terms: [], ...(out.check ? { check: { ...out.check, question: latinOnly(out.check.question) } } : {}) };
+    if (out && lang === 'en') out = { ...out, reply: latinOnly(out.reply), terms: [], ...(out.check ? { check: { ...out.check, question: latinOnly(out.check.question), ...(out.check.options ? { options: out.check.options.map(latinOnly) } : {}) } } : {}) };
+    if (out && plan.action === 'grade' && m.check && DONT_KNOW.test(text) && !out.check) out = { ...out, check: { question: m.check.question, key_ideas: m.check.keyIdeas, ...(m.check.options ? { options: m.check.options, answer: m.check.answer } : {}) } };
+    // the grade is not the model's guess when it can be known: "I don't know" is not yet; a tapped choice is right or wrong
+    if (out && plan.action === 'grade' && m.check && DONT_KNOW.test(text)) out = { ...out, intent: 'answer', grade: { verdict: 'wrong', gap: 'said she did not know yet' } };
+    else if (out && plan.action === 'grade' && out.intent !== 'question' && m.check) {
+      const picked = m.check.options?.findIndex((o) => o.trim().toLowerCase() === text.trim().toLowerCase()) ?? -1;
+      if (picked >= 0 && m.check.answer !== undefined) out = { ...out, grade: picked === m.check.answer ? { verdict: 'right' } : { verdict: 'wrong', gap: `chose "${m.check.options![picked]!.slice(0, 60)}"` } };
+    }
     // 6. critic: grounded replies must cite a passage; nothing unsafe goes out
     // (a word her own textbook uses — "alcohol" in road safety — is not unsafe in a reply grounded on that page)
     if (out && isUnsafe(out.reply + ' ' + (out.check?.question ?? '')) && !isUnsafe(plan.grounding.map((h) => h.passage.text).join(' '))) { tools.push({ tool: 'critic', args: {}, status: 'failed', note: 'unsafe words in model output → replaced' }); out = null; }
@@ -247,15 +291,18 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     tools.push({ tool: 'model.write', args: { action: plan.action, strategy: plan.strategy, check: plan.askCheck }, status: out ? 'ok' : 'fallback', latency_ms: r.ms, note: out ? `${out.reply.length} chars${out.grade ? ', graded ' + out.grade.verdict : ''}${out.check ? ', new check' : ''}` : 'no usable reply → textbook passage' });
     if (!out) {
       status = 'fallback';
-      messages.push({ ...passageReply(d.shelf, plan, lang, plan.grounding.length ? 'model_down' : 'offline_none', text), ...(plan.action === 'teach' ? { chips: [{ label: TL(lang, 'next_part'), learn: plan.topic! }] } : {}) });
+      // her open check stays on screen (with its buttons) when no model could grade her answer
+      const still = plan.action === 'grade' && m.check ? { check: m.check.question, ...(m.check.options ? { options: m.check.options } : {}) } : {};
+      messages.push({ ...passageReply(d.shelf, plan, lang, plan.grounding.length ? 'model_down' : 'offline_none', text), ...still, ...(plan.action === 'teach' ? { chips: [{ label: TL(lang, 'next_part'), learn: plan.topic! }] } : {}) });
     } else {
       decidedBy = 'llm';
       // the model saw it was a new question, not her answer → it answered; the check stays open, nothing graded
-      if (plan.action === 'grade' && out.intent === 'question') { plan.action = 'explain'; plan.reason += '; the model read it as a new question → answered it, no grade'; out.grade = null; }
+      // ("I don't know, explain again" reads like a question to the model, but it is her answer: not yet)
+      if (plan.action === 'grade' && out.intent === 'question' && !DONT_KNOW.test(text)) { plan.action = 'explain'; plan.reason += '; the model read it as a new question → answered it, no grade'; out.grade = null; }
       const tone = out.grade ? ({ right: 'praise', partly: 'hint', wrong: 'retry' } as const)[out.grade.verdict] : undefined;
       // "not in your book" with no passage used: no page card (the nearest search hit is unrelated, figures and all)
       const offBook = plan.action === 'not_in_book' && !out.used.length;
-      messages.push({ text: out.reply, by: 'model', ...(offBook ? {} : { sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang) }), ...(out.terms.length ? { terms: out.terms } : {}), ...(homeUsed.length || homeSay ? { home: { name: home!.name, words: homeUsed, ...(homeSay ? { say: homeSay } : {}) } } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question } : {}) });
+      messages.push({ text: out.reply, by: 'model', ...(offBook ? {} : { sources: sourcesOf(d.shelf, plan.grounding, out.used, text, lang) }), ...(out.terms.length ? { terms: out.terms } : {}), ...(homeUsed.length || homeSay ? { home: { name: home!.name, words: homeUsed, ...(homeSay ? { say: homeSay } : {}) } } : {}), ...(tone ? { tone } : {}), ...(out.check ? { check: out.check.question, ...(out.check.options ? { options: out.check.options } : {}) } : {}) });
       if (plan.switchedBook) messages[0]!.text = TL(lang, 'switched', subjectName(d.shelf, plan.switchedBook, lang)) + '\n' + messages[0]!.text;
       if (plan.action === 'teach' && learn) messages[0]!.text = `📖 ${topicName(d.shelf, plan.topic, lang)} · ${TL(lang, 'part_of', String(learn.part + 1), String(learn.parts))}\n` + messages[0]!.text;
       // in a lesson a right answer opens the next part; partly / wrong keep her on this one (a hint, or a new check)
@@ -265,9 +312,11 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
       const t = plan.topic ? m.topics[plan.topic] : undefined;
       if (plan.escalate || (t && wrongNow && t.wrongInARow + 1 >= 3 && (!t.escalatedAt || now - t.escalatedAt > 3 * 86_400_000))) {
         escalated = true;
-        escalate(d.store, req, 'academic', `tutor chat: ${topicName(d.shelf, plan.topic, 'en')} — still wrong after ${t ? t.wrongInARow + wrongNow : 3} tries${t?.gap ? `; gap: ${t.gap}` : ''}${out.grade?.gap ? `; now: ${out.grade.gap}` : ''}`, now, plan.topic);
+        escalate(d.store, req, 'academic', `Not right after ${t ? t.wrongInARow + wrongNow : 3} tries in a row${[...new Set([t?.gap, out.grade?.gap].filter(Boolean))].length ? ` — ${[...new Set([t?.gap, out.grade?.gap].filter(Boolean))].join('; ')}` : ''}`, now, plan.topic);
         d.onEscalate?.(req.profileId, 'academic', topicName(d.shelf, plan.topic, 'en'));
-        messages.push({ text: TL(lang, 'teacher_told'), tone: 'teacher', by: 'policy' });
+        // "I told your teacher" only when she has one (a class joined); otherwise: join your class, so they can help
+        const inClass = d.store.classesOf(req.profileId).some((code) => !!d.store.classByCode(code));
+        messages.push(inClass ? { text: TL(lang, 'teacher_told'), tone: 'teacher', by: 'policy' } : { text: TL(lang, 'join_class'), tone: 'teacher', by: 'policy', chips: [{ label: TL(lang, 'join_btn'), join: true }] });
         tools.push({ tool: 'teacher.notify', args: { topic: plan.topic }, status: 'ok', note: 'ESCALATED academic → teacher alerted (dashboard + phone, if she turned alerts on)' });
       }
     }
@@ -280,7 +329,7 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
     plan, now, escalated,
     ...(plan.action === 'teach' && learn ? { lesson: { ...learn, part: learn.part + 1 } } : plan.action === 'lesson_done' ? { lesson: null } : {}),
     ...(out?.grade && plan.action === 'grade' ? { grade: out.grade } : {}),
-    ...(out?.check && checkTopic ? { newCheck: { question: out.check.question, keyIdeas: out.check.key_ideas, topic: checkTopic, passageIds: out.used.length ? out.used : plan.grounding.slice(0, 2).map((h) => h.passage.id) } } : {}),
+    ...(out?.check && checkTopic ? { newCheck: { question: out.check.question, keyIdeas: out.check.key_ideas, ...(out.check.options ? { options: out.check.options, answer: out.check.answer } : {}), topic: checkTopic, passageIds: out.used.length ? out.used : plan.grounding.slice(0, 2).map((h) => h.passage.id) } } : {}),
   });
   // a grade with escalation stamps the topic too
   if (escalated && checkTopic && m.topics[checkTopic]) m.topics[checkTopic]!.escalatedAt = now;
@@ -289,8 +338,8 @@ export async function runTutor(d: TutorDeps, req: TutorRequest): Promise<TutorRe
   tools.push({ tool: 'memory.update', args: { topic: checkTopic }, status: 'ok', note: before !== after && after !== undefined ? `mastery ${Math.round((before ?? 0.2) * 100)}% → ${Math.round(after * 100)}%` : m.check ? 'check open' : 'noted' });
 
   // the conversation (her words only after safety: distress text is never kept)
-  if (plan.action !== 'care') d.store.logTutor(req.profileId, 'student', req.review ? `(review: ${topicName(d.shelf, req.review, lang)})` : learn ? `(lesson: ${topicName(d.shelf, req.learn, lang)}, part ${learn.part + 1})` : text, { bookIds: req.bookIds, mode: req.mode, queuedAt: req.queuedAt }, now);
-  for (const msg of messages) d.store.logTutor(req.profileId, 'tutor', msg.text + (msg.check ? `\n${msg.check}` : ''), { sources: msg.sources?.map((s) => s.passageId), action: plan.action }, now);
+  if (plan.action !== 'care') d.store.logTutor(req.profileId, 'student', req.review ? `(review: ${topicName(d.shelf, req.review, lang)})` : learn ? `(lesson: ${topicName(d.shelf, req.learn, lang)}, part ${learn.part + 1})` : text, { bookIds: req.bookIds, mode: req.mode, queuedAt: req.queuedAt, scope: req.memoryScope }, now);
+  for (const msg of messages) d.store.logTutor(req.profileId, 'tutor', msg.text + (msg.check ? `\n${msg.check}` : ''), { sources: msg.sources?.map((s) => s.passageId), action: plan.action, scope: req.memoryScope }, now);
 
   const trace: TutorTrace = {
     kind: 'tutor', trigger: req.learn ? 'LESSON_PART' : req.review ? 'REVIEW_ACCEPTED' : req.queuedAt ? 'QUEUED_DOUBT_SENT' : 'STUDENT_MESSAGE', tier: 'cloud',

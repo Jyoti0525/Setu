@@ -39,6 +39,12 @@ export interface TutorPromptInput {
   english?: string;
   history: { role: 'student' | 'tutor'; text: string }[];
   check?: TutorCheck;
+  /** she said she does not know / did not understand */
+  dontKnow?: boolean;
+  /** ask the new check as a multiple-choice question */
+  mcq?: boolean;
+  /** she is in a step-by-step lesson */
+  inLesson?: boolean;
   topic?: TutorTopic;
   /** chapter name for the topic, if any */
   topicName?: string;
@@ -109,14 +115,22 @@ export function tutorPrompt(p: TutorPromptInput): { system: string; user: string
     else lines.push(`TASK: Answer her question from the passages, at her level, in 6–10 short sentences. ${strategy}`,
       'Shape: (1) answer her question directly in one or two sentences; (2) explain the why/how in simple steps from the passages; (3) one everyday example that makes it click, connected back to the idea; (4) if a FIGURE helps, tell her to look at it; (5) finish with one line she can remember, like "So remember: …".', 'End with the page it comes from, like "(ବହି ପୃଷ୍ଠା 23)" / "(book page 23)".');
   }
+  if (a === 'grade' && p.check?.options) lines.push('', `It was a multiple-choice question. Choices: ${p.check.options.map((o, i) => `(${i + 1}) ${o}`).join(' ')}. The right one is (${(p.check.answer ?? 0) + 1}). If she picked a wrong one, explain why it is wrong and why the right one is right.`);
+  if (a === 'grade' && p.dontKnow) lines.push('', 'She said she does not know / did not understand. The verdict is "wrong" (set intent "answer"). Do NOT repeat the earlier explanation: teach the same idea again in a NEW, simpler way (a different everyday example, smaller steps), stay on the same topic and the same book, and do not give away the answer to the open question.');
+  const mcq = p.mcq || (a === 'grade' && p.dontKnow);
+  const checkShape = mcq
+    ? '"check": {"question": "<in her language>", "options": ["<3 or 4 short choices, in her language>"], "answer": <index of the right choice, 0-based>, "key_ideas": ["<why the right choice is right, in English>"]}'
+    : '"check": {"question": "<in her language>", "key_ideas": ["<2-3 ideas a correct answer has, in English>"]}';
+  const mcqRule = 'Make it a multiple-choice question: 3 or 4 short choices, exactly one right, the wrong ones common mistakes (not silly), the right one not always first; do not number them.';
   if (p.plan.askCheck && a === 'grade') {
     // a lesson goes on until she has it: a wrong answer gets the idea again and a new, easier question
-    lines.push('', 'She is in a step-by-step lesson. Stay on THIS part: never start a new idea or preview what comes next (she moves on herself with a button). If "right": praise in one sentence and say the next part is ready. If "partly": one hint only, then ask her to try the same question again; do not give the missing idea away.');
-    lines.push('ONLY if the verdict is "wrong": after explaining again, write ONE new, simpler check question on the same idea (not the same question). If the verdict is "right" or "partly", "check" must be null.');
-    out.push('"check": {"question": "<in her language>", "key_ideas": ["<2-3 ideas a correct answer has, in English>"]} | null');
+    if (p.inLesson) lines.push('', 'She is in a step-by-step lesson. Stay on THIS part: never start a new idea or preview what comes next (she moves on herself with a button). If "right": praise in one sentence and say the next part is ready. If "partly": one hint only, then ask her to try the same question again; do not give the missing idea away.');
+    lines.push('ONLY if the verdict is "wrong": after explaining again, write ONE new, simpler check question on the same idea (not the same question). If the verdict is "right" or "partly", "check" must be null.' + (mcq ? ' ' + mcqRule : ''));
+    out.push(checkShape + ' | null');
   } else if (p.plan.askCheck) {
-    lines.push('', 'Then write ONE short check question that shows whether she really understood (not a yes/no question, not a copy of a sentence from the book — ask her to explain why/how, give an example, or tell two things apart). It must be answerable from the passages.');
-    out.push('"check": {"question": "<in her language>", "key_ideas": ["<2-3 ideas a correct answer has, in English>"]}');
+    lines.push('', mcq ? 'Then write ONE short check question that shows whether she really understood. It must be answerable from the passages. ' + mcqRule
+      : 'Then write ONE short check question that shows whether she really understood (not a yes/no question, not a copy of a sentence from the book — ask her to explain why/how, give an example, or tell two things apart). It must be answerable from the passages.');
+    out.push(checkShape);
   } else out.push('"check": null');
 
   lines.push('', 'Return ONLY this JSON:', '{', ['"reply": "<what the tutor says, in her language; do not include the check question here>"', '"used": ["<ids of passages you used>"]', '"terms": [{"or": "<the term as written in your reply, in her language>", "en": "<English term>"}] (0-2 key terms from this reply)', ...out].join(',\n'), '}');
@@ -140,7 +154,7 @@ export interface TutorModelOut {
   reply: string;
   used: string[];
   terms: { or: string; en: string }[];
-  check?: { question: string; key_ideas: string[] } | null;
+  check?: { question: string; key_ideas: string[]; options?: string[]; answer?: number } | null;
   grade?: { verdict: 'right' | 'partly' | 'wrong'; gap?: string } | null;
 }
 
@@ -153,9 +167,17 @@ export function validateOut(raw: unknown, allowed: Set<string>, wantCheck: boole
   const terms = Array.isArray(r.terms) ? r.terms.filter((t: any) => t && typeof t.or === 'string' && typeof t.en === 'string' && t.or && t.en).slice(0, 2) : [];
   const c = r.check;
   const check = wantCheck && c && typeof c.question === 'string' && c.question.trim().length > 4
-    ? { question: c.question.trim(), key_ideas: Array.isArray(c.key_ideas) ? c.key_ideas.filter((k: unknown) => typeof k === 'string').slice(0, 4) : [] }
+    ? { question: c.question.trim(), key_ideas: Array.isArray(c.key_ideas) ? c.key_ideas.filter((k: unknown) => typeof k === 'string').slice(0, 4) : [], ...mcqOf(c) }
     : null;
   const g = r.grade;
   const grade = g && ['right', 'partly', 'wrong'].includes(g.verdict) ? { verdict: g.verdict, gap: typeof g.gap === 'string' ? g.gap.slice(0, 120) : undefined } : null;
   return { intent: r.intent === 'question' ? 'question' : r.intent === 'answer' ? 'answer' : undefined, reply: r.reply.trim(), used, terms, check, grade };
+}
+
+/** A multiple-choice check is kept only when it is a real one: 2–5 different choices and an answer among them. */
+function mcqOf(c: Record<string, any>): { options?: string[]; answer?: number } {
+  const options = Array.isArray(c.options) ? c.options.filter((o: unknown) => typeof o === 'string' && o.trim()).map((o: string) => o.trim().replace(/^\(?[a-dA-D1-4][).:]\s+/, '').slice(0, 120)) : [];
+  const answer = Number(c.answer);
+  if (options.length < 2 || options.length > 5 || new Set(options.map((o: string) => o.toLowerCase())).size !== options.length || !Number.isInteger(answer) || answer < 0 || answer >= options.length) return {};
+  return { options, answer };
 }

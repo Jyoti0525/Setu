@@ -99,12 +99,12 @@ describe('tutor chat agent (PLAN v4)', () => {
       ? JSON.stringify({ intent: 'answer', reply: 'ନା।', used: [pid], terms: [], grade: { verdict: 'wrong' }, check: null })
       : p.includes('starting a review') ? JSON.stringify({ reply: 'ମନେ ପକାଅ: ପ୍ରାଚୀର କୋଷକୁ ଦୃଢ଼ କରେ।', used: [pid], terms: [], check: { question: 'ପ୍ରାଣୀ କୋଷରେ ପ୍ରାଚୀର ଥାଏ କି? କାହିଁକି?', key_ideas: ['no wall in animal cells'] } }) : explainJson));
     await say('koshika prachira kana?');
-    await say('ଜାଣିନି');
+    await say('ପାଣି');
     later(8 * 3600_000);
     // the check she missed is still open (one more try): the session opens by asking it again
     const first = openTutor(d, { profileId: PID, lang: 'or' });
     expect(first.messages[0]!.check).toBe('ଉଦ୍ଭିଦ କୋଷକୁ କୋଷ ପ୍ରାଚୀର କାହିଁକି ଦରକାର?');
-    await say('ମୁଁ ଜାଣିନି');
+    await say('ଖାଦ୍ୟ');
     later(8 * 3600_000);
     const o = openTutor(d, { profileId: PID, lang: 'or' });
     expect(o.messages[0]!.chips?.[0]).toMatchObject({ review: 'bio#2' });
@@ -134,7 +134,7 @@ describe('tutor chat agent (PLAN v4)', () => {
     expect(r3.trace.tools.map((t) => t.tool)).toContain('teacher.notify');
     const esc = store.events(PID).filter((e) => e.type === 'ESCALATED');
     expect(esc).toHaveLength(1);
-    expect(JSON.stringify(esc[0]!.payload)).toContain('still wrong after 3 tries');
+    expect(JSON.stringify(esc[0]!.payload)).toContain('Not right after 3 tries in a row');
     await new Promise((r) => setTimeout(r, 0));
     expect(sent).toEqual([{ to: 'https://push.example/teacher', body: JSON.stringify({ title: 'Setu · Teacher', body: 'A learner is stuck and needs you. (The cell)', url: '/#teacher' }) }]);
     // a 4th wrong answer the same day: no second alert (once per chapter per 3 days)

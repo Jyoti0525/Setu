@@ -4,7 +4,7 @@
 // Built from the learners' event logs; the teacher sees learning evidence only.
 
 import { createHash, randomBytes, randomInt } from 'node:crypto';
-import { fold, concept, textIn, speakIn, DAY, type LearnerState, type ChapterPack } from '@setu/core';
+import { fold, concept, textIn, speakIn, DAY, MASTERY_THRESHOLD, type LearnerState, type ChapterPack, type TutorTopic } from '@setu/core';
 import type { Store, ClassRow } from './db.ts';
 import type { CycleDeps } from './agent/cycle.ts';
 import { reteachDraft, writer, strategyName, DROPOFF_DAYS } from './agent/between.ts';
@@ -14,11 +14,11 @@ export const hashToken = (t: string) => createHash('sha256').update(t).digest('h
 /** A class-level reteach is drafted when at least this many learners (and ≥ 25% of the class) share a confirmed misconception. */
 export const RETEACH_MIN_LEARNERS = 2;
 
-export function createClass(store: Store, name: string, lang: string): { code: string; token: string } {
+export function createClass(store: Store, name: string, lang: string, ownerUid?: string): { code: string; token: string } {
   let code = '';
   do code = String(randomInt(100000, 1000000)); while (store.classByCode(code));
   const token = randomBytes(18).toString('base64url');
-  store.createClass({ code, name: name.slice(0, 60) || 'Class', lang, tokenHash: hashToken(token) });
+  store.createClass({ code, name: name.slice(0, 60) || 'Class', lang, tokenHash: hashToken(token), ownerUid });
   return { code, token };
 }
 
@@ -31,12 +31,16 @@ function members(deps: CycleDeps, cls: ClassRow): Member[] {
   });
 }
 
-export function classView(deps: CycleDeps, cls: ClassRow, now = Date.now()) {
+/** What the tutor chat knows (her chapters in her books): the class view shows these, not only the practice pack. */
+export interface TutorView { chapter: (topic: string, lang: string) => string; topics: (profileId: string) => Record<string, TutorTopic> }
+
+export function classView(deps: CycleDeps, cls: ClassRow, now = Date.now(), tutor?: TutorView) {
   const { pack } = deps;
   const lang = cls.lang;
   const acks = deps.store.acks(cls.code);
   const ms = members(deps, cls);
-  const name = (cid?: string) => (cid ? textIn(pack.graph.concepts[cid]?.name, lang) : '');
+  // a tutor topic is a chapter of her book ("bookId#n"); anything else is a concept of the practice pack
+  const name = (cid?: string) => (!cid ? '' : cid.includes('#') ? tutor?.chapter(cid, lang) ?? cid : textIn(pack.graph.concepts[cid]?.name, lang));
   const ctx = { pack, matcher: deps.matcher, now, tier: 'cloud' as const, trustDraft: deps.trustDraft };
   const misName = (id: string) => textIn(pack.misconceptions.find((m) => m.id === id)?.description, lang) || id;
 
@@ -45,7 +49,11 @@ export function classView(deps: CycleDeps, cls: ClassRow, now = Date.now()) {
     lastActiveAt: s.lastActiveAt ?? null,
     sessions: s.sessionsCompleted,
     placementDone: s.placementDone,
-    concepts: Object.keys(pack.graph.concepts).map((cid) => ({ id: cid, name: name(cid), p: round(concept(s, cid).pKnown), mastered: concept(s, cid).mastered })),
+    // her chapters from the tutor chat (latest first), then the practice pack's concepts she has tried
+    concepts: [
+      ...Object.entries(tutor?.topics(profileId) ?? {}).sort((a, b) => b[1].lastAt - a[1].lastAt).map(([cid, t]) => ({ id: cid, name: name(cid), p: round(t.pKnown), mastered: t.pKnown >= MASTERY_THRESHOLD })),
+      ...Object.keys(pack.graph.concepts).filter((cid) => concept(s, cid).attempts > 0).map((cid) => ({ id: cid, name: name(cid), p: round(concept(s, cid).pKnown), mastered: concept(s, cid).mastered })),
+    ],
     goal: s.goal ? { type: s.goal.type, dueDate: s.goal.dueDate ?? null, setBy: s.goal.setBy } : null,
   }));
 
@@ -53,6 +61,18 @@ export function classView(deps: CycleDeps, cls: ClassRow, now = Date.now()) {
   const needsYou = ms.flatMap(({ profileId, label, s }) =>
     s.escalations.filter((e) => e.kind === 'academic').map((e) => {
       const ref = `esc:${profileId}:${e.at}`;
+      // stuck in the tutor chat: the chapter, what she is missing, what the tutor already tried
+      if (e.conceptId?.includes('#')) {
+        const t = tutor?.topics(profileId)[e.conceptId];
+        return {
+          ref, learner: label, learnerId: profileId, at: e.at, conceptId: e.conceptId, concept: name(e.conceptId),
+          reason: e.reason, misconceptions: [] as { id: string; text: string; signals: number; confirmed: boolean }[],
+          strategiesTried: (t?.tried ?? []).map((x) => strategyName(x as never, lang)),
+          attempts: t?.checks ?? 0, p: t ? round(t.pKnown) : null,
+          recommendation: lang === 'en' ? `Sit with them for 5 minutes on this chapter. The tutor already explained it ${t?.checks ?? 0} times in different ways; a short talk in person usually helps.` : (t?.gap ?? e.reason),
+          done: acks.get(ref)?.action === 'done',
+        };
+      }
       const c = e.conceptId ? concept(s, e.conceptId) : undefined;
       return {
         ref, learner: label, learnerId: profileId, at: e.at, conceptId: e.conceptId ?? null, concept: name(e.conceptId),

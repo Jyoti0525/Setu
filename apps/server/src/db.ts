@@ -55,6 +55,8 @@ export class Store {
     if (!(this.db.prepare('PRAGMA table_info(events)').all() as { name: string }[]).some((c) => c.name === 'turn')) this.db.exec('ALTER TABLE events ADD COLUMN turn TEXT');
     // retention for teachers too: when the teacher last opened the class
     if (!(this.db.prepare('PRAGMA table_info(classes)').all() as { name: string }[]).some((c) => c.name === 'last_used')) this.db.exec('ALTER TABLE classes ADD COLUMN last_used INTEGER');
+    // the teacher's account (Firebase uid): her classes open on any phone she signs in on, no key to keep
+    if (!(this.db.prepare('PRAGMA table_info(classes)').all() as { name: string }[]).some((c) => c.name === 'owner_uid')) this.db.exec('ALTER TABLE classes ADD COLUMN owner_uid TEXT');
   }
 
   /** Idempotent append. Returns how many were new. */
@@ -154,8 +156,15 @@ export class Store {
   }
 
   // ---- classes (teacher view, PLAN §9.2, §10.7) ----
-  createClass(c: { code: string; name: string; lang: string; tokenHash: string }) {
-    this.db.prepare('INSERT INTO classes (code, name, lang, token_hash, created_at) VALUES (?, ?, ?, ?, ?)').run(c.code, c.name, c.lang, c.tokenHash, Date.now());
+  createClass(c: { code: string; name: string; lang: string; tokenHash: string; ownerUid?: string }) {
+    this.db.prepare('INSERT INTO classes (code, name, lang, token_hash, created_at, owner_uid) VALUES (?, ?, ?, ?, ?, ?)').run(c.code, c.name, c.lang, c.tokenHash, Date.now(), c.ownerUid ?? null);
+  }
+  /** a teacher's classes (her account), newest first */
+  classesOwnedBy(uid: string): ClassRow[] {
+    return (this.db.prepare('SELECT * FROM classes WHERE owner_uid = ? ORDER BY created_at DESC').all(uid) as any[]).map((r) => classRow(r)!);
+  }
+  setClassOwner(code: string, uid: string) {
+    this.db.prepare('UPDATE classes SET owner_uid = ? WHERE code = ?').run(uid, code);
   }
   classByCode(code: string): ClassRow | undefined {
     return classRow(this.db.prepare('SELECT * FROM classes WHERE code = ?').get(code));
@@ -235,9 +244,9 @@ export class Store {
   }
 }
 
-export interface ClassRow { code: string; name: string; lang: string; examDate?: number; createdAt: number }
+export interface ClassRow { code: string; name: string; lang: string; examDate?: number; createdAt: number; ownerUid?: string }
 function classRow(r: any): ClassRow | undefined {
-  return r ? { code: r.code, name: r.name, lang: r.lang, examDate: r.exam_date ?? undefined, createdAt: r.created_at } : undefined;
+  return r ? { code: r.code, name: r.name, lang: r.lang, examDate: r.exam_date ?? undefined, createdAt: r.created_at, ownerUid: r.owner_uid ?? undefined } : undefined;
 }
 
 function row(r: any): AnyEvent {

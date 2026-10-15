@@ -1,19 +1,29 @@
-// Teacher view (PLAN §9.2): create a class in one step → QR + code; then only what needs a human.
-// Loaded on demand at #teacher so the learner's bundle stays small.
+// Teacher view (PLAN §9.2): a teacher signs in (her own account, like a student's), and her classes live on it —
+// on any phone, no key to keep. Each class: QR + code for learners, then only what needs a human.
+// Loaded on demand at #teacher so the learner's bundle stays small. With no sign-in set up on the server, a class
+// is still made and opened with its key, as before.
 
 import { useEffect, useState } from 'preact/hooks';
+import type { Auth, User } from 'firebase/auth';
 import qrcode from 'qrcode-generator';
 import { ensureDevice } from './agent.ts';
+import { getAuthOnce } from './firebase.ts';
 import { fetchWithTimeout } from './net.ts';
 import { pushSupported, teacherAlerts } from './push.ts';
+import { Logo, Icon } from './icons.tsx';
+import { ThemeToggle } from './theme.tsx';
 import { REGIONS, textIn } from '@setu/core';
 
 interface Saved { code: string; token: string; name: string; lang: string }
+/** how this page opens a class: her account (the class code) or the class key */
+interface Access { code: string; token?: string; name: string }
+interface ClassItem { code: string; name: string; lang: string; size: number; needs: number }
 type View = any; // shape: apps/server/src/teacher.ts classView()
 
 const KEY = 'setu.teacher';
 const load = (): Saved | null => { try { return JSON.parse(localStorage.getItem(KEY) ?? 'null'); } catch { return null; } };
 const save = (s: Saved | null) => { try { s ? localStorage.setItem(KEY, JSON.stringify(s)) : localStorage.removeItem(KEY); } catch { /* private mode: lives for this tab only */ } };
+const keep = (k: string, v?: string) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { /* private mode */ } return null; };
 
 const S = {
   or: {
@@ -27,6 +37,7 @@ const S = {
     candidates: 'ନୂଆ ଭୁଲ ଧାରଣା (ସମୀକ୍ଷା)', keep: 'ରଖନ୍ତୁ', refresh: 'ପୁଣି ଦେଖନ୍ତୁ', leave: 'ଏହି ଫୋନରୁ ବାହାରନ୍ତୁ', confirmed: 'ନିଶ୍ଚିତ', offline: 'ଇଣ୍ଟରନେଟ ନାହିଁ — ପରେ ଚେଷ୍ଟା କରନ୍ତୁ।',
     emptyClass: 'ଏଯାଏଁ କେହି ଯୋଗ ଦେଇନାହାନ୍ତି।', badKey: 'ଚାବି ଠିକ୍ ନୁହେଁ।',
     region: 'ଅଞ୍ଚଳ (ସ୍ଥାନୀୟ ଉଦାହରଣ ପାଇଁ)', anchors: 'ଘର ଭାଷାର ଶବ୍ଦ', anchorsHow: 'ଯେଉଁ ପିଲାଙ୍କ ଘର ଭାଷା କୁଇ, ସାନ୍ତାଳି ବା ହୋ, ସେମାନଙ୍କ ପାଇଁ ମୁଖ୍ୟ ଶବ୍ଦ ଯୋଡ଼ନ୍ତୁ — ପାଠରେ ପାଠ୍ୟ ଶବ୍ଦ ପାଖରେ ଦେଖାଯିବ।', word: 'ଶବ୍ଦ', save: 'ସେଭ କରନ୍ତୁ',
+    myClasses: 'ମୋ ଶ୍ରେଣୀ', noClasses: 'ଏଯାଏଁ କୌଣସି ଶ୍ରେଣୀ ନାହିଁ। ପ୍ରଥମ ଶ୍ରେଣୀ ତିଆରି କରନ୍ତୁ — ପିଲାମାନେ ତା’ର କୋଡ୍ ଦେଇ ଯୋଗ ଦେବେ।', needsN: 'ଜଣ ଆପଣଙ୍କୁ ଦରକାର', learnersN: 'ଜଣ ପିଲା', logout: 'ଲଗ୍‌ଆଉଟ୍‌', allClasses: 'ସବୁ ଶ୍ରେଣୀ', claimHow: 'ପୁରୁଣା ଶ୍ରେଣୀ (ଚାବି ସହ ତିଆରି) ଏହି ଖାତାରେ ଯୋଡ଼ନ୍ତୁ', add: 'ଯୋଡ଼ନ୍ତୁ', otherTeacher: 'ଏହି ଶ୍ରେଣୀ ଆଉ ଜଣେ ଶିକ୍ଷକଙ୍କର।', stuckWhy: 'କାହିଁକି',
   },
   en: {
     alertMe: 'Alert me on this phone when a learner is stuck', alertOn: 'Alerts on ✓', title: 'Teacher', create: 'Create a class', className: 'Class name (e.g. 9A Science)', lang: 'Your language', haveKey: 'I have a class key', key: 'Class key', open: 'Open',
@@ -39,61 +50,163 @@ const S = {
     candidates: 'New confusions (review)', keep: 'Keep', refresh: 'Refresh', leave: 'Sign out on this phone', confirmed: 'confirmed', offline: 'No internet — try again later.',
     emptyClass: 'Nobody has joined yet.', badKey: 'That key is not right.',
     region: 'Region (for local examples)', anchors: 'Home-language words', anchorsHow: 'For learners whose home language is Kui, Santali or Ho: add the word for each key idea — it shows next to the textbook term.', word: 'Word', save: 'Save',
+    myClasses: 'My classes', noClasses: 'No classes yet. Create your first class — learners join it with its code.', needsN: 'need you', learnersN: 'learners', logout: 'Log out', allClasses: 'All classes', claimHow: 'Add an older class (made with a key) to this account', add: 'Add', otherTeacher: 'This class belongs to another teacher.', stuckWhy: 'Why',
   },
 } as const;
 type K = keyof typeof S.en;
 
 export function Teacher() {
-  const [saved, setSaved] = useState<Saved | null>(load);
-  const [lang, setLang] = useState(saved?.lang ?? 'or');
+  const [auth, setAuth] = useState<Auth | null | undefined>(undefined);
+  const [user, setUser] = useState<User | null | undefined>(undefined);
+  const [lang, setLang] = useState(() => load()?.lang ?? (keep('setu-auth-lang') === 'or' ? 'or' : 'en'));
   const t = (k: K) => (S as Record<string, Record<K, string>>)[lang]?.[k] ?? S.en[k];
   const [device, setDevice] = useState<string | null>(null);
+  useEffect(() => {
+    document.title = 'Setu · Teacher';
+    void ensureDevice().then((d) => setDevice(d?.token ?? null));
+    let off = () => {};
+    void (async () => {
+      const a = await Promise.race([getAuthOnce(), new Promise<null>((r) => setTimeout(() => r(null), 6000))]);
+      setAuth(a);
+      if (!a) return setUser(null);
+      const { onAuthStateChanged } = await import('firebase/auth');
+      off = onAuthStateChanged(a, (u) => setUser(u));
+    })();
+    return () => off();
+  }, []);
+  const switchLang = () => setLang(lang === 'or' ? 'en' : 'or');
+
+  if (auth === undefined || (auth && user === undefined)) return <main class="auth-loading"><Logo size={56} /></main>;
+  // sign-in is set up: a teacher signs in first (the sign-in page, in teacher mode), then comes back here
+  if (auth && !user) { keep('setu-role', 'teacher'); location.replace('/login'); return <main class="auth-loading"><Logo size={56} /></main>; }
+  const logout = async () => { const { signOut } = await import('firebase/auth'); await signOut(auth!); keep('setu-role', 'teacher'); location.replace('/login'); };
+  if (auth && user) return <Classes lang={lang} t={t} device={device} user={user} switchLang={switchLang} onLogout={() => void logout()} />;
+  return <KeyTeacher lang={lang} setLang={setLang} t={t} device={device} />;
+}
+
+function TopBar({ title, lang, t, switchLang, onBack, onLogout, onRefresh }: { title: string; lang: string; t: (k: K) => string; switchLang: () => void; onBack?: () => void; onLogout?: () => void; onRefresh?: () => void }) {
+  return (
+    <header class="bar teacher-bar">
+      <span class="teacher-title">{onBack ? <button class="iconbtn" aria-label={t('allClasses')} title={t('allClasses')} onClick={onBack}><Icon name="back" size={18} /></button> : <Logo size={30} />}<strong>{title}</strong></span>
+      <span class="row nowrap">
+        <button class="theme-toggle" onClick={switchLang}>{lang === 'or' ? 'English' : 'ଓଡ଼ିଆ'}</button>
+        {onRefresh && <button class="theme-toggle" onClick={onRefresh} aria-label={t('refresh')} title={t('refresh')}>↻</button>}
+        <ThemeToggle lang={lang} />
+        {onLogout && <button class="theme-toggle topbar-logout" onClick={onLogout} aria-label={t('logout')} title={t('logout')}><Icon name="logout" size={18} /><span class="theme-label">{t('logout')}</span></button>}
+      </span>
+    </header>
+  );
+}
+
+/** her account: all her classes; one opens with everything that needs her */
+function Classes({ lang, t, device, user, switchLang, onLogout }: { lang: string; t: (k: K) => string; device: string | null; user: User; switchLang: () => void; onLogout: () => void }) {
+  const [list, setList] = useState<ClassItem[] | null>(null);
+  const [open, setOpen] = useState<Access | null>(null);
+  const [err, setErr] = useState('');
+  const [name, setName] = useState('');
+  const [region, setRegion] = useState('');
+  const [key, setKey] = useState('');
+  const H = { 'content-type': 'application/json', 'x-device-token': device ?? '' };
+  const refresh = async () => {
+    if (!device) return;
+    try {
+      // a class made earlier with a key on this phone moves onto her account (once)
+      const old = load();
+      if (old) { const r = await fetchWithTimeout('/api/teacher/claim', { method: 'POST', headers: H, body: JSON.stringify({ key: old.token }) }, 10000); if (r.ok || r.status === 403 || r.status === 409) save(null); }
+      const r = await fetchWithTimeout('/api/teacher/classes', { headers: H }, 10000);
+      if (r.ok) { setList(await r.json()); setErr(''); }
+    } catch { setErr(t('offline')); }
+  };
+  useEffect(() => { void refresh(); }, [device, user.uid]);
+  const create = async () => {
+    try {
+      const r = await fetchWithTimeout('/api/class', { method: 'POST', headers: H, body: JSON.stringify({ name, lang, ...(region ? { region } : {}) }) }, 10000);
+      if (!r.ok) return setErr(t('offline'));
+      const j = await r.json();
+      setName(''); setRegion(''); await refresh(); setOpen({ code: j.code, name: name || 'Class' });
+    } catch { setErr(t('offline')); }
+  };
+  const claim = async () => {
+    try {
+      const r = await fetchWithTimeout('/api/teacher/claim', { method: 'POST', headers: H, body: JSON.stringify({ key: key.trim() }) }, 10000);
+      if (r.status === 409) return setErr(t('otherTeacher'));
+      if (!r.ok) return setErr(t('badKey'));
+      setKey(''); await refresh();
+    } catch { setErr(t('offline')); }
+  };
+  if (open) return <ClassPage access={open} lang={lang} t={t} device={device} switchLang={switchLang} onBack={() => { setOpen(null); void refresh(); }} onLogout={onLogout} />;
+  return (
+    <div class="teacher">
+      <TopBar title={`Setu · ${t('title')}`} lang={lang} t={t} switchLang={switchLang} onLogout={onLogout} />
+      <main class="tfeed">
+        <p class="muted small">{user.displayName || user.email}</p>
+        {err && <div class="card info escalated"><p>{err}</p></div>}
+        <Section title={t('myClasses')}>
+          {list && !list.length && <p class="muted">{t('noClasses')}</p>}
+          {list?.map((c) => (
+            <button class="card class-card" onClick={() => setOpen({ code: c.code, name: c.name })}>
+              <span><strong>{c.name}</strong><span class="muted small"> · {c.code.replace(/(\d{3})(\d{3})/, '$1 $2')}</span></span>
+              <span class="small">{c.size} {t('learnersN')}{c.needs ? <b class="needs-badge"> · {c.needs} {t('needsN')}</b> : null}</span>
+            </button>
+          ))}
+        </Section>
+        <Section title={t('create')}>
+          <input class="text" placeholder={t('className')} aria-label={t('className')} value={name} onInput={(e) => setName((e.target as HTMLInputElement).value)} />
+          <select aria-label={t('region')} value={region} onChange={(e) => setRegion((e.target as HTMLSelectElement).value)}>
+            <option value="">{t('region')}</option>
+            {Object.entries(REGIONS).map(([id, r]) => <option value={id}>{textIn(r.name, lang)}</option>)}
+          </select>
+          <button class="primary" disabled={!device || !name.trim()} onClick={() => void create()}>{t('create')} →</button>
+        </Section>
+        <details class="small"><summary>{t('claimHow')}</summary>
+          <div class="row nowrap"><input class="text" placeholder={t('key')} aria-label={t('key')} value={key} onInput={(e) => setKey((e.target as HTMLInputElement).value)} /><button disabled={!key.trim() || !device} onClick={() => void claim()}>{t('add')}</button></div>
+        </details>
+      </main>
+    </div>
+  );
+}
+
+/** no sign-in on this server: one class on this phone, opened with its key (as before) */
+function KeyTeacher({ lang, setLang, t, device }: { lang: string; setLang: (l: string) => void; t: (k: K) => string; device: string | null }) {
+  const [saved, setSaved] = useState<Saved | null>(load);
+  const [freshKey, setFreshKey] = useState(false);
+  if (!saved) return <Setup lang={lang} setLang={setLang} t={t} device={device} onReady={(s, fresh) => { save(s); setSaved(s); setLang(s.lang); setFreshKey(fresh); }} />;
+  return <ClassPage access={{ code: saved.code, token: saved.token, name: saved.name }} freshKey={freshKey} lang={lang} t={t} device={device} switchLang={() => setLang(lang === 'or' ? 'en' : 'or')} onLeave={() => { save(null); setSaved(null); }} />;
+}
+
+function ClassPage({ access, freshKey, lang, t, device, switchLang, onBack, onLogout, onLeave }: { access: Access; freshKey?: boolean; lang: string; t: (k: K) => string; device: string | null; switchLang: () => void; onBack?: () => void; onLogout?: () => void; onLeave?: () => void }) {
   const [view, setView] = useState<View | null>(null);
   const [err, setErr] = useState('');
-  const [freshKey, setFreshKey] = useState(false);
   const [alerts, setAlerts] = useState(false);
-
-  useEffect(() => { document.title = 'Setu · Teacher'; void ensureDevice().then((d) => setDevice(d?.token ?? null)); }, []);
-  const H = (extra: Record<string, string> = {}) => ({ 'content-type': 'application/json', 'x-device-token': device ?? '', ...(saved ? { 'x-teacher-token': saved.token } : {}), ...extra });
-
-  const refresh = async (s = saved) => {
-    if (!s || !device) return;
+  const H = (): Record<string, string> => ({ 'content-type': 'application/json', 'x-device-token': device ?? '', ...(access.token ? { 'x-teacher-token': access.token } : { 'x-class-code': access.code }) });
+  const refresh = async () => {
+    if (!device) return;
     try {
-      const r = await fetchWithTimeout('/api/teacher', { headers: { ...H(), 'x-teacher-token': s.token } }, 10000);
+      const r = await fetchWithTimeout('/api/teacher', { headers: H() }, 10000);
       if (r.status === 403) { setErr(t('badKey')); return; }
       setView(await r.json()); setErr('');
     } catch { setErr(t('offline')); }
   };
-  useEffect(() => { void refresh(); const id = setInterval(() => void refresh(), 30_000); return () => clearInterval(id); }, [saved?.token, device]);
-
+  useEffect(() => { void refresh(); const id = setInterval(() => void refresh(), 30_000); return () => clearInterval(id); }, [access.code, device]);
   const post = async (path: string, body: unknown) => {
     try { await fetchWithTimeout(path, { method: 'POST', headers: H(), body: JSON.stringify(body) }, 10000); await refresh(); } catch { setErr(t('offline')); }
   };
-
-  if (!saved) return <Setup lang={lang} setLang={setLang} t={t} device={device} onReady={(s, fresh) => { save(s); setSaved(s); setLang(s.lang); setFreshKey(fresh); void refresh(s); }} />;
-
-  const link = `${location.origin}/#join=${saved.code}`;
+  const link = `${location.origin}/#join=${access.code}`;
   return (
     <div class="teacher">
-      <header class="bar">
-        <strong>{t('title')} · {saved.name}</strong>
-        <span class="row">
-          <button class="link" onClick={() => setLang(lang === 'or' ? 'en' : 'or')}>{lang === 'or' ? 'English' : 'ଓଡ଼ିଆ'}</button>
-          <button onClick={() => void refresh()} aria-label={t('refresh')}>↻</button>
-        </span>
-      </header>
+      <TopBar title={`${t('title')} · ${view?.class.name ?? access.name}`} lang={lang} t={t} switchLang={switchLang} onBack={onBack} onLogout={onLogout} onRefresh={() => void refresh()} />
       <main class="tfeed">
         {err && <div class="card info escalated"><p>{err}</p></div>}
         <section class="card joincard">
-          <div class="qr" dangerouslySetInnerHTML={{ __html: qrSvg(link) }} role="img" aria-label={`QR ${saved.code}`} />
+          <div class="qr" dangerouslySetInnerHTML={{ __html: qrSvg(link) }} role="img" aria-label={`QR ${access.code}`} />
           <div>
             <p class="muted small">{t('joinHow')}</p>
-            <div class="code" aria-label={saved.code}>{saved.code.replace(/(\d{3})(\d{3})/, '$1 $2')}</div>
+            <div class="code" aria-label={access.code}>{access.code.replace(/(\d{3})(\d{3})/, '$1 $2')}</div>
             <button onClick={() => { void navigator.clipboard?.writeText(link).catch(() => {}); }}>{t('copy')}</button>
           </div>
         </section>
-        {pushSupported() && <button class="link small" aria-pressed={alerts} disabled={alerts} onClick={async () => setAlerts(await teacherAlerts(device ?? '', saved.token))}>{alerts ? t('alertOn') : '🔔 ' + t('alertMe')}</button>}
-        {freshKey && <section class="card info escalated"><p><strong>{t('key')}:</strong> <code>{saved.token}</code></p><p class="small">{t('keyWarn')}</p></section>}
+        {pushSupported() && <button class="link small" aria-pressed={alerts} disabled={alerts} onClick={async () => setAlerts(await teacherAlerts(device ?? '', access.token ? { token: access.token } : { code: access.code }))}>{alerts ? t('alertOn') : '🔔 ' + t('alertMe')}</button>}
+        {freshKey && access.token && <section class="card info escalated"><p><strong>{t('key')}:</strong> <code>{access.token}</code></p><p class="small">{t('keyWarn')}</p></section>}
 
         {view && <>
           <Section title={`${t('needs')} (${view.needsYou.filter((x: any) => !x.done).length})`}>
@@ -101,6 +214,7 @@ export function Teacher() {
             {view.needsYou.map((n: any) => (
               <article class={'card need' + (n.done ? ' done' : '')}>
                 <div class="row between"><strong>{n.learner} · {n.concept || '—'}</strong><span class="muted small">{when(n.at, lang)}</span></div>
+                {n.reason && <p class="small">{t('stuckWhy')}: {n.reason}</p>}
                 {n.misconceptions.map((m: any) => <p class="small">⚠ {t('confusion')}: {m.text} ({m.signals}{m.confirmed ? `, ${t('confirmed')}` : ''})</p>)}
                 {n.strategiesTried.length > 0 && <p class="small muted">{t('tried')}: {n.strategiesTried.join(', ')} · {n.attempts} {t('attempts')}{n.p !== null ? ` · p=${n.p}` : ''}</p>}
                 <details><summary>{t('suggest')}</summary><p class="small">{n.recommendation}</p></details>
@@ -136,15 +250,6 @@ export function Teacher() {
             ))}
           </Section>}
 
-          <Section title={t('anchors')}>
-            <p class="small muted">{t('anchorsHow')}</p>
-            <Anchors view={view} t={t} onSave={(conceptId, lang, word) => void post('/api/teacher/anchor', { conceptId, lang, word })} />
-          </Section>
-
-          <Section title={t('exam')}>
-            <ExamDate t={t} current={view.class.examDate} onSet={async (date) => { await post('/api/teacher/exam', { date }); }} />
-          </Section>
-
           <Section title={`${t('learners')} (${view.class.size})`}>
             {!view.learners.length && <p class="muted">{t('emptyClass')}</p>}
             {view.learners.map((l: any) => (
@@ -154,7 +259,16 @@ export function Teacher() {
               </article>
             ))}
           </Section>
-          <button class="link" onClick={() => { save(null); setSaved(null); setView(null); }}>{t('leave')}</button>
+
+          <Section title={t('exam')}>
+            <ExamDate t={t} current={view.class.examDate} onSet={async (date) => { await post('/api/teacher/exam', { date }); }} />
+          </Section>
+
+          <Section title={t('anchors')}>
+            <p class="small muted">{t('anchorsHow')}</p>
+            <Anchors view={view} t={t} onSave={(conceptId, lang, word) => void post('/api/teacher/anchor', { conceptId, lang, word })} />
+          </Section>
+          {onLeave && <button class="link" onClick={onLeave}>{t('leave')}</button>}
         </>}
       </main>
     </div>

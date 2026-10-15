@@ -113,7 +113,7 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
   const breakers = new Breakers();
   const conf = (k: keyof typeof DEFAULTS) => env[k] || DEFAULTS[k];
   // a decision must be quick (the learner is waiting; the policy is a fine answer), a generation may take longer
-  const timeoutMs: Record<Job, number> = { decide: Number(env.SETU_DECIDE_TIMEOUT_MS ?? 4_000), generate: Number(env.SETU_GENERATE_TIMEOUT_MS ?? 20_000), vision: Number(env.SETU_VISION_TIMEOUT_MS ?? 20_000), listen: Number(env.SETU_LISTEN_TIMEOUT_MS ?? 10_000) };
+  const timeoutMs: Record<Job, number> = { decide: Number(env.SETU_DECIDE_TIMEOUT_MS ?? 4_000), generate: Number(env.SETU_GENERATE_TIMEOUT_MS ?? 9_000), vision: Number(env.SETU_VISION_TIMEOUT_MS ?? 20_000), listen: Number(env.SETU_LISTEN_TIMEOUT_MS ?? 10_000) };
   const chains: Record<Job, [string, BaseLlm][]> = { decide: [], generate: [], vision: [], listen: [] };
   const genLangs = new Map<string, string[]>();
 
@@ -160,7 +160,8 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
     return byJob.get(m)!;
   };
   const router = (job: Job, keys: string[]): BaseLlm | null => {
-    const chain = chains[job].filter(([k]) => keys.includes(k));
+    // the keys' own order (a language may prefer a faster provider first)
+    const chain = keys.map((k) => chains[job].find(([x]) => x === k)).filter((x): x is [string, BaseLlm] => !!x);
     if (!chain.length) return null;
     const order = chain.map(([k]) => k);
     return new RoutedLlm({
@@ -174,7 +175,12 @@ export function buildModels(env: NodeJS.ProcessEnv = process.env, extra: Partial
     });
   };
   const allKeys = (job: Job) => chains[job].map(([k]) => k);
-  const genKeysFor = (lang: string) => allKeys('generate').filter((k) => { const l = genLangs.get(k) ?? ['*']; return l.includes('*') || l.includes(lang); });
+  // Groq writes first where it may (English, Hindi): 1–3 s a reply in the 2026-10-15 run, when Gemini's free tier
+  // was timing out one model after another (22 s before a reply)
+  const genKeysFor = (lang: string) => {
+    const ok = allKeys('generate').filter((k) => { const l = genLangs.get(k) ?? ['*']; return l.includes('*') || l.includes(lang); });
+    return [...ok.filter((k) => k === 'groq'), ...ok.filter((k) => k !== 'groq')];
+  };
   const perLang = new Map<string, BaseLlm | null>();
   return {
     decide: router('decide', allKeys('decide')),

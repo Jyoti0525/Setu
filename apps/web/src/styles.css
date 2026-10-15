@@ -299,7 +299,8 @@ pre.why { white-space: pre-wrap; font: .8rem/1.5 ui-monospace, "Cascadia Mono", 
 .profile-caption { font-size: .62rem; }
 .mobile-profile { display: none; }
 .workarea { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; }
-.workarea .feed { width: 100%; max-width: 920px; align-self: center; }
+/* the feed spans the whole work area (its scroll edge is the window's edge, no empty strip); the messages stay centred */
+.workarea .feed { width: 100%; padding-inline: max(12px, calc((100% - 920px) / 2)); }
 .chat-page-title { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 2px 36px; }
 .chat-title-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .chat-page-title > span { padding: 0; }
@@ -620,3 +621,37 @@ ul.plain { margin: 0; padding-left: 18px; }
 .qcheck-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .qcheck-actions .qcheck-answer { background: var(--primary); border-color: var(--primary); color: #2d1f12; font-weight: 750; }
 .inputrow.answering-row .field { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* no visible scrollbars anywhere (everything still scrolls: wheel, touch, keys) */
+* { scrollbar-width: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/* a tap-to-answer check */
+.qcheck-options { display: grid; gap: 8px; margin-top: 10px; }
+.qcheck-option { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 10px 14px; border: 1.5px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.qcheck-option b { display: grid; place-items: center; flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2); font-size: .85rem; }
+.qcheck-option:hover:not(:disabled) { border-color: var(--primary); }
+.qcheck-option:disabled { cursor: default; opacity: .75; }
+
+/* sign-in: student or teacher */
+.role-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin: 4px 0 2px; border: 1px solid var(--pub-line); border-radius: 12px; }
+.role-switch button { min-height: 36px; padding: 4px 8px; border: 0; border-radius: 9px; background: transparent; color: var(--pub-muted); font-size: .88rem; font-weight: 650; }
+.role-switch button.active { background: var(--pub-accent); color: #fff; }
+
+/* join your class (dashboard window) */
+.join-overlay { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: 16px; }
+.join-scrim { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0; background: rgba(32, 23, 15, .32); }
+.join-dialog { position: relative; width: min(440px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 20px; border-radius: 20px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow-lg); }
+.join-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.join-dialog h2 { margin: 0; font-size: 1.2rem; }
+.class-code { display: flex; flex-direction: column; gap: 8px; }
+.class-code .text { flex: 1; min-width: 0; letter-spacing: .2em; font-size: 1.15rem; }
+.class-chip.in { border-color: var(--primary); }
+.onboard .cta { display: flex; gap: 12px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+
+/* teacher: her classes */
+.teacher-bar .teacher-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.class-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; width: 100%; text-align: left; cursor: pointer; font: inherit; color: var(--ink); }
+.class-card:hover { border-color: var(--primary); }
+.needs-badge { color: var(--danger, #b3261e); }
+@media (max-width: 440px) { .class-chip .theme-label { display: none; } }

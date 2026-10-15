@@ -24,7 +24,7 @@ export interface TutorTopic {
   gap?: string;
   escalatedAt?: number;
 }
-export interface TutorCheck { question: string; keyIdeas: string[]; topic: string; passageIds: string[]; askedAt: number; ignored: number; /** graded tries so far */ tries: number }
+export interface TutorCheck { question: string; keyIdeas: string[]; topic: string; passageIds: string[]; askedAt: number; ignored: number; /** graded tries so far */ tries: number; /** a tap-to-answer check: the choices and which one is right */ options?: string[]; answer?: number }
 /** The lesson she chose (guided: subject → chapter → part by part); part = the next part to teach. */
 export interface TutorLesson { topic: string; part: number; parts: number }
 export interface TutorMemory { topics: Record<string, TutorTopic>; check?: TutorCheck; lastTopic?: string; turns: number; lesson?: TutorLesson }
@@ -62,11 +62,18 @@ export const emptyMemory = (): TutorMemory => ({ topics: {}, turns: 0 });
 
 const QUESTION_WORDS = /[?？]|\b(what|why|how|when|where|which|who|explain|tell me|kana|kan|kemiti|kahinki|kouthi|kie|kete|keteta|keun|keunthi|kau|kauta|kipari|kya|kyun|kaise|kab|kahan)\b|କଣ|କ'ଣ|କ’ଣ|କିପରି|କେମିତି|କାହିଁକି|କେଉଁ|କିଏ|କେବେ|କେତେ|କାହାର|କୁଆଡ଼େ|ବୁଝାଅ|ବୁଝାଇ|क्या|क्यों|कैसे|कब|कहाँ|कौन|समझाओ/i;
 
+/** "I don't know / I didn't understand / explain again": with a check open this is her answer (not yet), never a new
+ *  question to search the shelf for (that is how a science lesson jumped to a maths page) */
+export const DONT_KNOW = /\b(i\s*(do\s*n[o']?t|dont|did\s*n[o']?t|didnt)\s*(know|understand|get( it)?)|no idea|not sure|explain (it )?again|again please|samajh nahi|samjh nahi|nahi pata|pata nahi|jani ni|janini|bujhi parili ni|bujhilini)\b|नहीं पता|पता नहीं|समझ नहीं|फिर से समझा|ଜାଣିନି|ଜାଣେନା|ବୁଝିପାରିଲି ନାହିଁ|ବୁଝିଲିନି|ଆଉ ଥରେ ବୁଝା/i;
+
 /** Is this message her answer to the open check (not a new question)? Online the model can still say otherwise. */
 export function looksLikeAnswer(text: string, check?: TutorCheck, hits?: BookHit[]): boolean {
   if (!check) return false;
   const t = text.trim();
   if (!t) return false;
+  if (DONT_KNOW.test(t) && t.split(/\s+/).length <= 12) return true;
+  // she tapped one of the choices
+  if (check.options?.some((o) => o.trim().toLowerCase() === t.toLowerCase())) return true;
   // a question word in a message of two words or more is a new question ("କୋଷ ପ୍ରାଚୀର କ'ଣ"), even a short one
   if (QUESTION_WORDS.test(t) && t.split(/\s+/).length >= 2) return false;
   // her words clearly belong to another chapter and nothing near the top is the check's: a new question asked
@@ -103,7 +110,8 @@ export function planTurn(m: TutorMemory, x: { safety: SafetyKind; text: string; 
     const topic = m.check!.topic;
     // in a lesson a wrong answer gets a new, simpler check after the re-explanation: she goes on until she has it
     const inLesson = m.lesson?.topic === topic;
-    return { ...base, action: x.online ? 'grade' : 'show_passage', topic, grounding: x.hits, askCheck: x.online && inLesson, reason: x.online ? `she is answering the open check on ${topic} → grade it against the book, then decide` : `answer to the check kept; graded when online (offline: the passage, no grading)`, candidates: [{ action: 'grade', score: 0.8 }, { action: 'explain', score: 0.2 }] };
+    // not right → explained again, then a new, simpler check (in a lesson, and when she says she does not know)
+    return { ...base, action: x.online ? 'grade' : 'show_passage', topic, grounding: x.hits, askCheck: x.online && (inLesson || DONT_KNOW.test(x.text)), reason: x.online ? `she is answering the open check on ${topic} → grade it against the book, then decide` : `answer to the check kept; graded when online (offline: the passage, no grading)`, candidates: [{ action: 'grade', score: 0.8 }, { action: 'explain', score: 0.2 }] };
   }
 
   const picked = x.bookIds?.length ? x.bookIds : undefined;
@@ -214,6 +222,8 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     kept_answered: 'ତୁମେ ନେଟ୍ ନଥିବା ବେଳେ ପଚାରିଥିବା ପ୍ରଶ୍ନର ଉତ୍ତର:',
     model_down: 'ଏବେ ମୋର ବୁଝାଇବା ଯନ୍ତ୍ର ଧୀର ଚାଲିଛି। ତୁମ ବହିର ଏହି ଅଂଶ ପଢ଼ି ଦେଖ; ମୁଁ ପୁଣି ଚେଷ୍ଟା କରୁଛି।',
     teacher_told: 'ଏହି ଅଧ୍ୟାୟ ପାଇଁ ମୁଁ ତୁମ ଶିକ୍ଷକଙ୍କୁ ଜଣାଇଛି — ସେ ତୁମକୁ ସାହାଯ୍ୟ କରିବେ।',
+    join_class: 'ଏହା କଷ୍ଟ ଲାଗୁଛି — ଜଣେ ଶିକ୍ଷକ ସାହାଯ୍ୟ କରିପାରିବେ। ତୁମ ଶିକ୍ଷକଙ୍କ କୋଡ୍ ଦେଇ ତୁମ ଶ୍ରେଣୀରେ ଯୋଗ ଦିଅ, ତାହେଲେ ସେ ଜାଣିପାରିବେ।',
+    join_btn: 'ଶ୍ରେଣୀରେ ଯୋଗ ଦିଅ',
     switched: '{0} ବହିରେ ଏହାର ଉତ୍ତର ଅଛି:',
     pick_subject: 'କେଉଁ ବିଷୟ?',
     all_subjects: 'ସବୁ ବିଷୟ',
@@ -252,6 +262,8 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     kept_answered: 'The answer to what you asked while offline:',
     model_down: 'My explaining is slow right now. Read this part of your book; I am trying again.',
     teacher_told: 'I have let your teacher know about this chapter — they will help you.',
+    join_class: 'This one is hard — a teacher can help. Join your class with your teacher’s code so they can help you.',
+    join_btn: 'Join your class',
     switched: 'The answer is in your {0} book:',
     pick_subject: 'Which subject?',
     all_subjects: 'All subjects',
@@ -290,6 +302,8 @@ export const TUTOR_LINES: Record<string, Record<string, string>> = {
     kept_answered: 'नेटवर्क न होने पर पूछे गए सवाल का जवाब:',
     model_down: 'अभी मेरा समझाना धीमा चल रहा है। किताब का यह हिस्सा पढ़ो; मैं फिर कोशिश कर रहा हूँ।',
     teacher_told: 'इस अध्याय के बारे में मैंने तुम्हारे शिक्षक को बता दिया है — वे मदद करेंगे।',
+    join_class: 'यह मुश्किल लग रहा है — शिक्षक मदद कर सकते हैं। अपने शिक्षक के कोड से अपनी कक्षा में जुड़ो, ताकि वे मदद कर सकें।',
+    join_btn: 'कक्षा से जुड़ो',
     switched: 'इसका उत्तर तुम्हारी {0} की किताब में है:',
     pick_subject: 'कौन सा विषय?',
     all_subjects: 'सभी विषय',

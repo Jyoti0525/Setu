@@ -6,14 +6,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Push } from './push.ts';
-import { LANGUAGES, PackMatcher, packDiff, bridgeLanguages, isUnsafe, textIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
-import { runTutor, openTutor, type TutorDeps, type TutorRequest } from './tutor/run.ts';
+import { LANGUAGES, PackMatcher, packDiff, bridgeLanguages, isUnsafe, textIn, nameIn, REGIONS, Shelf, type AnyEvent, type BookIndex, type ChapterPack, type TraceStep } from '@setu/core';
+import { runTutor, openTutor, memoryOf, type TutorDeps, type TutorRequest } from './tutor/run.ts';
 import { Store } from './db.ts';
 import { tokenMeter, buildModels, canCall, type ModelSet } from './llm.ts';
 import { runCycle, type CycleDeps, type ServerTrace, type TurnRequest } from './agent/cycle.ts';
 import { betweenSessions, tick, type BetweenTrigger } from './agent/between.ts';
 import { traceLivePage } from './trace_page.ts';
-import { createClass, classView, applyExamGoal, hashToken, keptCandidates } from './teacher.ts';
+import { createClass, classView, applyExamGoal, hashToken, keptCandidates, type TutorView } from './teacher.ts';
 import { readPage, MAX_IMAGE_BYTES } from './vision.ts';
 import { translateNote } from './translate.ts';
 import { HybridRag, type NlpWorker } from './rag.ts';
@@ -307,7 +307,10 @@ export function createApp(o: AppOptions) {
   app.post('/api/class', async (c) => {
     const b = (await c.req.json().catch(() => ({}))) as { name?: string; lang?: string; region?: string };
     const lang = pack.languages.includes(b.lang ?? '') ? b.lang! : 'en';
-    const made = createClass(store, String(b.name ?? '').trim(), lang);
+    // with sign-in set up, a class belongs to a teacher's account (no key to lose); a key still opens it too
+    const uid = (c.get('firebaseIdentity' as never) as FirebaseIdentity | undefined)?.uid;
+    if (o.firebaseAuth && !uid) return c.json({ error: 'sign in as a teacher first' }, 401);
+    const made = createClass(store, String(b.name ?? '').trim(), lang, uid);
     // P3.22: the class's region picks local analogies for its learners
     if (b.region && REGIONS[b.region]) store.cacheSet(`region:${made.code}`, b.region);
     return c.json({ ...made, lang });
@@ -320,7 +323,7 @@ export function createApp(o: AppOptions) {
   // P3.24 home-language anchors: words a teacher/community adds for key concepts (Kui, Santali…) — shown in the term bridge
   const anchors = (code: string) => JSON.parse(store.cacheGet(`anchors:${code}`) ?? '{}') as Record<string, Record<string, string>>;
   app.post('/api/teacher/anchor', async (c) => {
-    const cls = teacherClass(c.req.header('x-teacher-token'));
+    const cls = teacherClass(c);
     if (!cls) return c.json({ error: 'unknown class key' }, 403);
     const b = (await c.req.json()) as { conceptId?: string; lang?: string; word?: string };
     const word = String(b.word ?? '').replace(/[<>{}`]/g, '').trim().slice(0, 40);
@@ -331,17 +334,45 @@ export function createApp(o: AppOptions) {
     store.cacheSet(`anchors:${cls.code}`, JSON.stringify(a));
     return c.json({ anchors: a });
   });
-  const teacherClass = (token?: string) => {
-    const cls = token ? store.classByToken(hashToken(token)) : undefined;
+  // a class opens with its key (x-teacher-token), or for its teacher's signed-in account (x-class-code)
+  const teacherClass = (c: { req: { header: (k: string) => string | undefined }; get: (k: never) => unknown }) => {
+    const token = c.req.header('x-teacher-token');
+    const uid = (c.get('firebaseIdentity' as never) as FirebaseIdentity | undefined)?.uid;
+    const code = c.req.header('x-class-code');
+    const byAccount = uid && code ? store.classByCode(code) : undefined;
+    const cls = token ? store.classByToken(hashToken(token)) : byAccount?.ownerUid === uid ? byAccount : undefined;
     if (cls) store.touchClass(cls.code);
     return cls;
   };
+  const tutorView: TutorView = {
+    chapter: (topic, lang) => { const [id, n] = topic.split('#'); const b = shelf.books.get(id!); const ch = shelf.chapterOf(id!, Number(n)); return ch ? `${nameIn(b?.meta.subject, lang)} · ${nameIn(ch.title, lang)}` : topic; },
+    topics: (pid) => memoryOf(store, pid).topics,
+  };
   app.get('/api/teacher', (c) => {
-    const cls = teacherClass(c.req.header('x-teacher-token'));
-    return cls ? c.json({ ...classView(deps, cls), anchors: anchors(cls.code), concepts: Object.values(pack.graph.concepts).map((x) => ({ id: x.id, name: textIn(x.name, cls.lang) })), homeLangs: bridgeLanguages().map((l) => ({ id: l.id, name: `${l.name} (${l.english})` })) }) : c.json({ error: 'unknown class key' }, 403);
+    const cls = teacherClass(c);
+    return cls ? c.json({ ...classView(deps, cls, Date.now(), tutorView), anchors: anchors(cls.code), concepts: Object.values(pack.graph.concepts).map((x) => ({ id: x.id, name: textIn(x.name, cls.lang) })), homeLangs: bridgeLanguages().map((l) => ({ id: l.id, name: `${l.name} (${l.english})` })) }) : c.json({ error: 'unknown class key' }, 403);
+  });
+  // the teacher's account: her classes (with how many learners need her), and an old class added by its key
+  app.get('/api/teacher/classes', (c) => {
+    const uid = (c.get('firebaseIdentity' as never) as FirebaseIdentity | undefined)?.uid;
+    if (!uid) return c.json({ error: 'sign in as a teacher first' }, 401);
+    return c.json(store.classesOwnedBy(uid).map((cls) => {
+      const v = classView(deps, cls, Date.now(), tutorView);
+      return { code: cls.code, name: cls.name, lang: cls.lang, size: v.class.size, needs: v.needsYou.filter((x) => !x.done).length + v.wellbeing.filter((x) => !x.done).length };
+    }));
+  });
+  app.post('/api/teacher/claim', async (c) => {
+    const uid = (c.get('firebaseIdentity' as never) as FirebaseIdentity | undefined)?.uid;
+    if (!uid) return c.json({ error: 'sign in as a teacher first' }, 401);
+    const b = (await c.req.json().catch(() => ({}))) as { key?: string };
+    const cls = b.key ? store.classByToken(hashToken(String(b.key).trim())) : undefined;
+    if (!cls) return c.json({ error: 'unknown class key' }, 403);
+    if (cls.ownerUid && cls.ownerUid !== uid) return c.json({ error: 'this class belongs to another teacher' }, 409);
+    store.setClassOwner(cls.code, uid);
+    return c.json({ code: cls.code, name: cls.name, lang: cls.lang });
   });
   app.post('/api/teacher/exam', async (c) => {
-    const cls = teacherClass(c.req.header('x-teacher-token'));
+    const cls = teacherClass(c);
     if (!cls) return c.json({ error: 'unknown class key' }, 403);
     const { date } = (await c.req.json()) as { date?: string | null };
     const at = date ? Date.parse(`${date}T09:00:00+05:30`) : null;
@@ -351,7 +382,7 @@ export function createApp(o: AppOptions) {
     return c.json({ examDate: at, learnersUpdated: changed.length });
   });
   app.post('/api/teacher/ack', async (c) => {
-    const cls = teacherClass(c.req.header('x-teacher-token'));
+    const cls = teacherClass(c);
     if (!cls) return c.json({ error: 'unknown class key' }, 403);
     const b = (await c.req.json()) as { ref?: string; action?: string; body?: string };
     if (!b.ref || !/^(esc|wb|reteach|cand):/.test(b.ref) || !['done', 'approved', 'rejected', 'draft'].includes(b.action ?? '')) return c.json({ error: 'bad request' }, 400);
@@ -463,7 +494,7 @@ export function createApp(o: AppOptions) {
   });
   // the teacher's phone: alerts when the agent escalates one of her learners
   app.post('/api/teacher/push', async (c) => {
-    const cls = teacherClass(c.req.header('x-teacher-token'));
+    const cls = teacherClass(c);
     if (!cls) return c.json({ error: 'not found' }, 404);
     if (!o.push) return c.json({ error: 'push off' }, 404);
     const b = (await c.req.json()) as { sub: import('web-push').PushSubscription };
